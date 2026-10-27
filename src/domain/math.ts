@@ -1,0 +1,37 @@
+import type { MacroValues } from "./types";
+export const EMPTY_MACROS: MacroValues = { calories: 0, proteinGrams: 0, fatGrams: 0, carbsGrams: 0 };
+export function sumMacros(rows: MacroValues[]): MacroValues {
+  const total = rows.reduce((sum, row) => ({
+    calories: sum.calories + row.calories,
+    proteinGrams: sum.proteinGrams + row.proteinGrams,
+    fatGrams: sum.fatGrams + row.fatGrams,
+    carbsGrams: sum.carbsGrams + row.carbsGrams,
+  }), { ...EMPTY_MACROS });
+  return {
+    calories: Math.round(total.calories * 100) / 100,
+    proteinGrams: Math.round(total.proteinGrams * 100) / 100,
+    fatGrams: Math.round(total.fatGrams * 100) / 100,
+    carbsGrams: Math.round(total.carbsGrams * 100) / 100,
+  };
+}
+export function dateKey(value: Date | string, timeZone = "Europe/Chisinau"): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(value));
+  const part = (key: string) => parts.find((p) => p.type === key)?.value ?? "";
+  return part("year") + "-" + part("month") + "-" + part("day");
+}
+export function parseMinor(value: string): number {
+  const normalized = value.trim().replace(",", ".");
+  if (!/^\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите сумму с точностью до двух знаков.");
+  const [whole, decimal = ""] = normalized.split(".");
+  return Number(BigInt(whole) * 100n + BigInt(decimal.padEnd(2, "0")));
+}
+export function convertToLocalMinor(amountMinor: number, currency: "PRB" | "USD", rate: string | null): number {
+  if (currency === "PRB") return amountMinor;
+  if (!rate || !/^\d+(\.\d{1,6})?$/.test(rate) || Number(rate) <= 0) throw new Error("Для USD нужен ручной курс.");
+  const [whole, decimal = ""] = rate.split(".");
+  const factor = 10n ** BigInt(decimal.length);
+  const scaled = BigInt(whole) * factor + BigInt(decimal || "0");
+  const converted = Number((BigInt(amountMinor) * scaled + factor / 2n) / factor);
+  if (!Number.isSafeInteger(converted)) throw new Error("Сумма превышает допустимую точность.");
+  return converted;
+}

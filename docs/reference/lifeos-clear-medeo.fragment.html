@@ -1,0 +1,1891 @@
+<div class="viz-dotted-background lifeos-preview">
+  <style>
+    /* Medeo Sans and Medeo Mono by DNFDEVS; SIL Open Font License 1.1. Source: https://github.com/DNFDEVS/medeo-font */
+    @font-face {
+      font-family: "Medeo Sans";
+      src: url("https://cdn.jsdelivr.net/gh/DNFDEVS/medeo-font@4992444ff40203bd420478076abeb85d068bc98a/fonts/MedeoSans/webfonts/MedeoSansVariable.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Medeo Mono";
+      src: url("https://cdn.jsdelivr.net/gh/DNFDEVS/medeo-font@4992444ff40203bd420478076abeb85d068bc98a/fonts/MedeoMono/webfonts/MedeoMonoVariable.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+
+    .lifeos-preview {
+      padding: 22px 14px;
+      background-image: radial-gradient(circle, rgba(110, 87, 104, .13) .8px, transparent .9px);
+      background-size: 18px 18px;
+      border-radius: 28px;
+    }
+
+    #lifeos-concept {
+      --lo-ink: #29242a;
+      --lo-muted: #817780;
+      --lo-line: rgba(82, 60, 76, .11);
+      --lo-wine: #742b45;
+      --lo-wine-dark: #582036;
+      --lo-sage: #5f806c;
+      --lo-sage-soft: #e9f0e8;
+      --lo-amber: #a96743;
+      --lo-amber-soft: #f5e9e0;
+      --lo-plum: #66647f;
+      --lo-plum-soft: #ecebf3;
+      --lo-glass-alpha: .28;
+      --lo-radius: 27px;
+      width: min(100%, 430px);
+      min-height: 0;
+      margin: 0 auto;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      color: var(--lo-ink);
+      border-radius: 34px;
+      background:
+        radial-gradient(ellipse at 6% 13%, rgba(221, 237, 224, .72), transparent 29%),
+        radial-gradient(ellipse at 92% 8%, rgba(246, 220, 224, .72), transparent 30%),
+        radial-gradient(ellipse at 82% 55%, rgba(225, 222, 240, .74), transparent 31%),
+        radial-gradient(ellipse at 13% 77%, rgba(249, 232, 218, .75), transparent 32%),
+        linear-gradient(145deg, #f8f5f1 0%, #f4f0f4 49%, #f7f1ee 100%);
+      box-shadow: 0 28px 70px rgba(69, 41, 57, .14), 0 2px 8px rgba(69, 41, 57, .06);
+      font-family: 'Onest', 'Manrope', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    #lifeos-concept *, #lifeos-concept *::before, #lifeos-concept *::after { box-sizing: border-box; }
+    #lifeos-concept::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      opacity: .52;
+      background:
+        radial-gradient(ellipse at 50% 24%, rgba(255, 255, 255, .62), transparent 43%),
+        radial-gradient(ellipse at 22% 96%, rgba(221, 231, 220, .48), transparent 38%);
+    }
+    #lifeos-concept button, #lifeos-concept input { font: inherit; }
+    #lifeos-concept button > * { pointer-events: none; }
+    #lifeos-concept button { color: inherit; }
+    #lifeos-concept button:focus-visible,
+    #lifeos-concept input:focus-visible {
+      outline: 3px solid rgba(116, 43, 69, .48);
+      outline-offset: 3px;
+    }
+    #lifeos-concept .lifeos-filter-defs {
+      position: absolute !important;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: -1;
+    }
+    #lifeos-concept .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 23px 24px 10px;
+    }
+    #lifeos-concept .brand {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -.045em;
+    }
+    #lifeos-concept .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      color: white;
+      background: linear-gradient(145deg, var(--lo-wine), var(--lo-wine-dark));
+      border-radius: 11px;
+      box-shadow: 0 5px 12px rgba(116, 43, 69, .20), inset 0 1px 0 rgba(255, 255, 255, .34);
+    }
+    #lifeos-concept .brand-mark i { width: 17px; height: 17px; }
+    #lifeos-concept .date-chip {
+      color: #756e75;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    #lifeos-concept .app-main { padding: 15px 21px 126px; }
+    #lifeos-concept .page-heading { margin: 0 2px 18px; }
+    #lifeos-concept .eyebrow {
+      margin: 0 0 5px;
+      color: var(--lo-muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .105em;
+      text-transform: uppercase;
+    }
+    #lifeos-concept h1, #lifeos-concept h2, #lifeos-concept h3, #lifeos-concept p { margin-top: 0; }
+    #lifeos-concept h1 {
+      margin-bottom: 0;
+      font-size: clamp(30px, 9vw, 38px);
+      line-height: 1.06;
+      letter-spacing: -.065em;
+      font-weight: 600;
+    }
+    #lifeos-concept .screen-stack { display: grid; gap: 13px; }
+    #lifeos-concept .glass-surface {
+      --lo-light-x: 16%;
+      --lo-light-y: 0%;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .82);
+      border-radius: var(--lo-radius);
+      background:
+        radial-gradient(ellipse at var(--lo-light-x) var(--lo-light-y), rgba(255,255,255,.34), transparent 37%),
+        linear-gradient(148deg, rgba(255,255,255,.30), rgba(255,255,255,.06) 57%, rgba(255,255,255,.18)),
+        rgba(255,255,255,var(--lo-glass-alpha));
+      -webkit-backdrop-filter: blur(5px) saturate(1.45) brightness(1.04);
+      backdrop-filter: blur(5px) saturate(1.45) brightness(1.04);
+      box-shadow: 0 14px 32px rgba(70, 45, 63, .075), inset 0 1px 0 rgba(255,255,255,.86), inset 0 -1px 0 rgba(255,255,255,.42);
+      transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+    }
+    #lifeos-concept .glass-surface::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 1px;
+      border-radius: calc(var(--lo-radius) - 1px);
+      border-top: 1px solid rgba(255,255,255,.82);
+      border-left: 1px solid rgba(255,255,255,.42);
+      pointer-events: none;
+    }
+    #lifeos-concept .module-card { padding: 18px 19px 17px; }
+    #lifeos-concept .module-head, #lifeos-concept .module-title, #lifeos-concept .inline-heading {
+      display: flex;
+      align-items: center;
+    }
+    #lifeos-concept .module-head { justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    #lifeos-concept .module-title { gap: 10px; min-width: 0; }
+    #lifeos-concept .module-icon {
+      display: grid;
+      flex: 0 0 34px;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      color: var(--lo-sage);
+      background: rgba(220, 234, 221, .78);
+    }
+    #lifeos-concept .module-icon i { width: 17px; height: 17px; }
+    #lifeos-concept .module-label {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      letter-spacing: -.035em;
+      font-weight: 600;
+    }
+    #lifeos-concept .module-meta { color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .quiet-icon {
+      display: grid;
+      place-items: center;
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 13px;
+      background: rgba(255,255,255,.56);
+      color: #776c75;
+      cursor: pointer;
+    }
+    #lifeos-concept .quiet-icon i { width: 17px; height: 17px; }
+    #lifeos-concept .calorie-line {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 2px 0 6px;
+    }
+    #lifeos-concept .calorie-line strong {
+      font-size: clamp(37px, 12vw, 47px);
+      line-height: .98;
+      letter-spacing: -.075em;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .calorie-line span { color: #746b73; font-size: 13px; font-weight: 500; }
+    #lifeos-concept .calorie-track, #lifeos-concept .macro-track {
+      height: 6px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(85, 71, 80, .10);
+    }
+    #lifeos-concept .calorie-track { margin: 11px 0 15px; height: 7px; }
+    #lifeos-concept .calorie-track span, #lifeos-concept .macro-track span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #72927a, #8eac92);
+      transition: width .25s ease;
+    }
+    #lifeos-concept .macro-list { display: grid; gap: 9px; }
+    #lifeos-concept .macro-row {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) 78px;
+      gap: 9px;
+      align-items: center;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .macro-key { font-weight: 700; color: #5f765f; }
+    #lifeos-concept .macro-row:nth-child(2) .macro-key { color: #9c7145; }
+    #lifeos-concept .macro-row:nth-child(3) .macro-key { color: #98706a; }
+    #lifeos-concept .macro-track { height: 4px; }
+    #lifeos-concept .macro-row:nth-child(2) .macro-track span { background: #caa272; }
+    #lifeos-concept .macro-row:nth-child(3) .macro-track span { background: #bd8c82; }
+    #lifeos-concept .macro-value { text-align: right; color: #625b63; }
+    #lifeos-concept .macro-value b { color: var(--lo-ink); font-weight: 600; }
+    #lifeos-concept .money-card .module-icon { color: var(--lo-amber); background: var(--lo-amber-soft); }
+    #lifeos-concept .gym-card .module-icon { color: var(--lo-plum); background: var(--lo-plum-soft); }
+    #lifeos-concept .summary-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 7px;
+    }
+    #lifeos-concept .summary-value { min-width: 0; }
+    #lifeos-concept .summary-value small { display: block; margin-bottom: 4px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .summary-value strong {
+      display: block;
+      font-size: clamp(20px, 6.3vw, 25px);
+      line-height: 1.05;
+      letter-spacing: -.06em;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    #lifeos-concept .summary-value .currency { font-size: 12px; letter-spacing: 0; font-weight: 500; color: #706971; }
+    #lifeos-concept .module-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      color: var(--lo-muted);
+      font-size: 11px;
+    }
+    #lifeos-concept .gym-next {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 3px;
+    }
+    #lifeos-concept .gym-next strong { display: block; font-size: 18px; letter-spacing: -.045em; font-weight: 600; }
+    #lifeos-concept .gym-next small { display: block; margin-top: 2px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .text-action, #lifeos-concept .primary-action, #lifeos-concept .secondary-action {
+      min-height: 44px;
+      border: 0;
+      border-radius: 15px;
+      padding: 0 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    #lifeos-concept .text-action {
+      padding: 0 7px;
+      color: var(--lo-sage);
+      background: transparent;
+      white-space: nowrap;
+    }
+    #lifeos-concept .text-action i, #lifeos-concept .primary-action i, #lifeos-concept .secondary-action i { width: 16px; height: 16px; }
+    #lifeos-concept .primary-action {
+      color: white;
+      background: linear-gradient(145deg, var(--lo-wine), var(--lo-wine-dark));
+      box-shadow: 0 7px 14px rgba(116, 43, 69, .20), inset 0 1px 0 rgba(255,255,255,.25);
+    }
+    #lifeos-concept .secondary-action {
+      color: var(--lo-wine);
+      background: rgba(116, 43, 69, .09);
+    }
+    #lifeos-concept .text-action:active, #lifeos-concept .primary-action:active, #lifeos-concept .secondary-action:active, #lifeos-concept .dock-button:active { transform: scale(.97); }
+    #lifeos-concept .content-card { padding: 19px; }
+    #lifeos-concept .panel-summary {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 13px;
+    }
+    #lifeos-concept .panel-summary strong {
+      display: block;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: -.07em;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    #lifeos-concept .panel-summary small { display: block; margin-top: 5px; color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .entries { display: grid; }
+    #lifeos-concept .entry-row {
+      width: 100%;
+      min-height: 69px;
+      display: grid;
+      grid-template-columns: 42px minmax(0,1fr) auto 28px;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 0;
+      border: 0;
+      border-top: 1px solid var(--lo-line);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    #lifeos-concept .entry-time { color: var(--lo-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .entry-name { min-width: 0; }
+    #lifeos-concept .entry-name strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; letter-spacing: -.02em; }
+    #lifeos-concept .entry-name small { display: block; margin-top: 3px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .entry-calories { white-space: nowrap; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .entry-edit { display: grid; place-items: center; color: #928791; }
+    #lifeos-concept .entry-edit i { width: 15px; height: 15px; }
+    #lifeos-concept .section-note {
+      margin: 12px 2px 0;
+      color: #746c73;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    #lifeos-concept .finance-total {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 7px 0 14px;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .finance-total strong { font-size: 42px; line-height: 1; letter-spacing: -.075em; font-weight: 600; }
+    #lifeos-concept .finance-total span { color: var(--lo-muted); font-size: 14px; }
+    #lifeos-concept .finance-list { display: grid; }
+    #lifeos-concept .transaction {
+      display: grid;
+      grid-template-columns: 40px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 11px;
+      min-height: 66px;
+      border-top: 1px solid var(--lo-line);
+    }
+    #lifeos-concept .transaction-icon {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 13px;
+      background: rgba(246, 233, 223, .8);
+      color: var(--lo-amber);
+    }
+    #lifeos-concept .transaction-icon i { width: 16px; height: 16px; }
+    #lifeos-concept .transaction-name strong { display: block; font-size: 13px; font-weight: 600; }
+    #lifeos-concept .transaction-name small { display: block; margin-top: 3px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .transaction-amount { white-space: nowrap; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .month-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding-top: 13px;
+      color: var(--lo-muted);
+      font-size: 12px;
+    }
+    #lifeos-concept .month-line strong { color: var(--lo-ink); font-weight: 600; }
+    #lifeos-concept .gym-overview { padding: 18px; }
+    #lifeos-concept .gym-focus {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      margin: 2px 0 16px;
+    }
+    #lifeos-concept .gym-symbol {
+      display: grid;
+      place-items: center;
+      flex: 0 0 48px;
+      width: 48px;
+      height: 48px;
+      border-radius: 17px;
+      color: var(--lo-plum);
+      background: rgba(228, 226, 240, .86);
+    }
+    #lifeos-concept .gym-symbol i { width: 22px; height: 22px; }
+    #lifeos-concept .gym-focus strong { display: block; font-size: 19px; letter-spacing: -.05em; font-weight: 600; }
+    #lifeos-concept .gym-focus small { display: block; margin-top: 4px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .gym-overview .primary-action { width: 100%; }
+    #lifeos-concept .last-result {
+      padding: 16px 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,.50);
+    }
+    #lifeos-concept .last-result-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .last-result strong { display: block; margin-top: 7px; font-size: 25px; letter-spacing: -.06em; font-weight: 600; }
+    #lifeos-concept .last-result strong small { color: var(--lo-muted); font-size: 13px; letter-spacing: 0; font-weight: 500; }
+    #lifeos-concept .history-bars { height: 50px; display: flex; align-items: end; gap: 7px; margin-top: 10px; }
+    #lifeos-concept .history-bars span { display: block; flex: 1; min-width: 8px; height: var(--bar-height); border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, rgba(126,121,157,.78), rgba(126,121,157,.25)); }
+    #lifeos-concept .history-bars span:last-child { background: linear-gradient(180deg, #7c789c, rgba(126,121,157,.48)); }
+    #lifeos-concept .history-labels { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .plan-card { padding: 17px; }
+    #lifeos-concept .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+    #lifeos-concept .plan-head strong { font-size: 16px; letter-spacing: -.035em; font-weight: 600; }
+    #lifeos-concept .plan-head span, #lifeos-concept .exercise-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      color: #66647f;
+      background: rgba(231,229,241,.78);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    #lifeos-concept .exercise-list { display: grid; }
+    #lifeos-concept .exercise-row {
+      width: 100%;
+      min-height: 67px;
+      display: grid;
+      grid-template-columns: 34px minmax(0,1fr) auto 18px;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 0;
+      border: 0;
+      border-top: 1px solid var(--lo-line);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    #lifeos-concept .exercise-number {
+      display: grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      border-radius: 10px;
+      color: #706d87;
+      background: rgba(233,232,242,.84);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .exercise-copy { min-width: 0; }
+    #lifeos-concept .exercise-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+    #lifeos-concept .exercise-copy small { display: block; margin-top: 3px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .exercise-result { color: #6e6872; font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .exercise-row > i { width: 15px; height: 15px; color: #958b96; }
+    #lifeos-concept .plan-actions { display: flex; gap: 9px; margin-top: 13px; }
+    #lifeos-concept .plan-actions .primary-action { flex: 1; }
+    #lifeos-concept .exercise-top { display: flex; align-items: center; gap: 12px; margin: 0 1px 15px; }
+    #lifeos-concept .back-button {
+      display: grid;
+      place-items: center;
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(255,255,255,.78);
+      border-radius: 15px;
+      background: rgba(255,255,255,.54);
+      cursor: pointer;
+    }
+    #lifeos-concept .back-button i { width: 18px; height: 18px; }
+    #lifeos-concept .exercise-title { min-width: 0; }
+    #lifeos-concept .exercise-title h2 { margin: 0; font-size: 23px; line-height: 1.1; letter-spacing: -.06em; font-weight: 600; }
+    #lifeos-concept .exercise-title small { display: block; margin-top: 4px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .exercise-summary { padding: 15px 17px; margin-bottom: 11px; }
+    #lifeos-concept .exercise-summary .inline-heading { justify-content: space-between; gap: 10px; }
+    #lifeos-concept .exercise-summary .inline-heading span { color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .exercise-summary .inline-heading strong { font-size: 13px; font-weight: 600; }
+    #lifeos-concept .exercise-summary p { margin: 9px 0 0; color: #6f6871; font-size: 11px; line-height: 1.5; }
+    #lifeos-concept .sets-card { padding: 14px 15px 15px; }
+    #lifeos-concept .sets-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 2px 10px; }
+    #lifeos-concept .sets-head strong { font-size: 13px; font-weight: 600; }
+    #lifeos-concept .sets-head span { color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .set-row {
+      display: grid;
+      grid-template-columns: 37px minmax(0,1fr) 18px;
+      align-items: center;
+      gap: 8px;
+      min-height: 57px;
+      padding: 8px 4px;
+      border-top: 1px solid var(--lo-line);
+    }
+    #lifeos-concept .set-row.is-active {
+      margin: 0 -5px;
+      padding: 9px 9px;
+      border-radius: 15px;
+      background: rgba(255,255,255,.52);
+    }
+    #lifeos-concept .set-number {
+      color: #7b7480;
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .set-data { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+    #lifeos-concept .set-value { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .set-status { display: grid; place-items: center; color: #9d929d; }
+    #lifeos-concept .set-status i { width: 16px; height: 16px; }
+    #lifeos-concept .set-row.is-done .set-status { color: var(--lo-sage); }
+    #lifeos-concept .set-row.is-current .set-status { color: var(--lo-wine); }
+    #lifeos-concept .set-fields { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 7px; flex: 1; }
+    #lifeos-concept .set-field { min-width: 0; display: grid; gap: 3px; color: var(--lo-muted); font-size: 11px; line-height: 1.2; }
+    #lifeos-concept .set-field input {
+      width: 100%;
+      min-width: 0;
+      height: 44px;
+      padding: 0 8px;
+      border: 1px solid rgba(96,76,92,.15);
+      border-radius: 11px;
+      background: rgba(255,255,255,.82);
+      color: var(--lo-ink);
+      font-size: 16px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .set-submit { grid-column: 2 / -1; margin-top: 5px; min-height: 42px; }
+    #lifeos-concept .rest-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 15px;
+    }
+    #lifeos-concept .rest-label { display: flex; align-items: center; gap: 9px; min-width: 0; grid-column: 1 / -1; }
+    #lifeos-concept .rest-label > i { width: 17px; height: 17px; color: var(--lo-plum); }
+    #lifeos-concept .rest-label strong { display: block; font-size: 12px; font-weight: 600; }
+    #lifeos-concept .rest-label small { display: block; margin-top: 3px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .rest-clock { min-width: 49px; text-align: left; color: var(--lo-plum); font-size: 30px; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .rest-toggle { min-width: 94px; min-height: 42px; padding: 0 12px; font-size: 12px; }
+    #lifeos-concept .done-note { padding: 18px; text-align: center; color: #5f806c; }
+    #lifeos-concept .done-note i { display: block; margin: 0 auto 9px; width: 24px; height: 24px; }
+    #lifeos-concept .done-note strong { display: block; color: var(--lo-ink); font-size: 15px; }
+    #lifeos-concept .done-note small { display: block; margin-top: 5px; color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .bottom-dock {
+      position: absolute;
+      z-index: 10;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      width: calc(100% - 44px);
+      min-height: 68px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      gap: 3px;
+      padding: 7px;
+      border-radius: 23px;
+      background:
+        radial-gradient(ellipse at 15% 0%, rgba(255,255,255,.34), transparent 40%),
+        linear-gradient(145deg, rgba(255,255,255,.30), rgba(255,255,255,.10)),
+        rgba(255,255,255,var(--lo-glass-alpha));
+      -webkit-backdrop-filter: blur(6px) saturate(1.5) brightness(1.08);
+      backdrop-filter: blur(6px) saturate(1.5) brightness(1.08);
+      border: 1px solid rgba(255,255,255,.86);
+      box-shadow: 0 13px 30px rgba(70,45,63,.13), inset 0 1px 0 rgba(255,255,255,.94), inset 0 -1px 0 rgba(255,255,255,.45);
+    }
+    #lifeos-concept .dock-button {
+      display: grid;
+      place-items: center;
+      justify-self: center;
+      width: 48px;
+      height: 48px;
+      border: 0;
+      border-radius: 17px;
+      color: #827982;
+      background: transparent;
+      cursor: pointer;
+      transition: transform .16s ease, color .16s ease, background .16s ease, box-shadow .16s ease;
+    }
+    #lifeos-concept .dock-button i { width: 20px; height: 20px; }
+    #lifeos-concept .dock-button[aria-current="page"] {
+      color: var(--lo-wine);
+      background: rgba(116,43,69,.11);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.82), 0 3px 8px rgba(73,39,55,.06);
+    }
+    #lifeos-concept .sheet-overlay[hidden] { display: none; }
+    #lifeos-concept .sheet-overlay {
+      position: absolute;
+      z-index: 30;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #lifeos-concept .sheet-backdrop { position: absolute; inset: 0; background: rgba(48,35,46,.20); backdrop-filter: blur(3px); }
+    #lifeos-concept .edit-sheet {
+      position: relative;
+      -webkit-backdrop-filter: blur(18px) saturate(1.1);
+      backdrop-filter: blur(18px) saturate(1.1);
+      width: 100%;
+      padding: 15px 22px 28px;
+      border-radius: 29px 29px 0 0;
+      background:
+        radial-gradient(ellipse at 22% 0%, rgba(255,255,255,.34), transparent 42%),
+        linear-gradient(145deg, rgba(255,255,255,.32), rgba(255,255,255,.20)),
+        rgba(250,247,249,.34);
+      border: 1px solid rgba(255,255,255,.96);
+      box-shadow: 0 -14px 38px rgba(49,31,45,.15), inset 0 1px 0 rgba(255,255,255,.96);
+      animation: lo-sheet-in .24s cubic-bezier(.2,.8,.2,1) both;
+    }
+    #lifeos-concept .sheet-grabber { width: 36px; height: 4px; margin: 0 auto 17px; border-radius: 99px; background: rgba(90,72,86,.18); }
+    #lifeos-concept .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    #lifeos-concept .sheet-head h2 { margin: 0; font-size: 22px; letter-spacing: -.06em; font-weight: 600; }
+    #lifeos-concept .sheet-close {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 15px;
+      background: rgba(116,43,69,.08);
+      color: var(--lo-wine);
+      cursor: pointer;
+    }
+    #lifeos-concept .sheet-close i { width: 18px; height: 18px; }
+    #lifeos-concept .field-group { display: grid; gap: 7px; margin: 12px 0; color: #645c65; font-size: 12px; font-weight: 500; }
+    #lifeos-concept .field-group input {
+      width: 100%;
+      height: 50px;
+      padding: 0 14px;
+      border: 1px solid rgba(96,76,92,.15);
+      border-radius: 15px;
+      color: var(--lo-ink);
+      background: rgba(255,255,255,.88);
+      font-size: 16px;
+      font-weight: 500;
+    }
+    #lifeos-concept .edit-preview { margin: 13px 0 15px; padding: 12px 14px; border-radius: 14px; color: #5f806c; background: rgba(226,237,227,.74); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #lifeos-concept .sheet-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 9px; }
+    #lifeos-concept .sheet-actions button { min-height: 48px; }
+    #lifeos-concept .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+    #lifeos-concept [hidden] { display: none !important; }
+    @keyframes lo-sheet-in { from { transform: translateY(24px); opacity: .82; } to { transform: translateY(0); opacity: 1; } }
+    @media (max-width: 360px) {
+      .viz-dotted-background { padding: 10px 5px; }
+      #lifeos-concept { border-radius: 27px; min-height: 820px; }
+      #lifeos-concept .app-header { padding-left: 19px; padding-right: 19px; }
+      #lifeos-concept .app-main { padding-left: 16px; padding-right: 16px; }
+      #lifeos-concept .bottom-dock { width: calc(100% - 32px); }
+      #lifeos-concept .module-card { padding-left: 15px; padding-right: 15px; }
+      #lifeos-concept .entry-row { grid-template-columns: 37px minmax(0,1fr) auto 20px; gap: 6px; }
+      #lifeos-concept .entry-name strong { font-size: 12px; }
+      #lifeos-concept .summary-pair { gap: 6px; }
+      #lifeos-concept .summary-value strong { font-size: 19px; }
+      #lifeos-concept .set-data { gap: 5px; }
+      #lifeos-concept .set-row { grid-template-columns: 32px minmax(0,1fr) 17px; gap: 5px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #lifeos-concept *, #lifeos-concept *::before, #lifeos-concept *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      #lifeos-concept .glass-surface, #lifeos-concept .bottom-dock {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        background: rgba(250,248,247,.97) !important;
+        border-color: rgba(94,70,86,.18);
+      }
+      #lifeos-concept .edit-sheet { background: #fbf8fa; }
+    }
+    @media (prefers-contrast: more) {
+      #lifeos-concept { --lo-muted: #5f5660; --lo-line: rgba(48,35,46,.24); }
+      #lifeos-concept .glass-surface { border-color: rgba(55,39,52,.32); }
+      #lifeos-concept .entry-name small, #lifeos-concept .transaction-name small, #lifeos-concept .exercise-copy small { color: #5d535e; }
+    }
+    @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+      #lifeos-concept .glass-surface, #lifeos-concept .bottom-dock { background: rgba(250,248,247,.96); }
+    }
+
+    #lifeos-concept {
+      --lo-ink: #35272c;
+      --lo-muted: #76666d;
+      --lo-line: rgba(96, 45, 62, .16);
+      --lo-glass-alpha: .12;
+      --lo-radius: 27px;
+      background:
+        radial-gradient(ellipse 76% 38% at 104% 4%, rgba(116,43,69,.16), transparent 70%),
+        linear-gradient(155deg, #f6f2ec 0%, #f1e9eb 58%, #f7f1ec 100%);
+      font-family: "Medeo Sans", sans-serif;
+      font-optical-sizing: auto;
+      font-weight: 400;
+      font-synthesis: none;
+    }
+    #lifeos-concept::before {
+      z-index: -1;
+      inset: 18px -365px auto auto;
+      width: 590px;
+      height: 300px;
+      border: 1px solid rgba(116,43,69,.17);
+      border-radius: 50%;
+      opacity: 1;
+      transform: rotate(-24deg);
+      background: linear-gradient(140deg, rgba(116,43,69,.12), rgba(116,43,69,.018) 72%);
+      box-shadow: 0 0 0 25px rgba(116,43,69,.026), 0 0 0 52px rgba(116,43,69,.015);
+    }
+    #lifeos-concept .app-header { padding: 25px 26px 11px; }
+    #lifeos-concept .brand {
+      gap: 0;
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: -.045em;
+    }
+    #lifeos-concept .brand-mark { display: none; }
+    #lifeos-concept .date-chip {
+      color: #6d5b63;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    #lifeos-concept .app-main { padding: 13px 23px 128px; }
+    #lifeos-concept .page-heading { margin: 0 2px 19px; }
+    #lifeos-concept .eyebrow {
+      margin-bottom: 5px;
+      color: var(--lo-muted);
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    #lifeos-concept h1 {
+      font-size: clamp(31px, 8.6vw, 36px);
+      line-height: 1.12;
+      letter-spacing: -.055em;
+      font-weight: 400;
+    }
+    #lifeos-concept .glass-surface {
+      border: 1px solid rgba(255,255,255,.52);
+      border-radius: var(--lo-radius);
+      background:
+        radial-gradient(ellipse at 18% 0%, rgba(255,255,255,.24), transparent 44%),
+        linear-gradient(142deg, rgba(255,255,255,.16), rgba(255,255,255,.025) 48%, rgba(255,255,255,.10)),
+        rgba(255,255,255,var(--lo-glass-alpha));
+      -webkit-backdrop-filter: blur(7px) saturate(1.12);
+      backdrop-filter: blur(7px) saturate(1.12);
+      box-shadow: 0 18px 42px rgba(66,31,46,.095), inset 0 1px 0 rgba(255,255,255,.68), inset 0 -1px 0 rgba(87,37,55,.06);
+      transition: box-shadow .2s ease, background-color .2s ease;
+    }
+    #lifeos-concept .glass-surface::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 13% 0%, rgba(255,255,255,.26), transparent 42%);
+    }
+    #lifeos-concept .glass-surface::after {
+      inset: 1px;
+      border-radius: calc(var(--lo-radius) - 1px);
+      border-top: 1px solid rgba(255,255,255,.78);
+      border-left: 1px solid rgba(255,255,255,.34);
+      border-right: 1px solid rgba(116,43,69,.07);
+      border-bottom: 1px solid rgba(255,255,255,.25);
+      box-shadow: inset 0 -1px 0 rgba(116,43,69,.075);
+    }
+    #lifeos-concept .daily-surface, #lifeos-concept .journal-surface,
+    #lifeos-concept .finance-surface, #lifeos-concept .gym-surface,
+    #lifeos-concept .workout-surface, #lifeos-concept .exercise-surface {
+      padding: 22px 23px;
+      border-radius: 31px;
+    }
+    #lifeos-concept .daily-section { padding: 2px 1px 20px; }
+    #lifeos-concept .daily-section + .daily-section { padding-top: 19px; border-top: 1px solid var(--lo-line); }
+    #lifeos-concept .daily-section:last-child { padding-bottom: 1px; }
+    #lifeos-concept .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    #lifeos-concept .section-heading h2 {
+      margin: 0;
+      color: var(--lo-ink);
+      font-size: 17px;
+      font-weight: 400;
+      letter-spacing: -.03em;
+    }
+    #lifeos-concept .section-link {
+      min-height: 44px;
+      padding: 0 5px 0 10px;
+      margin: -7px -8px -7px 0;
+      border: 0;
+      color: var(--lo-muted);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 400;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #lifeos-concept .calorie-line { margin: 1px 0 8px; gap: 8px; }
+    #lifeos-concept .calorie-line strong {
+      font-family: "Medeo Mono", monospace;
+      font-size: clamp(48px, 13vw, 58px);
+      line-height: .98;
+      letter-spacing: -.075em;
+      font-weight: 400;
+      font-variant-numeric: tabular-nums;
+    }
+    #lifeos-concept .calorie-line span { color: #66575e; font-size: 13px; font-weight: 400; }
+    #lifeos-concept .calorie-track { height: 4px; margin: 10px 0 15px; background: rgba(67,49,58,.14); }
+    #lifeos-concept .calorie-track span { background: linear-gradient(90deg,#64826d,#829a83); }
+    #lifeos-concept .macro-list { gap: 9px; }
+    #lifeos-concept .macro-row { grid-template-columns: 20px minmax(0,1fr) 86px; gap: 9px; color: #594b51; font-size: 12px; }
+    #lifeos-concept .macro-key { font-size: 12px; font-weight: 500; color: #607c67; }
+    #lifeos-concept .macro-row:nth-child(2) .macro-key { color: #826744; }
+    #lifeos-concept .macro-row:nth-child(3) .macro-key { color: #8b5960; }
+    #lifeos-concept .macro-track { height: 3px; background: rgba(64,47,55,.12); }
+    #lifeos-concept .macro-track span { background: #708d75; }
+    #lifeos-concept .macro-row:nth-child(2) .macro-track span { background: #ad9169; }
+    #lifeos-concept .macro-row:nth-child(3) .macro-track span { background: #a66c73; }
+    #lifeos-concept .macro-value { color: #76666d; font-family: "Medeo Mono", monospace; font-size: 10px; }
+    #lifeos-concept .macro-value b { color: var(--lo-ink); font-weight: 400; }
+    #lifeos-concept .summary-pair { margin: 0; gap: 0; }
+    #lifeos-concept .summary-value + .summary-value { border-left: 1px solid var(--lo-line); padding-left: 17px; }
+    #lifeos-concept .summary-value small { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .summary-value strong {
+      font-family: "Medeo Mono", monospace;
+      font-size: clamp(25px, 7vw, 31px);
+      line-height: 1.1;
+      letter-spacing: -.065em;
+      font-weight: 400;
+    }
+    #lifeos-concept .summary-value .currency { font-family: "Medeo Sans", sans-serif; font-size: 12px; }
+    #lifeos-concept .gym-next { margin: 0; align-items: center; }
+    #lifeos-concept .gym-next strong { font-size: 22px; line-height: 1.15; font-weight: 400; letter-spacing: -.04em; }
+    #lifeos-concept .gym-next small { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .module-foot { margin-top: 8px; color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .text-action { color: var(--lo-wine); font-weight: 400; }
+    #lifeos-concept .text-action i { display: none; }
+    #lifeos-concept .journal-surface { padding-bottom: 17px; }
+    #lifeos-concept .journal-summary { padding: 1px 1px 18px; border-bottom: 1px solid var(--lo-line); margin-bottom: 13px; }
+    #lifeos-concept .journal-summary .panel-summary { margin-bottom: 15px; }
+    #lifeos-concept .panel-summary strong, #lifeos-concept .finance-total strong {
+      font-family: "Medeo Mono", monospace;
+      font-size: 42px;
+      line-height: 1.05;
+      letter-spacing: -.07em;
+      font-weight: 400;
+    }
+    #lifeos-concept .panel-summary small { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .entries { display: grid; }
+    #lifeos-concept .entry-row {
+      min-height: 72px;
+      grid-template-columns: 46px minmax(0,1fr) auto 22px;
+      gap: 10px;
+      border-color: var(--lo-line);
+    }
+    #lifeos-concept .entry-time, #lifeos-concept .entry-calories { font-family: "Medeo Mono", monospace; font-size: 11px; font-weight: 400; }
+    #lifeos-concept .entry-time { color: #71636a; }
+    #lifeos-concept .entry-name strong { font-size: 14px; font-weight: 400; letter-spacing: -.025em; }
+    #lifeos-concept .entry-name small { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .entry-calories { font-size: 11px; }
+    #lifeos-concept .entry-edit { color: #86747c; }
+    #lifeos-concept .finance-surface { padding-bottom: 18px; }
+    #lifeos-concept .finance-total { margin: 1px 0 13px; }
+    #lifeos-concept .finance-total strong { font-size: 50px; }
+    #lifeos-concept .finance-list { display: grid; }
+    #lifeos-concept .transaction { min-height: 70px; border-color: var(--lo-line); grid-template-columns: minmax(0,1fr) auto; }
+    #lifeos-concept .transaction-icon { display: none; }
+    #lifeos-concept .transaction-name strong { font-size: 14px; font-weight: 400; }
+    #lifeos-concept .transaction-name small { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .transaction-amount { font-family: "Medeo Mono", monospace; font-size: 12px; font-weight: 400; }
+    #lifeos-concept .finance-month { margin-top: 17px; padding-top: 16px; border-top: 1px solid var(--lo-line); }
+    #lifeos-concept .month-line { padding-top: 9px; font-size: 12px; }
+    #lifeos-concept .month-line strong { font-weight: 400; }
+    #lifeos-concept .gym-surface { padding: 21px 22px 18px; }
+    #lifeos-concept .gym-overview-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+    #lifeos-concept .gym-overview-head h2 { margin: 0; font-size: 21px; font-weight: 400; letter-spacing: -.04em; }
+    #lifeos-concept .gym-overview-head span { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .gym-next .primary-action { min-width: 0; }
+    #lifeos-concept .last-result {
+      margin: 17px 0 0;
+      padding: 14px 0;
+      border-top: 1px solid var(--lo-line);
+      border-bottom: 1px solid var(--lo-line);
+      border-radius: 0;
+      background: transparent;
+    }
+    #lifeos-concept .last-result-head { color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .last-result strong { margin-top: 5px; font-family: "Medeo Mono", monospace; font-size: 22px; letter-spacing: -.045em; font-weight: 400; }
+    #lifeos-concept .last-result strong small { font-family: "Medeo Sans", sans-serif; font-size: 12px; }
+    #lifeos-concept .plan-card { padding: 15px 0 0; }
+    #lifeos-concept .plan-head { margin: 0 0 8px; }
+    #lifeos-concept .plan-head strong { font-size: 15px; font-weight: 400; }
+    #lifeos-concept .plan-head span, #lifeos-concept .exercise-tag { color: #70626a; background: transparent; font-size: 11px; font-weight: 400; padding: 0; }
+    #lifeos-concept .exercise-row { grid-template-columns: 30px minmax(0,1fr) auto 18px; gap: 8px; min-height: 61px; border-color: var(--lo-line); }
+    #lifeos-concept .exercise-number { background: transparent; color: #806e76; font-family: "Medeo Mono", monospace; font-weight: 400; }
+    #lifeos-concept .exercise-copy strong { font-size: 13px; font-weight: 400; }
+    #lifeos-concept .exercise-copy small { color: var(--lo-muted); font-size: 11px; }
+    #lifeos-concept .exercise-result { color: #76666d; font-family: "Medeo Mono", monospace; font-size: 10px; }
+    #lifeos-concept .workout-surface { padding-top: 16px; }
+    #lifeos-concept .exercise-surface { padding: 17px 20px 18px; }
+    #lifeos-concept .exercise-top { margin: 0 0 12px; }
+    #lifeos-concept .exercise-title h2 { font-size: 21px; font-weight: 400; }
+    #lifeos-concept .exercise-title small { font-size: 12px; }
+    #lifeos-concept .exercise-summary {
+      padding: 0 0 13px;
+      margin: 0 0 13px;
+      border-bottom: 1px solid var(--lo-line);
+      border-radius: 0;
+      background: transparent;
+    }
+    #lifeos-concept .exercise-summary .inline-heading span { font-size: 12px; color: var(--lo-muted); }
+    #lifeos-concept .exercise-summary .inline-heading strong { font-family: "Medeo Mono", monospace; font-size: 13px; font-weight: 400; }
+    #lifeos-concept .exercise-summary p { margin-top: 5px; color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .sets-card { padding: 0; }
+    #lifeos-concept .sets-head { padding: 0 1px 8px; }
+    #lifeos-concept .sets-head strong { font-size: 14px; font-weight: 400; }
+    #lifeos-concept .sets-head span { font-family: "Medeo Mono", monospace; font-size: 11px; }
+    #lifeos-concept .set-row { border-color: var(--lo-line); min-height: 62px; }
+    #lifeos-concept .set-number, #lifeos-concept .set-value { font-family: "Medeo Mono", monospace; font-size: 12px; font-weight: 400; }
+    #lifeos-concept .set-field { font-size: 11px; }
+    #lifeos-concept .set-field input { height: 44px; font-family: "Medeo Mono", monospace; font-size: 16px; }
+    #lifeos-concept .set-row.is-active { border: 1px solid rgba(255,255,255,.48); background: rgba(255,255,255,.10); }
+    #lifeos-concept .rest-card {
+      margin-top: 15px;
+      padding: 13px 0 0;
+      border-top: 1px solid var(--lo-line);
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    #lifeos-concept .rest-label strong { font-size: 13px; font-weight: 400; }
+    #lifeos-concept .rest-label small { font-size: 11px; }
+    #lifeos-concept .rest-clock { font-family: "Medeo Mono", monospace; font-size: 22px; font-weight: 400; }
+    #lifeos-concept .bottom-dock {
+      width: calc(100% - 50px);
+      min-height: 72px;
+      padding: 7px;
+      border-radius: 999px;
+      border-color: rgba(255,255,255,.58);
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(255,255,255,.24), transparent 45%),
+        linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.035)),
+        rgba(255,255,255,var(--lo-glass-alpha));
+      -webkit-backdrop-filter: blur(8px) saturate(1.18);
+      backdrop-filter: blur(8px) saturate(1.18);
+      box-shadow: 0 17px 36px rgba(65,27,44,.16), inset 0 1px 0 rgba(255,255,255,.72), inset 0 -1px 0 rgba(93,34,55,.08);
+    }
+    #lifeos-concept .dock-lens {
+      position: absolute;
+      z-index: -1;
+      top: 7px;
+      bottom: 7px;
+      left: 7px;
+      width: calc((100% - 23px) / 4);
+      border: 1px solid rgba(255,255,255,.72);
+      border-radius: 999px;
+      background: linear-gradient(145deg,rgba(255,255,255,.31),rgba(255,255,255,.12)),rgba(255,255,255,.08);
+      box-shadow: 0 4px 13px rgba(66,31,46,.10), inset 0 1px 0 rgba(255,255,255,.84), inset 0 -1px 0 rgba(116,43,69,.09);
+      -webkit-backdrop-filter: blur(9px) saturate(1.25);
+      backdrop-filter: blur(9px) saturate(1.25);
+      transform: translateX(calc(var(--lo-dock-index, 0) * 100%));
+      transition: transform .28s cubic-bezier(.2,.75,.25,1);
+      pointer-events: none;
+    }
+    #lifeos-concept .dock-button { width: 48px; height: 48px; position: relative; z-index: 1; color: #74656d; }
+    #lifeos-concept .dock-button[aria-current="page"] { color: var(--lo-wine); background: transparent; box-shadow: none; }
+    #lifeos-concept .sheet-backdrop { background: rgba(48,35,46,.14); backdrop-filter: blur(7px); }
+    #lifeos-concept .edit-sheet {
+      -webkit-backdrop-filter: blur(17px) saturate(1.16);
+      backdrop-filter: blur(17px) saturate(1.16);
+      border-color: rgba(255,255,255,.68);
+      background:
+        radial-gradient(ellipse at 18% 0%,rgba(255,255,255,.25),transparent 46%),
+        linear-gradient(145deg,rgba(255,255,255,.19),rgba(255,255,255,.07)),
+        rgba(248,241,243,.46);
+    }
+    #lifeos-concept .sheet-head h2 { font-size: 22px; font-weight: 400; }
+    #lifeos-concept .field-group { font-size: 12px; font-weight: 400; }
+    #lifeos-concept .field-group input { background: rgba(255,255,255,.78); }
+    #lifeos-concept .primary-action { font-weight: 400; }
+    #lifeos-concept .secondary-action, #lifeos-concept .text-action { font-weight: 400; }
+    #lifeos-concept .section-note { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .module-icon, #lifeos-concept .gym-symbol, #lifeos-concept .transaction-icon { display: none; }
+    #lifeos-concept .history-bars, #lifeos-concept .history-labels { display: none; }
+    #lifeos-concept .summary-value strong,
+    #lifeos-concept .panel-summary strong,
+    #lifeos-concept .finance-total strong,
+    #lifeos-concept .entry-calories,
+    #lifeos-concept .transaction-amount,
+    #lifeos-concept .rest-clock { font-variant-numeric: tabular-nums; }
+    #lifeos-concept .page-heading[hidden] { display: none !important; }
+    @media (max-width: 360px) {
+      #lifeos-concept .app-main { padding-left: 16px; padding-right: 16px; }
+      #lifeos-concept .daily-surface, #lifeos-concept .journal-surface, #lifeos-concept .finance-surface, #lifeos-concept .gym-surface, #lifeos-concept .workout-surface, #lifeos-concept .exercise-surface { padding-left: 16px; padding-right: 16px; }
+      #lifeos-concept .bottom-dock { width: calc(100% - 34px); }
+      #lifeos-concept .macro-row { grid-template-columns: 18px minmax(0,1fr) 79px; gap: 7px; }
+      #lifeos-concept .entry-row { grid-template-columns: 39px minmax(0,1fr) auto 18px; gap: 6px; }
+      #lifeos-concept .summary-value strong { font-size: 23px; }
+      #lifeos-concept .set-row { grid-template-columns: 28px minmax(0,1fr) 16px; gap: 4px; }
+      #lifeos-concept .rest-clock { font-size: 20px; }
+    }
+    #lifeos-concept { min-height: 0; }
+    #lifeos-concept .app-main { padding-bottom: 128px; }
+    #lifeos-concept .screen-stack { gap: 0; }
+    #lifeos-concept .glass-surface {
+      border: 1px solid rgba(255,255,255,.58);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.018) 42%, rgba(255,255,255,.07)),
+        rgba(255,255,255,var(--lo-glass-alpha));
+      -webkit-backdrop-filter: blur(.25px) saturate(1.12);
+      backdrop-filter: blur(.25px) saturate(1.12);
+      box-shadow: 0 21px 47px rgba(64,32,46,.115), 0 3px 10px rgba(64,32,46,.06), inset 0 1px 0 rgba(255,255,255,.76), inset 1px 0 0 rgba(255,255,255,.24), inset 0 -1px 0 rgba(91,39,57,.10);
+    }
+    #lifeos-concept .glass-surface::before { display: none; }
+    #lifeos-concept .glass-surface::after { z-index: 1; border-color: rgba(255,255,255,.36); border-top-color: rgba(255,255,255,.84); border-left-color: rgba(255,255,255,.32); border-right-color: rgba(116,43,69,.10); pointer-events: none; }
+    #lifeos-concept .glass-surface > :not(.dock-lens) { position: relative; z-index: 2; }
+    #lifeos-concept .bottom-dock > .dock-lens { position: absolute; z-index: 0; }
+    #lifeos-concept .daily-surface, #lifeos-concept .journal-surface, #lifeos-concept .finance-surface, #lifeos-concept .gym-surface, #lifeos-concept .workout-surface, #lifeos-concept .exercise-surface { padding: 22px 23px; border-radius: 31px; }
+    #lifeos-concept .daily-section { padding: 2px 1px 20px; }
+    #lifeos-concept .daily-section + .daily-section { padding-top: 18px; border-top: 1px solid var(--lo-line); }
+    #lifeos-concept .daily-section:last-child { padding-bottom: 1px; }
+    #lifeos-concept .section-heading { margin-bottom: 11px; }
+    #lifeos-concept .section-heading h2, #lifeos-concept .entries-heading h2 { font-size: 17px; font-weight: 400; letter-spacing: -.03em; }
+    #lifeos-concept .section-link { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 5px 0 10px; color: var(--lo-wine); font-size: 12px; }
+    #lifeos-concept .section-link i { width: 14px; height: 14px; }
+    #lifeos-concept .calorie-line strong { font-size: clamp(49px,13vw,58px); font-weight: 400; }
+    #lifeos-concept .calorie-track { height: 4px; margin: 10px 0 15px; border: 0; background: rgba(60,42,51,.13); box-shadow: none; }
+    #lifeos-concept .calorie-track span { background: linear-gradient(90deg,#607e68,#8da18f); }
+    #lifeos-concept .macro-list { gap: 9px; }
+    #lifeos-concept .macro-row { grid-template-columns: 22px minmax(0,1fr) 88px; gap: 9px; font-size: 12px; }
+    #lifeos-concept .macro-value { color: #71626a; font-family: "Medeo Mono",monospace; font-size: 11px; }
+    #lifeos-concept .summary-pair { grid-template-columns: 1fr 1fr; }
+    #lifeos-concept .summary-value strong { font-size: clamp(23px,6vw,29px); }
+    #lifeos-concept .gym-next { padding: 2px 0 1px; }
+    #lifeos-concept .gym-next-note { color: var(--lo-muted); font-size: 12px; }
+    #lifeos-concept .journal-summary { margin: 0 0 16px; padding: 0 1px 18px; border-bottom: 1px solid var(--lo-line); }
+    #lifeos-concept .panel-summary strong { font-size: 47px; }
+    #lifeos-concept .goal-note { color: var(--lo-sage); font-size: 12px; }
+    #lifeos-concept .entries-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 1px 4px; }
+    #lifeos-concept .entries-heading h2 { margin:0; }
+    #lifeos-concept .entries-heading .section-link { margin-right:-7px; }
+    #lifeos-concept .entry-row { min-height: 71px; border-color: var(--lo-line); grid-template-columns: 43px minmax(0,1fr) auto 18px; gap: 8px; }
+    #lifeos-concept .entry-name strong, #lifeos-concept .transaction-name strong { font-size: 14px; font-weight:400; }
+    #lifeos-concept .entry-name small, #lifeos-concept .transaction-name small { color:#62565c; font-size:12px; }
+    #lifeos-concept .entry-calories { font-family:"Medeo Mono",monospace; font-size:11px; font-weight:400; }
+    #lifeos-concept .entry-edit { color:#816f77; }
+    #lifeos-concept .section-note { margin:14px 1px 0; color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .finance-total { margin:0 0 11px; }
+    #lifeos-concept .finance-total strong { font-size:52px; font-weight:400; }
+    #lifeos-concept .finance-list { display:grid; }
+    #lifeos-concept .transaction { min-height:67px; grid-template-columns:minmax(0,1fr) auto; border-color:var(--lo-line); }
+    #lifeos-concept .transaction-amount { font-family:"Medeo Mono",monospace; font-size:12px; font-weight:400; white-space:nowrap; }
+    #lifeos-concept .finance-month { margin-top:16px; padding-top:15px; border-top:1px solid var(--lo-line); }
+    #lifeos-concept .month-total { display:flex; align-items:baseline; gap:7px; margin:0 0 10px; }
+    #lifeos-concept .month-total strong { font-family:"Medeo Mono",monospace; font-size:39px; line-height:1; font-weight:400; letter-spacing:-.07em; }
+    #lifeos-concept .month-total span { color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .month-line { min-height:32px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px; }
+    #lifeos-concept .month-line strong { font-weight:400; }
+    #lifeos-concept .gym-overview-head { align-items:flex-end; margin:0 0 13px; }
+    #lifeos-concept .gym-overview-head h2 { margin:2px 0 0; font-size:23px; font-weight:400; letter-spacing:-.045em; }
+    #lifeos-concept .gym-overview-head > span { color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .gym-focus { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 0; border-top:1px solid var(--lo-line); border-bottom:1px solid var(--lo-line); }
+    #lifeos-concept .gym-focus > div { display:grid; gap:5px; }
+    #lifeos-concept .last-result-head { color:var(--lo-muted); font-size:11px; letter-spacing:.02em; }
+    #lifeos-concept .gym-focus strong { font-family:"Medeo Mono",monospace; font-size:23px; font-weight:400; letter-spacing:-.04em; }
+    #lifeos-concept .gym-focus strong small { font-family:"Medeo Sans",sans-serif; color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .plan-card { padding:16px 0 0; }
+    #lifeos-concept .plan-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 0 5px; }
+    #lifeos-concept .plan-head > div { display:grid; gap:3px; }
+    #lifeos-concept .plan-head strong { font-size:15px; font-weight:400; }
+    #lifeos-concept .plan-head small, #lifeos-concept .plan-head span { color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .exercise-row { min-height:61px; grid-template-columns:26px minmax(0,1fr) auto 18px; gap:8px; border-color:var(--lo-line); }
+    #lifeos-concept .exercise-number { background:transparent; color:#806e76; font-family:"Medeo Mono",monospace; font-size:11px; font-weight:400; }
+    #lifeos-concept .exercise-copy strong { font-size:13px; font-weight:400; }
+    #lifeos-concept .exercise-copy small { color:#655960; font-size:11px; }
+    #lifeos-concept .exercise-result { color:#706169; font-family:"Medeo Mono",monospace; font-size:11px; white-space:nowrap; }
+    #lifeos-concept .workout-surface .section-note { margin-left:0; }
+    #lifeos-concept .end-workout { justify-self:start; margin-top:5px; }
+    #lifeos-concept .exercise-surface { padding-top:16px; }
+    #lifeos-concept .exercise-top { display:flex; align-items:center; gap:10px; margin:0 0 12px; }
+    #lifeos-concept .exercise-title h2 { margin:0 0 2px; font-size:22px; font-weight:400; letter-spacing:-.04em; }
+    #lifeos-concept .exercise-title small { color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .exercise-summary { padding:0 0 13px; margin:0 0 13px; border-bottom:1px solid var(--lo-line); }
+    #lifeos-concept .exercise-summary .inline-heading { justify-content:space-between; }
+    #lifeos-concept .exercise-summary .inline-heading span { color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .exercise-summary .inline-heading strong { font-family:"Medeo Mono",monospace; font-size:13px; font-weight:400; }
+    #lifeos-concept .exercise-summary p { margin:5px 0 0; color:var(--lo-muted); font-size:12px; }
+    #lifeos-concept .sets-card { padding:0; }
+    #lifeos-concept .sets-head { padding:0 1px 8px; }
+    #lifeos-concept .sets-head strong { font-size:14px; font-weight:400; }
+    #lifeos-concept .sets-head span { font-family:"Medeo Mono",monospace; font-size:11px; }
+    #lifeos-concept .set-row { min-height:62px; border-color:var(--lo-line); }
+    #lifeos-concept .set-number, #lifeos-concept .set-value { font-family:"Medeo Mono",monospace; font-size:12px; font-weight:400; }
+    #lifeos-concept .set-field { font-size:11px; }
+    #lifeos-concept .set-field input { height:44px; font-family:"Medeo Mono",monospace; font-size:16px; }
+    #lifeos-concept .set-row.is-active { border:1px solid rgba(255,255,255,.56); background:rgba(255,255,255,.11); }
+    #lifeos-concept .rest-card { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:9px 12px; margin-top:14px; padding:13px 0 0; border-top:1px solid var(--lo-line); }
+    #lifeos-concept .rest-label { display:flex; grid-column:1/-1; align-items:center; gap:9px; }
+    #lifeos-concept .rest-label strong { font-size:13px; font-weight:400; }
+    #lifeos-concept .rest-label small { font-size:11px; }
+    #lifeos-concept .rest-clock { font-family:"Medeo Mono",monospace; font-size:22px; font-weight:400; }
+    #lifeos-concept .bottom-dock { width:calc(100% - 50px); min-height:72px; padding:7px; border-radius:999px; border-color:rgba(255,255,255,.62); background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.025) 48%,rgba(255,255,255,.075)),rgba(255,255,255,.08); -webkit-backdrop-filter:blur(.25px) saturate(1.12); backdrop-filter:blur(.25px) saturate(1.12); box-shadow:0 18px 37px rgba(64,32,46,.17), inset 0 1px 0 rgba(255,255,255,.82), inset 0 -1px 0 rgba(91,39,57,.11); }
+    #lifeos-concept .dock-lens { top:6px; bottom:6px; border-color:rgba(255,255,255,.86); background:linear-gradient(145deg,rgba(255,255,255,.30),rgba(255,255,255,.06)),rgba(255,255,255,.07); box-shadow:0 5px 14px rgba(64,32,46,.12),inset 0 1px 0 rgba(255,255,255,.94),inset 0 -1px 0 rgba(116,43,69,.10); }
+    #lifeos-concept .dock-button { width:48px; height:48px; color:#74656d; }
+    #lifeos-concept .dock-button[aria-current="page"] { color:var(--lo-wine); background:transparent; box-shadow:none; }
+    #lifeos-concept .edit-sheet { background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.04)),rgba(247,239,242,.48); }
+    #lifeos-concept .page-heading[hidden] { display:none !important; }
+    @media (prefers-reduced-transparency: reduce) {
+      #lifeos-concept .glass-surface, #lifeos-concept .bottom-dock { background: rgba(250,248,247,.97) !important; border-color: rgba(94,70,86,.24) !important; }
+      #lifeos-concept .edit-sheet { background: #fbf8fa !important; }
+    }
+    @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+      #lifeos-concept .glass-surface, #lifeos-concept .bottom-dock { background: rgba(250,248,247,.96); }
+    }
+    @media (max-width: 360px) {
+      #lifeos-concept .app-main { padding-left:16px; padding-right:16px; }
+      #lifeos-concept .daily-surface, #lifeos-concept .journal-surface, #lifeos-concept .finance-surface, #lifeos-concept .gym-surface, #lifeos-concept .workout-surface, #lifeos-concept .exercise-surface { padding-left:16px; padding-right:16px; }
+      #lifeos-concept .bottom-dock { width:calc(100% - 34px); }
+      #lifeos-concept .macro-row { grid-template-columns:18px minmax(0,1fr) 82px; gap:7px; }
+      #lifeos-concept .entry-row { grid-template-columns:39px minmax(0,1fr) auto 18px; gap:6px; }
+      #lifeos-concept .summary-value strong { font-size:23px; }
+      #lifeos-concept .set-row { grid-template-columns:28px minmax(0,1fr) 16px; gap:4px; }
+      #lifeos-concept .rest-clock { font-size:20px; }
+    }
+  </style>
+
+  <section id="lifeos-concept" data-lg-role="stage" aria-label="LifeOS — обзор">
+    <svg class="lifeos-filter-defs" aria-hidden="true" focusable="false"><defs id="lifeos-glass-defs"></defs></svg>
+    <header class="app-header">
+      <button type="button" class="brand" data-action="go-home" aria-label="LifeOS, открыть обзор"><span>LifeOS</span></button>
+      <time class="date-chip" datetime="2026-10-27">вторник, 27 октября</time>
+    </header>
+    <main class="app-main">
+      <div class="page-heading">
+        <p class="eyebrow" id="page-eyebrow">27 октября · вторник</p>
+        <h1 id="page-title">Сегодня</h1>
+      </div>
+      <div id="lifeos-screen" aria-live="off"></div>
+    </main>
+    <nav class="bottom-dock glass-surface" data-lg-role="dock" aria-label="Основные разделы">
+      <span class="dock-lens" aria-hidden="true"></span>
+      <button type="button" class="dock-button" data-action="switch-view" data-view="today" aria-label="Сегодня" aria-current="page"><i data-lucide="layout-dashboard" aria-hidden="true"></i></button>
+      <button type="button" class="dock-button" data-action="switch-view" data-view="nutrition" aria-label="Питание"><i data-lucide="utensils" aria-hidden="true"></i></button>
+      <button type="button" class="dock-button" data-action="switch-view" data-view="finance" aria-label="Финансы"><i data-lucide="wallet" aria-hidden="true"></i></button>
+      <button type="button" class="dock-button" data-action="switch-view" data-view="gym" aria-label="Зал"><i data-lucide="dumbbell" aria-hidden="true"></i></button>
+    </nav>
+    <div class="sr-only" id="lifeos-announcement" aria-live="polite" aria-atomic="true"></div>
+    <div class="sheet-overlay" id="food-sheet" hidden>
+      <div class="sheet-backdrop" data-action="close-sheet" aria-hidden="true"></div>
+      <section class="edit-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <h2 id="sheet-title">Исправить запись</h2>
+          <button type="button" class="sheet-close" data-action="close-sheet" aria-label="Закрыть"><i data-lucide="x" aria-hidden="true"></i></button>
+        </div>
+        <label class="field-group" for="edit-food-name">Блюдо или продукт
+          <input id="edit-food-name" type="text" autocomplete="off" maxlength="80">
+        </label>
+        <label class="field-group" for="edit-food-grams">Порция, грамм
+          <input id="edit-food-grams" type="number" min="1" max="5000" step="1" inputmode="numeric" required>
+        </label>
+        <div class="edit-preview" id="edit-food-preview" aria-live="polite"></div>
+        <div class="sheet-actions">
+          <button type="button" class="secondary-action" data-action="close-sheet">Отмена</button>
+          <button type="button" class="primary-action" data-action="save-food">Записать</button>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      const root = document.getElementById("lifeos-concept");
+      if (!root || root.dataset.initialized === "true") return;
+      root.dataset.initialized = "true";
+
+      const fmt = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
+      const initialFoods = [
+        { id: "sandwiches", time: "08:20", name: "Бутерброды", detail: "2 штуки", grams: 160, kcal: 400, p: 20, c: 42, f: 16 },
+        { id: "soup", time: "12:45", name: "Солянка", detail: "миска", grams: 350, kcal: 350, p: 18, c: 34, f: 12 },
+        { id: "latte", time: "15:10", name: "Латте", detail: "средний", grams: 300, kcal: 185, p: 8, c: 20, f: 7 },
+        { id: "buckwheat", time: "18:30", name: "Гречка с говядиной", detail: "обычная порция", grams: 420, kcal: 905, p: 46, c: 142, f: 23 }
+      ];
+      const plan = [
+        { id: "bench", name: "Жим лёжа", target: "4 × 8", weight: 42.5, reps: 8, last: "40 кг × 8" },
+        { id: "pulldown", name: "Тяга верхнего блока", target: "3 × 10", weight: 45, reps: 10, last: "42,5 кг × 10" },
+        { id: "incline", name: "Жим гантелей на наклонной", target: "3 × 10", weight: 16, reps: 10, last: "14 кг × 10" },
+        { id: "row", name: "Тяга горизонтального блока", target: "3 × 12", weight: 40, reps: 12, last: "37,5 кг × 12" },
+        { id: "lateral", name: "Подъёмы гантелей в стороны", target: "3 × 15", weight: 7, reps: 15, last: "6 кг × 15" }
+      ];
+      const freshLogs = {
+        bench: [{ weight: 42.5, reps: 8, done: false }, { weight: 42.5, reps: 8, done: false }, { weight: 40, reps: 8, done: false }, { weight: 40, reps: 8, done: false }],
+        pulldown: [{ weight: 45, reps: 10, done: false }, { weight: 45, reps: 10, done: false }, { weight: 42.5, reps: 10, done: false }],
+        incline: [{ weight: 16, reps: 10, done: false }, { weight: 16, reps: 10, done: false }, { weight: 14, reps: 10, done: false }],
+        row: [{ weight: 40, reps: 12, done: false }, { weight: 40, reps: 12, done: false }, { weight: 37.5, reps: 12, done: false }],
+        lateral: [{ weight: 7, reps: 15, done: false }, { weight: 7, reps: 15, done: false }, { weight: 6, reps: 15, done: false }]
+      };
+      const state = {
+        view: "today",
+        gymMode: "overview",
+        currentExercise: "bench",
+        foods: initialFoods.map(function (food) { return Object.assign({}, food); }),
+        logs: JSON.parse(JSON.stringify(freshLogs)),
+        editingFoodId: null,
+        editTriggerId: null,
+        newFoodDraft: false,
+        restRemaining: 90,
+        restRunning: false
+      };
+      const appearance = { opacity: 12, accent: "#742b45", radius: 27 };
+      let restInterval = 0;
+      let resizeObservers = [];
+      let filterNumber = 0;
+      let draftNumber = 0;
+      const mapCache = new Map();
+
+      function loadSavedState(saved) {
+        if (!saved || typeof saved !== "object") return;
+        const privateContent = saved.privateContent && typeof saved.privateContent === "object" ? saved.privateContent : saved;
+        if (["today", "nutrition", "finance", "gym"].indexOf(privateContent.view) !== -1) state.view = privateContent.view;
+        if (["overview", "workout", "exercise"].includes(privateContent.gymMode)) state.gymMode = privateContent.gymMode;
+        if (plan.some(function (exercise) { return exercise.id === privateContent.currentExercise; })) state.currentExercise = privateContent.currentExercise;
+        if (Array.isArray(privateContent.foods) && privateContent.foods.length) {
+          state.foods = privateContent.foods.filter(function (food) {
+            return food && typeof food.id === "string" && typeof food.name === "string";
+          }).map(function (food) { return Object.assign({}, food); });
+        }
+        if (privateContent.logs && typeof privateContent.logs === "object") {
+          Object.keys(freshLogs).forEach(function (id) {
+            const candidate = privateContent.logs[id];
+            if (Array.isArray(candidate) && candidate.length === freshLogs[id].length) {
+              state.logs[id] = candidate.map(function (set) {
+                return { weight: Number(set.weight) || 0, reps: Number(set.reps) || 0, done: Boolean(set.done) };
+              });
+            }
+          });
+        }
+      }
+      try {
+        if (window.openai && window.openai.widgetState) loadSavedState(window.openai.widgetState);
+      } catch (error) {}
+
+      function persistState() {
+        if (state.newFoodDraft) return;
+        try {
+          if (window.openai && typeof window.openai.setWidgetState === "function") {
+            const persistedFoods = state.newFoodDraft ? state.foods.filter(function (food) { return food.id !== state.editingFoodId; }) : state.foods;
+            const result = window.openai.setWidgetState({
+              modelContent: { view: state.view, nutritionCalories: totals().kcal },
+              privateContent: { view: state.view, foods: persistedFoods, logs: state.logs, gymMode: state.gymMode, currentExercise: state.currentExercise }
+            });
+            if (result && typeof result.catch === "function") result.catch(function () {});
+          }
+        } catch (error) {}
+      }
+
+      function totals() {
+        return state.foods.reduce(function (sum, food) {
+          sum.kcal += Number(food.kcal) || 0;
+          sum.p += Number(food.p) || 0;
+          sum.c += Number(food.c) || 0;
+          sum.f += Number(food.f) || 0;
+          return sum;
+        }, { kcal: 0, p: 0, c: 0, f: 0 });
+      }
+      function foodById(id) {
+        return state.foods.find(function (food) { return food.id === id; });
+      }
+      function currentPlanExercise() {
+        return plan.find(function (exercise) { return exercise.id === state.currentExercise; }) || plan[0];
+      }
+      function exerciseLogs(id) {
+        if (!state.logs[id]) state.logs[id] = [];
+        return state.logs[id];
+      }
+      function activeSetIndex(sets) {
+        return sets.findIndex(function (set) { return !set.done; });
+      }
+      function announce(message) {
+        const region = root.querySelector("#lifeos-announcement");
+        if (region) region.textContent = message;
+      }
+      function numberText(value) {
+        return fmt.format(Math.round(Number(value) || 0));
+      }
+      function barWidth(value, goal) {
+        return Math.max(0, Math.min(100, Math.round((Number(value) / goal) * 100)));
+      }
+      function macroRows(data) {
+        const items = [
+          { key: "Б", label: "Белки", value: data.p, goal: 150 },
+          { key: "Ж", label: "Жиры", value: data.f, goal: 80 },
+          { key: "У", label: "Углеводы", value: data.c, goal: 340 }
+        ];
+        return items.map(function (item) {
+          return '<div class="macro-row"><span class="macro-key" aria-label="' + item.label + '">' + item.key + '</span><div class="macro-track" role="progressbar" aria-label="' + item.label + '" aria-valuenow="' + item.value + '" aria-valuemin="0" aria-valuemax="' + item.goal + '"><span style="width:' + barWidth(item.value, item.goal) + '%"></span></div><span class="macro-value"><b>' + item.value + '</b> / ' + item.goal + ' г</span></div>';
+        }).join("");
+      }
+      function currentPageHeading() {
+        if (state.view === "nutrition") return ["ВТОРНИК · 27 ОКТЯБРЯ", "Питание"];
+        if (state.view === "finance") return ["ВТОРНИК · 27 ОКТЯБРЯ", "Финансы"];
+        if (state.view === "gym") {
+          if (state.gymMode === "exercise") return ["ТРЕНИРОВКА · ВЕРХ ТЕЛА A", currentPlanExercise().name];
+          if (state.gymMode === "workout") return ["27 ОКТЯБРЯ · ВЕРХ ТЕЛА A", "Тренировка"];
+          return ["ПРОГРАММА · ВЕРХ ТЕЛА A", "Зал"];
+        }
+        return ["ВТОРНИК · 27 ОКТЯБРЯ", "Сегодня"];
+      }
+      function todayView() {
+        const data = totals();
+        const caloriesGoal = 2700;
+        return '<div class="screen-stack"><section class="glass-surface daily-surface" data-lg-role="focus" aria-label="Обзор дня: питание, финансы и зал">' +
+          '<section class="daily-section" aria-label="Питание за сегодня"><div class="section-heading"><h2>Питание</h2><button type="button" class="section-link" data-action="switch-view" data-view="nutrition" aria-label="Открыть дневник питания">Дневник <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></div>' +
+            '<div class="calorie-line"><strong id="dashboard-kcal">' + numberText(data.kcal) + '</strong><span>из ' + numberText(caloriesGoal) + ' ккал</span></div>' +
+            '<div class="calorie-track" role="progressbar" aria-label="Калории за день" aria-valuenow="' + data.kcal + '" aria-valuemin="0" aria-valuemax="' + caloriesGoal + '"><span id="dashboard-calorie-bar" style="width:' + barWidth(data.kcal, caloriesGoal) + '%"></span></div>' +
+            '<div class="macro-list">' + macroRows(data) + '</div>' +
+            '<div class="module-foot"><span>Осталось ' + numberText(Math.max(0, caloriesGoal - data.kcal)) + ' ккал</span><span>Цель на массу</span></div>' +
+          '</section>' +
+          '<section class="daily-section" aria-label="Расходы за сегодня и месяц"><div class="section-heading"><h2>Финансы</h2><button type="button" class="section-link" data-action="switch-view" data-view="finance" aria-label="Открыть финансы">Операции <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></div>' +
+            '<div class="summary-pair"><div class="summary-value"><small>Сегодня</small><strong>385 <span class="currency">руб.</span></strong></div><div class="summary-value"><small>За октябрь</small><strong>12 450 <span class="currency">руб.</span></strong></div></div>' +
+            '<div class="module-foot"><span>Рубли ПМР · зарплатная карта</span><span>3 операции</span></div>' +
+          '</section>' +
+          '<section class="daily-section" aria-label="Следующая тренировка"><div class="section-heading"><h2>Зал</h2><button type="button" class="section-link" data-action="switch-view" data-view="gym" aria-label="Открыть план тренировок">План <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></div>' +
+            '<div class="gym-next"><div><strong>Верх тела A</strong><small>Завтра · 18:30</small></div><span class="gym-next-note">5 упражнений</span></div>' +
+          '</section>' +
+        '</section></div>';
+      }
+      function nutritionView() {
+        const data = totals();
+        const rows = state.foods.map(function (food) {
+          return '<button type="button" class="entry-row" data-action="edit-food" data-food-id="' + food.id + '" aria-label="Изменить запись: ' + escapeText(food.name) + ', ' + food.kcal + ' килокалорий">' +
+            '<span class="entry-time">' + food.time + '</span><span class="entry-name"><strong>' + escapeText(food.name) + '</strong><small>' + escapeText(food.detail) + ' · ' + numberText(food.grams) + ' г</small></span>' +
+            '<span class="entry-calories">' + numberText(food.kcal) + ' ккал</span><span class="entry-edit"><i data-lucide="pencil" aria-hidden="true"></i></span></button>';
+        }).join("");
+        return '<div class="screen-stack"><section class="glass-surface journal-surface" data-lg-role="focus" aria-label="Дневник питания за сегодня">' +
+          '<div class="journal-summary"><div class="panel-summary"><div><strong>' + numberText(data.kcal) + '</strong><small>из 2 700 ккал · осталось ' + numberText(Math.max(0,2700-data.kcal)) + '</small></div><span class="goal-note">цель · набор массы</span></div><div class="macro-list">' + macroRows(data) + '</div></div>' +
+          '<div class="entries-heading"><h2>Записи</h2><button type="button" class="section-link" data-action="add-food" aria-label="Добавить запись о еде"><i data-lucide="plus" aria-hidden="true"></i>Добавить</button></div>' +
+          '<div class="entries">' + rows + '</div>' +
+          '<p class="section-note">Нажми на строку, чтобы изменить блюдо или порцию.</p>' +
+          '</section></div>';
+      }
+      function financeView() {
+        return '<div class="screen-stack"><section class="glass-surface finance-surface" data-lg-role="focus" aria-label="Расходы за сегодня и октябрь">' +
+          '<p class="eyebrow">РАСХОДЫ · РУБЛИ ПМР</p><div class="finance-total"><strong>385</strong><span>за сегодня</span></div>' +
+          '<div class="finance-list">' +
+            '<div class="transaction"><span class="transaction-name"><strong>Удон</strong><small>Еда · 13:24 · зарплатная карта</small></span><span class="transaction-amount">−85 руб.</span></div>' +
+            '<div class="transaction"><span class="transaction-name"><strong>Телефон</strong><small>Связь · 10:08 · зарплатная карта</small></span><span class="transaction-amount">−125 руб.</span></div>' +
+            '<div class="transaction"><span class="transaction-name"><strong>Продукты</strong><small>Покупки · 09:42 · зарплатная карта</small></span><span class="transaction-amount">−175 руб.</span></div>' +
+          '</div>' +
+          '<div class="finance-month"><p class="eyebrow">С НАЧАЛА ОКТЯБРЯ</p><div class="month-total"><strong>12 450</strong><span>руб.</span></div><div class="month-line"><span>Зарплатная карта</span><strong>основной счёт · PRB</strong></div><div class="month-line"><span>Mastercard</span><strong>USD · без операций</strong></div></div>' +
+          '<p class="section-note">Повторяющиеся платежи: Spotify · ChatGPT · телефон.</p>' +
+          '</section></div>';
+      }
+      function gymOverview() {
+        return '<div class="screen-stack"><section class="glass-surface gym-surface" data-lg-role="focus" aria-label="План тренировок и прогресс">' +
+          '<div class="gym-overview-head"><div><p class="eyebrow">СЛЕДУЮЩАЯ ТРЕНИРОВКА</p><h2>Верх тела A</h2></div><span>Завтра · 18:30</span></div>' +
+          '<div class="gym-focus"><div><span class="last-result-head">ПОСЛЕДНИЙ РЕЗУЛЬТАТ · ЖИМ ЛЁЖА</span><strong>42,5 <small>кг × 8</small></strong></div><button type="button" class="section-link" data-action="start-workout"><i data-lucide="play" aria-hidden="true"></i>Начать</button></div>' +
+          '<div class="plan-card"><div class="plan-head"><strong>Программа</strong><span>5 упражнений</span></div>' +
+            '<div class="exercise-list">' + plan.map(function (exercise, index) {
+              return '<button type="button" class="exercise-row" data-action="open-exercise" data-exercise-id="' + exercise.id + '">' +
+                '<span class="exercise-number">' + String(index + 1).padStart(2, "0") + '</span><span class="exercise-copy"><strong>' + escapeText(exercise.name) + '</strong><small>' + exercise.target + ' · прошлый: ' + exercise.last + '</small></span><span class="exercise-result">' + exercise.last + '</span><i data-lucide="chevron-right" aria-hidden="true"></i></button>';
+            }).join("") + '</div></div>' +
+          '</section></div>';
+      }
+      function workoutView() {
+        const complete = plan.reduce(function (sum, exercise) {
+          return sum + exerciseLogs(exercise.id).filter(function (set) { return set.done; }).length;
+        }, 0);
+        const possible = plan.reduce(function (sum, exercise) { return sum + exerciseLogs(exercise.id).length; }, 0);
+        return '<div class="screen-stack"><section class="glass-surface workout-surface" data-lg-role="focus" aria-label="Текущая тренировка Верх тела A">' +
+          '<div class="plan-head"><div><strong>Верх тела A</strong><small>Сегодня · 18:30</small></div><span>' + complete + ' из ' + possible + ' подходов</span></div>' +
+          '<div class="exercise-list">' + plan.map(function (exercise, index) {
+            const done = exerciseLogs(exercise.id).filter(function (set) { return set.done; }).length;
+            const count = exerciseLogs(exercise.id).length;
+            const current = done === count ? "готово" : (done + " / " + count);
+            return '<button type="button" class="exercise-row" data-action="open-exercise" data-exercise-id="' + exercise.id + '">' +
+              '<span class="exercise-number">' + (done === count ? '<i data-lucide="check" aria-hidden="true"></i>' : String(index + 1).padStart(2, "0")) + '</span><span class="exercise-copy"><strong>' + escapeText(exercise.name) + '</strong><small>' + exercise.target + ' · прошлый: ' + exercise.last + '</small></span><span class="exercise-result">' + current + '</span><i data-lucide="chevron-right" aria-hidden="true"></i></button>';
+          }).join("") + '</div>' +
+          '<p class="section-note">Выбери упражнение, чтобы внести рабочий вес и повторения.</p>' +
+          '<button type="button" class="secondary-action end-workout" data-action="end-workout"><i data-lucide="check" aria-hidden="true"></i>Завершить тренировку</button>' +
+          '</section></div>';
+      }
+      function exerciseView() {
+        const exercise = currentPlanExercise();
+        const sets = exerciseLogs(exercise.id);
+        const active = activeSetIndex(sets);
+        const previous = exercise.last;
+        const setMarkup = sets.map(function (set, index) {
+          if (set.done) {
+            return '<div class="set-row is-done"><span class="set-number">0' + (index + 1) + '</span><div class="set-data"><span class="set-value">' + String(set.weight).replace(".", ",") + ' кг · ' + set.reps + ' повт.</span></div><span class="set-status"><i data-lucide="check" aria-hidden="true"></i></span></div>';
+          }
+          if (index === active) {
+            return '<div class="set-row is-active is-current"><span class="set-number">0' + (index + 1) + '</span><div class="set-fields"><label class="set-field">Вес, кг<input id="active-weight" type="number" min="0" max="500" step="2.5" inputmode="decimal" value="' + set.weight + '" aria-label="Вес в килограммах"></label><label class="set-field">Повторы<input id="active-reps" type="number" min="1" max="100" step="1" inputmode="numeric" value="' + set.reps + '" aria-label="Число повторений"></label></div><span class="set-status"><i data-lucide="circle" aria-hidden="true"></i></span><button type="button" class="primary-action set-submit" data-action="complete-set"><i data-lucide="check" aria-hidden="true"></i>Зачесть подход</button></div>';
+          }
+          return '<div class="set-row"><span class="set-number">0' + (index + 1) + '</span><div class="set-data"><span class="set-value">' + String(set.weight).replace(".", ",") + ' кг · ' + set.reps + ' повт.</span></div><span class="set-status"><i data-lucide="circle" aria-hidden="true"></i></span></div>';
+        }).join("");
+        return '<div class="screen-stack"><section class="glass-surface exercise-surface" data-lg-role="focus" aria-label="' + escapeText(exercise.name) + '">' +
+          '<div class="exercise-top"><button type="button" class="back-button" data-action="back-to-workout" aria-label="Назад к списку тренировки"><i data-lucide="arrow-left" aria-hidden="true"></i></button><div class="exercise-title"><h2>' + escapeText(exercise.name) + '</h2><small>Цель · ' + exercise.target + '</small></div></div>' +
+          '<div class="exercise-summary"><div class="inline-heading"><span>Прошлый раз</span><strong>' + previous + '</strong></div><p>Вес и повторы можно изменить перед записью подхода.</p></div>' +
+          '<div class="sets-card" aria-label="Подходы упражнения"><div class="sets-head"><strong>Подходы</strong><span>' + (active < 0 ? sets.length + " из " + sets.length + " готово" : "активен " + (active + 1) + " из " + sets.length) + '</span></div>' +
+            (active < 0 ? '<div class="done-note"><i data-lucide="circle-check" aria-hidden="true"></i><strong>Упражнение готово</strong><small>Все подходы записаны</small></div>' : setMarkup) +
+          '</div>' +
+          '<div class="rest-card" aria-label="Таймер отдыха"><div class="rest-label"><i data-lucide="timer" aria-hidden="true"></i><span><strong>Отдых между подходами</strong><small id="rest-status">короткий таймер · 90 секунд</small></span></div><span class="rest-clock" id="rest-clock" aria-live="off">' + formatTime(state.restRemaining) + '</span><button type="button" class="secondary-action rest-toggle" data-action="toggle-rest">' + (state.restRunning ? "Остановить" : "Старт") + '</button></div>' +
+          (active < 0 ? '<button type="button" class="primary-action" data-action="back-to-workout">К тренировке</button>' : '') +
+          '</section></div>';
+      }
+      function escapeText(value) {
+        return String(value).replace(/[&<>"']/g, function (char) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char];
+        });
+      }
+      function formatTime(seconds) {
+        const value = Math.max(0, Number(seconds) || 0);
+        const minutes = Math.floor(value / 60);
+        const rest = value % 60;
+        return String(minutes).padStart(2, "0") + ":" + String(rest).padStart(2, "0");
+      }
+      function render() {
+        const screen = root.querySelector("#lifeos-screen");
+        const heading = currentPageHeading();
+        root.querySelector("#page-eyebrow").textContent = heading[0];
+        root.querySelector("#page-eyebrow").hidden = state.view === "today";
+        root.querySelector("#page-title").textContent = heading[1];
+        root.querySelector(".page-heading").hidden = state.view === "gym" && state.gymMode === "exercise";
+        root.style.setProperty("--lo-dock-index", String(["today", "nutrition", "finance", "gym"].indexOf(state.view)));
+        if (state.view === "nutrition") screen.innerHTML = nutritionView();
+        else if (state.view === "finance") screen.innerHTML = financeView();
+        else if (state.view === "gym") {
+          if (state.gymMode === "exercise") screen.innerHTML = exerciseView();
+          else if (state.gymMode === "workout") screen.innerHTML = workoutView();
+          else screen.innerHTML = gymOverview();
+        } else screen.innerHTML = todayView();
+        root.querySelectorAll(".dock-button").forEach(function (button) {
+          if (button.dataset.view === state.view) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        });
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+          window.lucide.createIcons({ attrs: { width: 18, height: 18 } });
+        }
+        syncGlass();
+      }
+      function saveFoodEntry() {
+        const food = foodById(state.editingFoodId);
+        const nameInput = root.querySelector("#edit-food-name");
+        const gramsInput = root.querySelector("#edit-food-grams");
+        if (!food || !nameInput || !gramsInput || !gramsInput.reportValidity()) return;
+        const grams = Number(gramsInput.value);
+        if (!Number.isFinite(grams) || grams < 1) return;
+        const ratio = grams / (Number(food.grams) || grams);
+        food.name = nameInput.value.trim() || food.name;
+        food.grams = Math.round(grams);
+        food.detail = "исправленная порция";
+        food.kcal = Math.round(food.kcal * ratio);
+        food.p = Math.round(food.p * ratio);
+        food.c = Math.round(food.c * ratio);
+        food.f = Math.round(food.f * ratio);
+        const savedId = food.id;
+        closeFoodSheet(false, true);
+        render();
+        announce("Запись питания обновлена. Итого за день " + numberText(totals().kcal) + " килокалорий.");
+        const trigger = root.querySelector('[data-action="edit-food"][data-food-id="' + savedId + '"]');
+        if (trigger) trigger.focus();
+        persistState();
+      }
+      function updateFoodPreview() {
+        const food = foodById(state.editingFoodId);
+        const gramsInput = root.querySelector("#edit-food-grams");
+        const preview = root.querySelector("#edit-food-preview");
+        if (!food || !gramsInput || !preview) return;
+        const grams = Number(gramsInput.value);
+        const ratio = grams > 0 ? grams / (Number(food.grams) || grams) : 0;
+        preview.textContent = "≈ " + numberText(food.kcal * ratio) + " ккал · Б " + Math.round(food.p * ratio) + " · Ж " + Math.round(food.f * ratio) + " · У " + Math.round(food.c * ratio);
+      }
+      function openFoodSheet(id, trigger) {
+        let food = foodById(id);
+        if (!food && id === "new-food") {
+          let newId = "";
+          do {
+            draftNumber += 1;
+            newId = "food-added-" + draftNumber;
+          } while (foodById(newId));
+          food = { id: newId, time: "19:42", name: "Моё блюдо", detail: "новая запись", grams: 250, kcal: 400, p: 20, c: 45, f: 12 };
+          state.foods.push(food);
+          state.newFoodDraft = true;
+          render();
+        }
+        if (!food) return;
+        state.editingFoodId = food.id;
+        state.editTriggerId = trigger && trigger.dataset.foodId ? trigger.dataset.foodId : (trigger && trigger.dataset.action === "add-food" ? "add-food" : null);
+        root.querySelector("#edit-food-name").value = food.name;
+        root.querySelector("#edit-food-grams").value = food.grams;
+        root.querySelector("#food-sheet").hidden = false;
+        updateFoodPreview();
+        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons({ attrs: { width: 18, height: 18 } });
+        root.querySelector("#edit-food-name").focus();
+      }
+      function closeFoodSheet(restoreFocus, keepNewFood) {
+        root.querySelector("#food-sheet").hidden = true;
+        const id = state.editTriggerId;
+        const editingId = state.editingFoodId;
+        if (state.newFoodDraft && !keepNewFood) {
+          state.foods = state.foods.filter(function (food) { return food.id !== editingId; });
+          state.newFoodDraft = false;
+          render();
+        }
+        if (keepNewFood) state.newFoodDraft = false;
+        state.editingFoodId = null;
+        state.editTriggerId = null;
+        if (restoreFocus && id) {
+          const trigger = id === "add-food" ? root.querySelector('[data-action="add-food"]') : root.querySelector('[data-action="edit-food"][data-food-id="' + id + '"]');
+          if (trigger) trigger.focus();
+        }
+      }
+      function setView(view) {
+        if (["today", "nutrition", "finance", "gym"].indexOf(view) < 0) return;
+        state.view = view;
+        if (view === "gym" && state.gymMode === "exercise") state.gymMode = "overview";
+        render();
+        persistState();
+      }
+      function completeSet() {
+        const exercise = currentPlanExercise();
+        const sets = exerciseLogs(exercise.id);
+        const active = activeSetIndex(sets);
+        if (active < 0) return;
+        const weightInput = root.querySelector("#active-weight");
+        const repsInput = root.querySelector("#active-reps");
+        if (!weightInput || !repsInput || !weightInput.reportValidity() || !repsInput.reportValidity()) return;
+        const weight = Number(weightInput.value);
+        const reps = Number(repsInput.value);
+        if (!Number.isFinite(weight) || !Number.isFinite(reps) || weight < 0 || reps < 1) return;
+        sets[active] = { weight: weight, reps: Math.round(reps), done: true };
+        const next = activeSetIndex(sets);
+        render();
+        announce(next < 0 ? "Упражнение завершено." : "Подход записан. Теперь подход " + (next + 1) + ".");
+        persistState();
+        const nextInput = root.querySelector("#active-weight");
+        if (nextInput) nextInput.focus();
+      }
+      function updateTimerUi() {
+        const clock = root.querySelector("#rest-clock");
+        const toggle = root.querySelector('[data-action="toggle-rest"]');
+        const status = root.querySelector("#rest-status");
+        if (clock) clock.textContent = formatTime(state.restRemaining);
+        if (toggle) toggle.textContent = state.restRunning ? "Остановить" : "Старт";
+        if (status) status.textContent = state.restRunning ? "идёт отдых" : "короткий таймер · 90 секунд";
+      }
+      function toggleRest() {
+        if (state.restRunning) {
+          window.clearInterval(restInterval);
+          restInterval = 0;
+          state.restRunning = false;
+          announce("Таймер отдыха остановлен.");
+        } else {
+          if (state.restRemaining <= 0) state.restRemaining = 90;
+          state.restRunning = true;
+          restInterval = window.setInterval(function () {
+            if (!root.isConnected) {
+              window.clearInterval(restInterval);
+              restInterval = 0;
+              return;
+            }
+            state.restRemaining = Math.max(0, state.restRemaining - 1);
+            updateTimerUi();
+            if (state.restRemaining === 0) {
+              window.clearInterval(restInterval);
+              restInterval = 0;
+              state.restRunning = false;
+              updateTimerUi();
+              announce("Время отдыха вышло.");
+            }
+          }, 1000);
+          announce("Таймер отдыха запущен на 90 секунд.");
+        }
+        updateTimerUi();
+      }
+
+      const useRefraction = (function () {
+        if (window.__LG_FORCE_FALLBACK__) return false;
+        const ua = window.navigator && window.navigator.userAgent ? window.navigator.userAgent : "";
+        if (/\b(Firefox|FxiOS|CriOS|EdgiOS|OPiOS)\//i.test(ua)) return false;
+        if (/Safari\//i.test(ua) && /AppleWebKit\//i.test(ua) && !/\b(Chrome|HeadlessChrome|Chromium|Edg|OPR|SamsungBrowser)\//i.test(ua)) return false;
+        try {
+          const css = window.CSS;
+          const filterValue = 'url("#lifeos-filter-probe")';
+          if (css && css.supports && !css.supports("backdrop-filter", filterValue) && !css.supports("-webkit-backdrop-filter", filterValue)) return false;
+          const probe = document.createElement("div");
+          probe.style.backdropFilter = filterValue;
+          probe.style.webkitBackdropFilter = filterValue;
+          return probe.style.backdropFilter !== "" || probe.style.webkitBackdropFilter !== "";
+        } catch (error) {
+          return false;
+        }
+      })();
+
+      function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+      function smoothStep(edge0, edge1, value) {
+        const t = clamp((value - edge0) / (edge1 - edge0 || 1), 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+      function profileCurve(value, profile) {
+        const eased = smoothStep(0, 1, value);
+        if (profile === "soft") return eased * .78;
+        if (profile === "prominent") return Math.pow(eased, .72);
+        if (profile === "thin") return Math.pow(eased, 1.45);
+        return eased;
+      }
+      function roundedRectSdf(px, py, width, height, radius) {
+        const cx = px - width / 2;
+        const cy = py - height / 2;
+        const hx = Math.max(0, width / 2 - radius);
+        const hy = Math.max(0, height / 2 - radius);
+        const qx = Math.abs(cx) - hx;
+        const qy = Math.abs(cy) - hy;
+        const inner = Math.min(Math.max(qx, qy), 0);
+        const outer = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+        return inner + outer - radius;
+      }
+      function createDisplacementPixels(width, height, radius, profile) {
+        const magnify = 1;
+        const bend = .06;
+        const spread = .58;
+        const bezelRatio = .62;
+        const bezel = clamp(Math.min(width, height) * .5 * bezelRatio, 10, 220);
+        const cx = width / 2;
+        const cy = height / 2;
+        const raw = new Float32Array(width * height * 2);
+        let maximum = 0;
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const px = x + .5;
+            const py = y + .5;
+            const distance = roundedRectSdf(px, py, width, height, radius);
+            let dx = 0;
+            let dy = 0;
+            if (distance > -bezel) {
+              const pull = smoothStep(-bezel, 0, Math.min(distance, 0));
+              const shaped = profileCurve(pull, profile);
+              const ox = (px - cx) / (width / 2);
+              const oy = (py - cy) / (height / 2);
+              dx = -ox * shaped * magnify * bezel;
+              dy = -oy * shaped * magnify * bezel;
+              dx += Math.sin(((px / width) - .5) * Math.PI) * bend * bezel * shaped;
+              dy += Math.sin(((py / height) - .5) * Math.PI) * bend * bezel * shaped;
+            }
+            const index = (y * width + x) * 2;
+            raw[index] = dx;
+            raw[index + 1] = dy;
+            maximum = Math.max(maximum, Math.abs(dx), Math.abs(dy));
+          }
+        }
+        const range = Math.max(1, maximum * spread);
+        const data = new Uint8ClampedArray(width * height * 4);
+        let rawIndex = 0;
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const dx = raw[rawIndex];
+            const dy = raw[rawIndex + 1];
+            rawIndex += 2;
+            const edgeDistance = Math.min(x, y, width - x - 1, height - y - 1);
+            const edgeFactor = smoothStep(0, 3, edgeDistance);
+            const pixel = (y * width + x) * 4;
+            data[pixel] = Math.round(clamp((dx * edgeFactor) / range * .5 + .5, 0, 1) * 255);
+            data[pixel + 1] = Math.round(clamp((dy * edgeFactor) / range * .5 + .5, 0, 1) * 255);
+            data[pixel + 2] = 0;
+            data[pixel + 3] = 255;
+          }
+        }
+        return { data: data, scale: range * 2 };
+      }
+      function cachedMap(width, height, radius, profile) {
+        const supersample = 2;
+        const w = Math.max(160, Math.round(width * supersample));
+        const h = Math.max(96, Math.round(height * supersample));
+        const r = Math.max(4, Math.round(radius * supersample));
+        const key = w + "x" + h + ":" + r + ":" + profile + ":" + supersample;
+        if (mapCache.has(key)) return mapCache.get(key);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const context = canvas.getContext("2d");
+        if (!context) return null;
+        const image = context.createImageData(w, h);
+        const result = createDisplacementPixels(w, h, r, profile);
+        image.data.set(result.data);
+        context.putImageData(image, 0, 0);
+        const map = { url: canvas.toDataURL("image/png"), scale: result.scale / supersample };
+        mapCache.set(key, map);
+        return map;
+      }
+      function addSvgNode(parent, name, attrs) {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+        Object.keys(attrs).forEach(function (key) { node.setAttribute(key, String(attrs[key])); });
+        parent.appendChild(node);
+        return node;
+      }
+      function syncSurface(surface, defs) {
+        const rect = surface.getBoundingClientRect();
+        if (rect.width < 24 || rect.height < 24) return;
+        const radius = Number.parseFloat(window.getComputedStyle(surface).borderRadius) || 24;
+        const isDock = surface.classList.contains("bottom-dock");
+        const profile = isDock ? "thin" : "soft";
+        const map = cachedMap(rect.width, rect.height, radius, profile);
+        if (!map || !map.url) return;
+        const filterId = "lifeos-filter-" + (++filterNumber);
+        const filter = addSvgNode(defs, "filter", { id: filterId, "color-interpolation-filters": "sRGB", x: "-35%", y: "-35%", width: "170%", height: "170%" });
+        const image = addSvgNode(filter, "feImage", { x: "0", y: "0", width: "100%", height: "100%", preserveAspectRatio: "none", result: "map" });
+        image.setAttribute("href", map.url);
+        image.setAttributeNS("http://www.w3.org/1999/xlink", "href", map.url);
+        const displacement = addSvgNode(filter, "feDisplacementMap", { in: "SourceGraphic", in2: "map", scale: (map.scale * (isDock ? 1.35 : 1.1)).toFixed(2), xChannelSelector: "R", yChannelSelector: "G", result: "displaced" });
+        surface.style.backdropFilter = 'url("#' + filterId + '") blur(.3px) saturate(1.12)';
+        surface.style.webkitBackdropFilter = 'url("#' + filterId + '") blur(.3px) saturate(1.12)';
+        surface.dataset.refraction = "measured";
+        surface.dataset.lensScale = (map.scale * (isDock ? 1.35 : 1.1)).toFixed(2);
+      }
+      function syncGlass() {
+        resizeObservers.forEach(function (observer) { observer.disconnect(); });
+        resizeObservers = [];
+        const defs = root.querySelector("#lifeos-glass-defs");
+        if (!defs) return;
+        defs.replaceChildren();
+        const surfaces = Array.from(root.querySelectorAll(".glass-surface"));
+        surfaces.forEach(function (surface) {
+          surface.style.removeProperty("backdrop-filter");
+          surface.style.removeProperty("-webkit-backdrop-filter");
+          delete surface.dataset.refraction;
+          delete surface.dataset.lensScale;
+        });
+        if (!useRefraction || root.dataset.forceFallback === "true") return;
+        surfaces.forEach(function (surface) {
+          syncSurface(surface, defs);
+          if (window.ResizeObserver) {
+            const observer = new ResizeObserver(function () { syncSurface(surface, defs); });
+            observer.observe(surface);
+            resizeObservers.push(observer);
+          }
+        });
+      }
+      function applyAppearance() {
+        const opacity = clamp(appearance.opacity / 100, .08, .16);
+        const radius = clamp(Number(appearance.radius) || 27, 18, 36);
+        root.style.setProperty("--lo-glass-alpha", opacity.toFixed(2));
+        root.style.setProperty("--lo-radius", radius + "px");
+        root.style.setProperty("--lo-wine", appearance.accent);
+        root.style.setProperty("--lo-wine-dark", appearance.accent);
+        syncGlass();
+      }
+      function bindTweakControls() {
+        if (typeof globalThis.Tweak !== "function") return;
+        try {
+          const tweak = new globalThis.Tweak({ container: root, onChange: applyAppearance });
+          tweak.addSlider(appearance, "opacity", { label: "Прозрачность стекла", min: 8, max: 16, step: 1, unit: "%" });
+          tweak.addColorPicker(appearance, "accent", { label: "Бордовый акцент", reference: "--lo-wine" });
+          tweak.addSlider(appearance, "radius", { label: "Округлость поверхностей", min: 18, max: 36, step: 1, unit: "px", reference: "--lo-radius" });
+        } catch (error) {}
+      }
+      function handleClick(event) {
+        const target = event.target.closest("[data-action]");
+        if (!target || !root.contains(target)) return;
+        const action = target.dataset.action;
+        if (action === "switch-view") setView(target.dataset.view);
+        else if (action === "go-home") setView("today");
+        else if (action === "edit-food") openFoodSheet(target.dataset.foodId, target);
+        else if (action === "add-food") openFoodSheet("new-food", target);
+        else if (action === "close-sheet") closeFoodSheet(true);
+        else if (action === "save-food") saveFoodEntry();
+        else if (action === "start-workout") {
+          state.view = "gym";
+          state.gymMode = "workout";
+          render();
+          persistState();
+          announce("Открыта тренировка Верх тела A.");
+        } else if (action === "open-exercise") {
+          state.view = "gym";
+          state.gymMode = "exercise";
+          state.currentExercise = target.dataset.exerciseId || "bench";
+          render();
+          persistState();
+        } else if (action === "back-to-workout") {
+          state.gymMode = "workout";
+          render();
+          persistState();
+        } else if (action === "complete-set") completeSet();
+        else if (action === "toggle-rest") toggleRest();
+        else if (action === "end-workout") {
+          state.gymMode = "overview";
+          render();
+          persistState();
+          announce("Тренировка сохранена.");
+        }
+      }
+      root.addEventListener("click", handleClick);
+      root.addEventListener("input", function (event) {
+        if (event.target.id === "edit-food-grams") updateFoodPreview();
+      });
+      root.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !root.querySelector("#food-sheet").hidden) closeFoodSheet(true);
+        if (event.key === "Tab" && !root.querySelector("#food-sheet").hidden) {
+          const controls = root.querySelectorAll('#food-sheet button, #food-sheet input');
+          const first = controls[0], last = controls[controls.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      });
+      window.addEventListener("openai:set_globals", function (event) {
+          const saved = event.detail && event.detail.globals ? event.detail.globals.widgetState : null;
+          if (!saved || !saved.privateContent) return;
+          const current = { view: state.view, foods: state.foods, logs: state.logs, gymMode: state.gymMode, currentExercise: state.currentExercise };
+          if (JSON.stringify(current) === JSON.stringify(saved.privateContent)) return;
+          loadSavedState(saved);
+          render();
+      });
+      if (window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+        root.addEventListener("pointermove", function (event) {
+          const surface = event.target.closest(".glass-surface[data-lg-interactive]");
+          if (!surface) return;
+          const rect = surface.getBoundingClientRect();
+          const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+          const y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+          surface.style.setProperty("--lo-light-x", (x * 100).toFixed(1) + "%");
+          surface.style.setProperty("--lo-light-y", (y * 100).toFixed(1) + "%");
+        });
+      }
+      root.querySelector("#edit-food-grams").addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          saveFoodEntry();
+        }
+      });
+      window.addEventListener("pagehide", function () {
+        if (restInterval) window.clearInterval(restInterval);
+        resizeObservers.forEach(function (observer) { observer.disconnect(); });
+        resizeObservers = [];
+      });
+      applyAppearance();
+      bindTweakControls();
+      render();
+    })();
+  </script>
+</div>

@@ -1,0 +1,1519 @@
+@font-face {
+  font-family: "Medeo Sans";
+  src: url("https://cdn.jsdelivr.net/gh/DNFDEVS/medeo-font@4992444ff40203bd420478076abeb85d068bc98a/fonts/MedeoSans/webfonts/MedeoSansVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Medeo Mono";
+  src: url("https://cdn.jsdelivr.net/gh/DNFDEVS/medeo-font@4992444ff40203bd420478076abeb85d068bc98a/fonts/MedeoMono/webfonts/MedeoMonoVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.stage {
+  --ink: #35272c;
+  --muted: #6f6067;
+  --line: rgba(96, 45, 62, 0.15);
+  --wine: #742b45;
+  --wine-dark: #582036;
+  --nutrition: #66836d;
+  --nutrition-soft: rgba(102, 131, 109, 0.11);
+  --finance: #a96743;
+  --finance-soft: rgba(169, 103, 67, 0.11);
+  --gym: #6b6684;
+  --gym-soft: rgba(107, 102, 132, 0.11);
+  --glass-alpha: 0.22;
+  --surface-radius: 28px;
+  position: relative;
+  isolation: isolate;
+  color-scheme: light;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: clip;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 4% 9%, rgba(222, 236, 225, 0.66), transparent 29rem),
+    radial-gradient(ellipse at 97% 12%, rgba(237, 214, 221, 0.72), transparent 31rem),
+    radial-gradient(ellipse at 82% 61%, rgba(226, 222, 237, 0.55), transparent 30rem),
+    radial-gradient(ellipse at 10% 89%, rgba(244, 224, 211, 0.48), transparent 26rem),
+    linear-gradient(145deg, #f8f5f1 0%, #f3eef0 50%, #f7f1ec 100%);
+  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.stage *,
+.stage *::before,
+.stage *::after {
+  box-sizing: border-box;
+}
+
+.stage button {
+  color: inherit;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stage button > * {
+  pointer-events: none;
+}
+
+.stage button:focus-visible,
+.stage [tabindex]:focus-visible {
+  outline: 3px solid rgba(116, 43, 69, 0.65);
+  outline-offset: 3px;
+}
+
+.stageLight {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.8;
+  background:
+    radial-gradient(ellipse at 72% 29%, rgba(255, 255, 255, 0.66), transparent 40%),
+    radial-gradient(ellipse at 22% 76%, rgba(220, 231, 220, 0.34), transparent 42%);
+}
+
+.appFrame {
+  position: relative;
+  width: min(100%, 520px);
+  min-height: 100vh;
+  min-height: 100svh;
+  margin-inline: auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.appHeader {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: max(10px, env(safe-area-inset-top, 0px)) 24px 4px;
+}
+
+.brand {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.055em;
+}
+
+.dateChip {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.045em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.main {
+  padding: 16px 22px calc(126px + env(safe-area-inset-bottom, 0px));
+}
+
+.pageHeading {
+  margin: 0 2px 18px;
+}
+
+.eyebrow {
+  display: block;
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.pageHeading h1 {
+  margin: 0;
+  font-size: clamp(31px, 8.8vw, 39px);
+  font-weight: 560;
+  letter-spacing: -0.065em;
+  line-height: 1.03;
+}
+
+.screenStack {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+}
+
+.glassSurface {
+  --light-x: 16%;
+  --light-y: 0%;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: var(--surface-radius);
+  background:
+    radial-gradient(ellipse at var(--light-x) var(--light-y), rgba(255, 255, 255, 0.34), transparent 38%),
+    linear-gradient(148deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.07) 57%, rgba(255, 255, 255, 0.2)),
+    rgba(255, 255, 255, var(--glass-alpha));
+  -webkit-backdrop-filter: blur(6px) saturate(1.28);
+  backdrop-filter: blur(6px) saturate(1.28);
+  box-shadow:
+    0 14px 34px rgba(70, 45, 63, 0.075),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.glassSurface::after {
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  border: 1px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.8);
+  border-left-color: rgba(255, 255, 255, 0.48);
+  border-radius: calc(var(--surface-radius) - 1px);
+  content: "";
+  pointer-events: none;
+}
+
+.todaySurface {
+  --surface-radius: 31px;
+  padding: 0 23px;
+  border-color: rgba(255, 255, 255, 0.92);
+  background:
+    radial-gradient(ellipse at 14% 0%, rgba(255, 255, 255, 0.44), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.09) 53%, rgba(255, 255, 255, 0.24)),
+    rgba(255, 255, 255, 0.19);
+  box-shadow:
+    0 17px 36px rgba(70, 45, 63, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.todaySection {
+  --module: var(--wine);
+  --module-soft: rgba(116, 43, 69, 0.1);
+  position: relative;
+  padding: 21px 0 19px;
+}
+
+.todaySection + .todaySection {
+  border-top: 1px solid var(--line);
+}
+
+.nutritionTone {
+  --module: var(--nutrition);
+  --module-soft: var(--nutrition-soft);
+}
+
+.financeTone {
+  --module: var(--finance);
+  --module-soft: var(--finance-soft);
+}
+
+.gymTone {
+  --module: var(--gym);
+  --module-soft: var(--gym-soft);
+}
+
+.moduleSurface,
+.listSurface,
+.setupSurface {
+  padding: 20px 20px 19px;
+}
+
+.exerciseSurface {
+  min-height: 50vh;
+}
+
+.moduleHeading,
+.listHeading,
+.sectionTopline,
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.moduleHeading {
+  margin-bottom: 12px;
+}
+
+.moduleHeading h2,
+.listHeading h2,
+.sheetHeader h2,
+.exerciseHeader h2,
+.setupSurface h2,
+.lastWorkout h2,
+.nextWorkoutHeading h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 540;
+  letter-spacing: -0.045em;
+  line-height: 1.16;
+}
+
+.moduleMeta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.textLink,
+.backButton {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 5px 0 5px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--wine) !important;
+  cursor: pointer;
+  font-size: 12px !important;
+  font-weight: 520;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.textLink svg,
+.backButton svg {
+  width: 15px;
+  height: 15px;
+}
+
+.textLink:hover,
+.backButton:hover {
+  opacity: 0.76;
+}
+
+.textLink:active,
+.backButton:active {
+  transform: scale(0.97);
+}
+
+.moduleHeading .textLink {
+  min-height: 36px;
+}
+
+.calorieLine {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 8px;
+}
+
+.calorieLine strong {
+  font-size: clamp(40px, 12vw, 53px);
+  font-weight: 540;
+  letter-spacing: -0.075em;
+  line-height: 0.98;
+  font-variant-numeric: tabular-nums;
+}
+
+.calorieLine span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.compactCalories strong {
+  font-size: clamp(39px, 11.8vw, 51px);
+}
+
+.calorieTrack,
+.macroTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(80, 64, 73, 0.12);
+}
+
+.calorieTrack {
+  height: 7px;
+  margin: 11px 0 15px;
+}
+
+.calorieTrack > span,
+.macroTrack > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #68846f, #8da78f);
+  transition: width 240ms ease;
+}
+
+.macroRows {
+  display: grid;
+  gap: 10px;
+}
+
+.compactMacros {
+  gap: 9px;
+}
+
+.macroRow {
+  display: grid;
+  grid-template-columns: 22px minmax(36px, 1fr) minmax(72px, auto);
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.macroLetter {
+  color: var(--nutrition);
+  font-weight: 680;
+}
+
+.macroLetter.protein { color: #5f765f; }
+.macroLetter.fat { color: #9c7145; }
+.macroLetter.carbs { color: #98706a; }
+
+.macroTrack {
+  height: 4px;
+}
+
+.macroTrack .protein {
+  background: #77937b;
+}
+
+.macroTrack .fat {
+  background: #c69b68;
+}
+
+.macroTrack .carbs {
+  background: #b98083;
+}
+
+.macroValue {
+  color: var(--ink);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.macroValue em {
+  color: var(--muted);
+  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.remainingLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.remainingLine span {
+  color: var(--nutrition);
+  text-align: right;
+}
+
+.todayHint {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.inlineEntry {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 0 -4px;
+  padding: 6px 10px 6px 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wine) !important;
+  cursor: pointer;
+  font-size: 12px !important;
+  font-weight: 560;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.inlineEntry svg {
+  width: 16px;
+  height: 16px;
+}
+
+.inlineEntry:active {
+  transform: scale(0.98);
+}
+
+.financeSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.stat {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 4px;
+  padding: 2px 12px 0 0;
+}
+
+.stat + .stat {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.statLabel {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.statValue {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(22px, 6.6vw, 31px);
+  font-weight: 510;
+  letter-spacing: -0.07em;
+  line-height: 1.08;
+  font-variant-numeric: tabular-nums;
+}
+
+.statValue small {
+  display: inline-block;
+  margin-left: 5px;
+  color: var(--muted);
+  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 480;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.amber .statValue {
+  color: #754a38;
+}
+
+.sage .statValue { color: #52705c; }
+.plum .statValue { color: #5f5c79; }
+
+.summaryFoot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workoutPreview,
+.nextWorkoutHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.workoutPreview > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.workoutPreview strong {
+  overflow: hidden;
+  font-size: 19px;
+  font-weight: 540;
+  letter-spacing: -0.045em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workoutPreview span,
+.nextWorkoutHeading > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workoutPreview .textLink {
+  margin-left: auto;
+}
+
+.lastResultLabel {
+  flex: 0 0 auto;
+  max-width: 92px;
+  color: var(--gym) !important;
+  font-size: 10px !important;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.sectionTopline {
+  margin-bottom: 16px;
+}
+
+.sectionTopline .eyebrow,
+.listHeading .eyebrow,
+.sheetHeader .eyebrow {
+  margin-bottom: 3px;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 12px !important;
+  font-weight: 550;
+  line-height: 1.2;
+  text-align: center;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.primaryButton {
+  color: #fffaf9 !important;
+  background: linear-gradient(145deg, var(--wine), var(--wine-dark));
+  box-shadow: 0 5px 14px rgba(116, 43, 69, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.secondaryButton {
+  color: var(--wine) !important;
+  border-color: rgba(116, 43, 69, 0.16);
+  background: rgba(255, 255, 255, 0.27);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.primaryButton svg,
+.secondaryButton svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover {
+  box-shadow: 0 5px 16px rgba(70, 45, 63, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.primaryButton:active,
+.secondaryButton:active {
+  transform: scale(0.98);
+}
+
+.listHeading {
+  margin-bottom: 14px;
+}
+
+.listHeading h2 {
+  font-size: 21px;
+}
+
+.countPill {
+  display: inline-grid;
+  min-width: 30px;
+  min-height: 30px;
+  place-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.28);
+  color: var(--muted);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.entryList,
+.accountList,
+.programList,
+.workoutList,
+.setList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entryList {
+  display: grid;
+}
+
+.entryRow {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+}
+
+.entryTime {
+  padding-top: 2px;
+  color: var(--muted);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.entryBody {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.entryBody strong,
+.accountRow strong {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.35;
+}
+
+.entryBody span,
+.accountRow span {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.entryActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconAction {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted) !important;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.iconAction svg {
+  width: 17px;
+  height: 17px;
+}
+
+.iconAction:hover {
+  border-color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.34);
+  color: var(--wine) !important;
+}
+
+.iconAction:active {
+  transform: scale(0.94);
+}
+
+.moneyEntryAmount {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.moneyEntryAmount > strong {
+  color: #7b4436;
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 550;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.moneyEntryAmount > strong.income,
+.income {
+  color: #52705c;
+}
+
+.accountList {
+  display: grid;
+}
+
+.accountRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+}
+
+.accountRow > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.accountRow > strong {
+  flex: 0 0 auto;
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 520;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.emptyInline {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.currentWeight {
+  margin: 0 0 10px;
+  color: var(--gym);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 32px;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+}
+
+.currentWeight small,
+.singleWeightPoint small {
+  color: var(--muted);
+  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.weightChart {
+  width: 100%;
+  min-width: 0;
+  color: var(--gym);
+}
+
+.weightChart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.weightChart circle {
+  fill: #fffdfa;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.chartCaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartCaption strong {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.singleWeightPoint {
+  margin: 8px 0;
+  color: var(--gym);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.setupSurface h2 {
+  margin-top: 8px;
+  font-size: 24px;
+}
+
+.setupSurface > p {
+  max-width: 34ch;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.setupActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.backButton {
+  justify-content: flex-start;
+  margin: -6px 0 12px -8px;
+  padding-left: 8px;
+}
+
+.exerciseHeader {
+  margin-bottom: 22px;
+}
+
+.exerciseHeader h2 {
+  margin-top: 5px;
+  font-size: clamp(24px, 7vw, 31px);
+}
+
+.previousPerformance {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.setHeader,
+.setRow {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.setHeader {
+  padding: 0 0 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.setHeader span:last-child {
+  text-align: right;
+}
+
+.setRow {
+  min-width: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.setRow > strong {
+  color: var(--gym);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 16px;
+  font-weight: 550;
+}
+
+.setMetrics {
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.setButton {
+  display: inline-flex;
+  min-width: 76px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid rgba(107, 102, 132, 0.23);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--gym) !important;
+  cursor: pointer;
+  font-size: 10px !important;
+  font-weight: 550;
+}
+
+.setButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.setButton:disabled {
+  border-color: rgba(102, 131, 109, 0.25);
+  background: rgba(102, 131, 109, 0.12);
+  color: #4e6e56 !important;
+  cursor: default;
+}
+
+.restTimerGroup {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.restTimer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.restTimerCopy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.restTimerTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 560;
+  letter-spacing: -0.015em;
+}
+
+.restTimerTitle svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--gym);
+}
+
+.restTimerDetail {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restTimerValue {
+  flex: 0 0 auto;
+  color: var(--gym);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(27px, 8vw, 34px);
+  font-weight: 520;
+  letter-spacing: -0.07em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.restTimerControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.restTimerButton {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 42px;
+  flex: 1 1 64px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: 1px solid rgba(107, 102, 132, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--gym) !important;
+  cursor: pointer;
+  font-size: 11px !important;
+  font-weight: 550;
+  transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.restTimerPrimary {
+  border-color: rgba(107, 102, 132, 0.34);
+  background: rgba(107, 102, 132, 0.11);
+}
+
+.restTimerButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.restTimerButton:active:not(:disabled) {
+  background: rgba(107, 102, 132, 0.18);
+}
+
+.restTimerButton:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+
+.exerciseFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.workoutList {
+  display: grid;
+  margin-bottom: 14px;
+}
+
+.workoutExercise {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.exerciseIndex {
+  color: var(--gym);
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exerciseOpen {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  align-content: center;
+  gap: 3px;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.exerciseOpen strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.exerciseOpen span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smallArrow {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+}
+
+.workoutList + .secondaryButton,
+.listSurface > .secondaryButton,
+.moduleSurface > .primaryButton {
+  margin-top: 12px;
+}
+
+.programList {
+  display: grid;
+  margin: 0 0 12px;
+}
+
+.programList li {
+  border-top: 1px solid var(--line);
+}
+
+.programButton {
+  display: flex;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 1px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.programButton > div {
+  display: grid;
+  gap: 3px;
+}
+
+.programButton strong {
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.programButton span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.programButton svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.nextWorkoutHeading {
+  margin: 10px 0 14px;
+}
+
+.nextWorkoutHeading h2 {
+  font-size: 24px;
+}
+
+.lastWorkout {
+  margin-top: 10px;
+}
+
+.lastWorkout h2 {
+  font-size: 24px;
+}
+
+.lastWorkout p {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lastWorkout > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.dock {
+  position: fixed;
+  z-index: 10;
+  right: max(18px, calc((100vw - 470px) / 2));
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  left: max(18px, calc((100vw - 470px) / 2));
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(430px, calc(100% - 36px));
+  min-height: 70px;
+  align-items: center;
+  margin-inline: auto;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.49), rgba(255, 255, 255, 0.17) 55%, rgba(255, 255, 255, 0.3)),
+    rgba(255, 255, 255, 0.19);
+  -webkit-backdrop-filter: blur(10px) saturate(1.35);
+  backdrop-filter: blur(10px) saturate(1.35);
+  box-shadow:
+    0 12px 30px rgba(70, 45, 63, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.dockLens {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc((100% - 12px) / 4);
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 22% 0%, rgba(255, 255, 255, 0.82), transparent 61%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.51), rgba(255, 255, 255, 0.18)),
+    rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(4px) saturate(1.3);
+  backdrop-filter: blur(4px) saturate(1.3);
+  box-shadow:
+    0 4px 12px rgba(76, 49, 66, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  transition: transform 260ms cubic-bezier(0.2, 0.72, 0.24, 1);
+}
+
+.dockButton {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-width: 44px;
+  min-height: 52px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #766870 !important;
+  cursor: pointer;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.dockButton[aria-current="page"] {
+  color: var(--wine) !important;
+}
+
+.dockButton:active {
+  transform: scale(0.92);
+}
+
+.dockButton svg {
+  width: 21px;
+  height: 21px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.sheetBackdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 12px max(12px, env(safe-area-inset-bottom, 0px));
+  background: rgba(45, 32, 39, 0.2);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: scrim-in 180ms ease both;
+}
+
+.actionSheet {
+  position: relative;
+  width: min(100%, 496px);
+  max-height: min(82vh, 620px);
+  max-height: min(82svh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 20px max(20px, env(safe-area-inset-bottom, 0px));
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  border-radius: 26px;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 255, 255, 0.72), transparent 45%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.56)),
+    #f4edef;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 18px 54px rgba(45, 32, 39, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  animation: sheet-in 250ms cubic-bezier(0.2, 0.72, 0.24, 1) both;
+}
+
+.sheetGrip {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 14px;
+  border-radius: 99px;
+  background: rgba(82, 62, 73, 0.25);
+}
+
+.sheetHeader {
+  align-items: flex-start;
+}
+
+.sheetHeader h2 {
+  font-size: 24px;
+}
+
+.sheetHeader .iconAction {
+  margin: -4px -8px 0 0;
+}
+
+.sheetDescription {
+  max-width: 42ch;
+  margin: 10px 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sheetOptions {
+  display: grid;
+  gap: 7px;
+}
+
+.sheetOption {
+  display: flex;
+  width: 100%;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.sheetOption:hover {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.sheetOption:active {
+  transform: scale(0.99);
+}
+
+.sheetOption > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.sheetOption strong {
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.sheetOption small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.sheetOption svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  color: var(--wine);
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(22px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 380px) {
+  .appHeader { padding-inline: 19px; }
+  .main { padding-inline: 16px; }
+  .todaySurface { padding-inline: 18px; }
+  .moduleSurface,
+  .listSurface,
+  .setupSurface { padding-inline: 16px; }
+  .entryRow { grid-template-columns: 37px minmax(0, 1fr) auto; gap: 6px; }
+  .entryActions { gap: 0; }
+  .iconAction { width: 34px; height: 38px; }
+  .moneyEntryAmount > strong { font-size: 10px; }
+  .macroRow { grid-template-columns: 18px minmax(32px, 1fr) minmax(68px, auto); gap: 7px; }
+}
+
+@media (min-width: 700px) {
+  .appFrame {
+    width: min(100%, 640px);
+    padding: 18px 0 28px;
+  }
+
+  .appHeader { padding-inline: 28px; }
+  .main { padding: 20px 28px 128px; }
+  .todaySurface { padding-inline: 27px; }
+  .todaySection { padding-block: 24px 22px; }
+  .moduleSurface,
+  .listSurface,
+  .setupSurface { padding: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage *,
+  .stage *::before,
+  .stage *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .dockLens { transition: none; }
+  .actionSheet { animation: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glassSurface,
+  .dock,
+  .dockLens,
+  .actionSheet,
+  .sheetOption {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .glassSurface { --glass-alpha: 0.78; }
+  .todaySurface { background: rgba(250, 247, 246, 0.88); }
+  .dock { background: rgba(250, 247, 246, 0.92); }
+  .dockLens { background: rgba(255, 255, 255, 0.88); }
+  .actionSheet { background: rgba(248, 244, 244, 0.98); }
+  .sheetOption { background: rgba(255, 255, 255, 0.82); }
+}
+
+@media (prefers-contrast: more) {
+  .stage {
+    --muted: #55454d;
+    --line: rgba(69, 42, 54, 0.34);
+  }
+
+  .glassSurface,
+  .dock,
+  .actionSheet,
+  .sheetOption {
+    border-color: rgba(69, 42, 54, 0.48);
+    background: rgba(250, 247, 246, 0.97);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .dockLens { border-color: var(--wine); }
+  .iconAction,
+  .secondaryButton,
+  .setButton,
+  .restTimerButton { border-color: rgba(69, 42, 54, 0.48); }
+  .restTimerPrimary { background: rgba(107, 102, 132, 0.18); }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glassSurface { --glass-alpha: 0.44; }
+  .dock { background: rgba(250, 246, 246, 0.82); }
+  .actionSheet { background: rgba(249, 245, 245, 0.97); }
+}

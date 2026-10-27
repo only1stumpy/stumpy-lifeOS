@@ -1,0 +1,42 @@
+{
+  "name": "stumpy-lifeos",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
+    "telegram:register": "tsx scripts/register-webhook.ts",
+    "backup:export": "tsx scripts/backup.ts export",
+    "backup:restore": "tsx scripts/backup.ts restore"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.2.0",
+    "dotenv": "18.0.9",
+    "drizzle-orm": "0.45.4",
+    "grammy": "1.46.0",
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.12",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "drizzle-kit": "0.31.11",
+    "eslint": "10.13.0",
+    "eslint-config-next": "16.4.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

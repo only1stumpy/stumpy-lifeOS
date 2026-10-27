@@ -1,0 +1,515 @@
+.reportStack,
+.reportSurface {
+  --report-accent: #742b45;
+  --report-accent-soft: rgba(116, 43, 69, 0.1);
+  min-width: 0;
+}
+
+.reportStack {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.reportSurface {
+  overflow: hidden;
+  padding: 21px 20px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 27px;
+  background:
+    radial-gradient(ellipse at 14% 0%, rgba(255, 255, 255, 0.32), transparent 43%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 58%, rgba(255, 255, 255, 0.2)),
+    rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(7px) saturate(1.24);
+  backdrop-filter: blur(7px) saturate(1.24);
+  box-shadow:
+    0 12px 30px rgba(70, 45, 63, 0.065),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.42);
+  color: #35272c;
+  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+}
+
+.nutrition {
+  --report-accent: #66836d;
+  --report-accent-soft: rgba(102, 131, 109, 0.1);
+}
+
+.finance {
+  --report-accent: #a96743;
+  --report-accent-soft: rgba(169, 103, 67, 0.1);
+}
+
+.gym {
+  --report-accent: #6b6684;
+  --report-accent-soft: rgba(107, 102, 132, 0.1);
+}
+
+.sectionHeading,
+.categoryLine,
+.controlRow,
+.comparisonValues,
+.purchaseList li,
+.sessionList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sectionHeading {
+  align-items: flex-start;
+  margin-bottom: 17px;
+}
+
+.sectionHeading h2 {
+  margin: 0;
+  font-size: clamp(18px, 5vw, 21px);
+  font-weight: 540;
+  letter-spacing: -0.045em;
+  line-height: 1.16;
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: #76666d;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.periodLabel,
+.periodHint {
+  flex: 0 0 auto;
+  color: #76666d;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.controlRow {
+  margin-bottom: 13px;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.31);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.segmented button,
+.metricButton {
+  min-width: 54px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #76666d;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.segmented button[aria-pressed="true"],
+.metricButton[aria-pressed="true"] {
+  border-color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 3px 10px rgba(70, 45, 63, 0.08), inset 0 1px 0 #fff;
+  color: #35272c;
+}
+
+.segmented button:focus-visible,
+.metricButton:focus-visible,
+.exerciseSelect select:focus-visible,
+.tableDetails summary:focus-visible {
+  outline: 2px solid #742b45;
+  outline-offset: 3px;
+}
+
+.metricRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 12px;
+}
+
+.metricButton {
+  min-width: 0;
+  padding: 7px 4px;
+  font-size: 11px;
+}
+
+.chartTitle {
+  margin: 0 0 2px;
+  color: #76666d;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.015em;
+}
+
+.chartFrame {
+  width: 100%;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  color: var(--report-accent);
+  font-family: "Medeo Mono", ui-monospace, monospace;
+}
+
+.gridLine {
+  stroke: rgba(96, 45, 62, 0.13);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.axisLabel {
+  fill: #76666d;
+  font-size: 9px;
+}
+
+.dataNote,
+.emptyText,
+.emptyChart {
+  margin: 10px 0 0;
+  color: #6f6067;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.emptyChart {
+  padding: 18px 0;
+}
+
+.tableDetails {
+  margin-top: 11px;
+  border-top: 1px solid rgba(96, 45, 62, 0.13);
+  color: #5f5056;
+  font-size: 11px;
+}
+
+.tableDetails summary {
+  width: fit-content;
+  min-height: 40px;
+  padding: 11px 2px 7px;
+  color: #742b45;
+  cursor: pointer;
+}
+
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.tableScroll table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableScroll caption {
+  padding: 6px 0;
+  color: #76666d;
+  text-align: left;
+}
+
+.tableScroll th,
+.tableScroll td {
+  min-width: 92px;
+  padding: 8px 9px 8px 0;
+  border-bottom: 1px solid rgba(96, 45, 62, 0.1);
+  vertical-align: top;
+}
+
+.tableScroll th {
+  font-weight: 550;
+}
+
+.dataNote {
+  padding: 9px 11px;
+  border-left: 2px solid var(--report-accent);
+  background: var(--report-accent-soft);
+}
+
+.categoryList,
+.purchaseList,
+.sessionList {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.categoryList li {
+  min-width: 0;
+}
+
+.categoryLine {
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.categoryLine > span {
+  min-width: 0;
+  color: #5f5056;
+  overflow-wrap: anywhere;
+}
+
+.categoryLine strong {
+  flex: 0 0 auto;
+  color: #35272c;
+  font-family: "Medeo Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 540;
+  text-align: right;
+}
+
+.barTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(96, 45, 62, 0.1);
+}
+
+.barTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--report-accent);
+}
+
+.comparisonValues {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.comparisonValues > div {
+  display: grid;
+  flex: 1 1 0;
+  gap: 7px;
+  min-width: 0;
+}
+
+.comparisonValues > div > span {
+  color: #76666d;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.comparisonValues strong {
+  overflow-wrap: anywhere;
+  color: #35272c;
+  font-family: "Medeo Mono", ui-monospace, monospace;
+  font-size: clamp(12px, 3.8vw, 17px);
+  font-weight: 550;
+  letter-spacing: -0.04em;
+}
+
+.comparisonMark {
+  align-self: center;
+  color: var(--report-accent);
+  font-family: "Medeo Mono", ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.comparisonNote {
+  margin: 14px 0 0;
+  color: #6f6067;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.positive {
+  color: #4f7256;
+}
+
+.negative {
+  color: #8a3f4d;
+}
+
+.purchaseGroup + .purchaseGroup {
+  margin-top: 21px;
+  padding-top: 19px;
+  border-top: 1px solid rgba(96, 45, 62, 0.13);
+}
+
+.purchaseGroup h3 {
+  margin: 0 0 11px;
+  color: #5f5056;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.purchaseList li {
+  align-items: flex-start;
+  padding-bottom: 11px;
+  border-bottom: 1px solid rgba(96, 45, 62, 0.1);
+  font-size: 12px;
+}
+
+.purchaseList li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.purchaseList li > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.purchaseList li strong {
+  overflow-wrap: anywhere;
+  font-weight: 550;
+}
+
+.purchaseList li small {
+  color: #76666d;
+  font-size: 10px;
+}
+
+.exerciseSelect {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 14px;
+  color: #76666d;
+  font-size: 11px;
+}
+
+.exerciseSelect select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+  color: #35272c;
+  font: inherit;
+  font-size: 13px;
+}
+
+.sessionList {
+  gap: 0;
+}
+
+.sessionList li {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 13px 0;
+  border-top: 1px solid rgba(96, 45, 62, 0.11);
+}
+
+.sessionDate {
+  flex: 0 0 68px;
+  padding-top: 2px;
+  color: #76666d;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.sessionBody {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sessionBody strong {
+  font-size: 13px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.sessionBody small {
+  color: #76666d;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.reportSurface :is(button, select, summary):active {
+  transform: scale(0.985);
+}
+
+@media (max-width: 360px) {
+  .reportSurface {
+    padding: 18px 15px 17px;
+  }
+
+  .metricRow {
+    gap: 1px;
+  }
+
+  .metricButton {
+    padding-inline: 2px;
+    font-size: 10px;
+  }
+
+  .sessionDate {
+    flex-basis: 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented button,
+  .metricButton {
+    transition: none;
+  }
+
+  .reportSurface :is(button, select, summary):active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .reportSurface {
+    border-color: rgba(96, 45, 62, 0.22);
+    background: rgba(249, 244, 241, 0.96);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .segmented,
+  .exerciseSelect select {
+    background: #f9f4f1;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .reportSurface {
+    border-color: rgba(53, 39, 44, 0.58);
+    background: rgba(249, 244, 241, 0.98);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .eyebrow,
+  .periodLabel,
+  .periodHint,
+  .dataNote,
+  .emptyText,
+  .emptyChart,
+  .comparisonNote,
+  .sessionBody small {
+    color: #4c3c43;
+  }
+}
