@@ -10,6 +10,7 @@ import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
+import { formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const TELEGRAM_FILE_TIMEOUT_MS = 20_000;
@@ -81,24 +82,46 @@ function getBot(): Bot<Context> {
       if (action === "confirm") {
         await executeCommand({ type: "draft.confirm", id });
         await clearEditingCapture(id);
-        await ctx.answerCallbackQuery({ text: "Готово, записал." });
-        await markMessage(ctx, "Готово, записал.");
+        const owner = await ensureOwner();
         const [food] = await getDb()
-          .select({ id: schema.nutritionEntries.id, name: schema.nutritionEntries.name })
+          .select({
+            id: schema.nutritionEntries.id,
+            name: schema.nutritionEntries.name,
+            portionLabel: schema.nutritionEntries.portionLabel,
+            calories: schema.nutritionEntries.calories,
+            proteinGrams: schema.nutritionEntries.proteinGrams,
+            fatGrams: schema.nutritionEntries.fatGrams,
+            carbsGrams: schema.nutritionEntries.carbsGrams,
+          })
           .from(schema.nutritionEntries)
-          .where(and(eq(schema.nutritionEntries.ownerId, (await ensureOwner()).id), eq(schema.nutritionEntries.captureDraftId, id)))
+          .where(and(eq(schema.nutritionEntries.ownerId, owner.id), eq(schema.nutritionEntries.captureDraftId, id)))
           .limit(1);
+        const [money] = await getDb()
+          .select({
+            name: schema.financeEntries.name,
+            entryType: schema.financeEntries.entryType,
+            amount: schema.financeEntries.amount,
+            currency: schema.financeEntries.currency,
+          })
+          .from(schema.financeEntries)
+          .where(and(eq(schema.financeEntries.ownerId, owner.id), eq(schema.financeEntries.captureDraftId, id)))
+          .limit(1);
+        const confirmation = formatConfirmedRecords({
+          food: food ?? null,
+          money: money ? { ...money, entryType: money.entryType as "expense" | "income", currency: money.currency as "PRB" | "USD" } : null,
+        });
+        await ctx.answerCallbackQuery({ text: confirmation.callbackText });
+        await markMessage(ctx, confirmation.messageText);
         if (food) {
-          const ownerId = (await ensureOwner()).id;
           const repeats = await getDb()
             .select({ id: schema.nutritionEntries.id })
             .from(schema.nutritionEntries)
-            .where(and(eq(schema.nutritionEntries.ownerId, ownerId), sql`lower(${schema.nutritionEntries.name}) = lower(${food.name})`))
+            .where(and(eq(schema.nutritionEntries.ownerId, owner.id), sql`lower(${schema.nutritionEntries.name}) = lower(${food.name})`))
             .limit(2);
           const [template] = await getDb()
             .select({ id: schema.foodTemplates.id })
             .from(schema.foodTemplates)
-            .where(and(eq(schema.foodTemplates.ownerId, ownerId), sql`lower(${schema.foodTemplates.name}) = lower(${food.name})`))
+            .where(and(eq(schema.foodTemplates.ownerId, owner.id), sql`lower(${schema.foodTemplates.name}) = lower(${food.name})`))
             .limit(1);
           if (repeats.length >= 2 && !template) {
             await ctx.reply("Вижу, это блюдо уже было. Запомнить его как твою обычную порцию?", {
@@ -143,9 +166,21 @@ function getBot(): Bot<Context> {
       }
 
       if (action === "pay") {
+        const owner = await ensureOwner();
+        const [payment] = await getDb()
+          .select({ name: schema.recurringPayments.name, amount: schema.recurringPayments.amount, currency: schema.recurringPayments.currency })
+          .from(schema.recurringPayments)
+          .where(and(eq(schema.recurringPayments.id, id), eq(schema.recurringPayments.ownerId, owner.id)))
+          .limit(1);
+        if (!payment) throw new AppError(404, "Платёж не найден.");
         await executeCommand({ type: "recurring.confirm", id });
-        await ctx.answerCallbackQuery({ text: "Оплату записал." });
-        await markMessage(ctx, "Готово, записал фактическую оплату.");
+        const confirmation = formatRecurringConfirmation({
+          ...payment,
+          amount: payment.amount,
+          currency: payment.currency as "PRB" | "USD",
+        });
+        await ctx.answerCallbackQuery({ text: confirmation.callbackText });
+        await markMessage(ctx, confirmation.messageText);
         return;
       }
 
