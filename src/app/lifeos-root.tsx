@@ -12,15 +12,19 @@ import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 
 type LifeOSRootProps = { configured: boolean };
 type RootStatus = "checking" | "outside" | "setup" | "loading" | "ready" | "error";
-type TelegramFullscreenEvent = "fullscreenChanged" | "fullscreenFailed";
+type TelegramWebAppEvent = "fullscreenChanged" | "fullscreenFailed" | "safeAreaChanged" | "contentSafeAreaChanged";
+type TelegramInset = { top?: number };
 type TelegramMiniApp = {
   initData?: string;
+  isFullscreen?: boolean;
+  safeAreaInset?: TelegramInset;
+  contentSafeAreaInset?: TelegramInset;
   isVersionAtLeast?(version: string): boolean;
   ready(): void;
   expand(): void;
   requestFullscreen?(): void;
-  onEvent?(eventType: TelegramFullscreenEvent, handler: () => void): void;
-  offEvent?(eventType: TelegramFullscreenEvent, handler: () => void): void;
+  onEvent?(eventType: TelegramWebAppEvent, handler: () => void): void;
+  offEvent?(eventType: TelegramWebAppEvent, handler: () => void): void;
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
 };
@@ -132,6 +136,9 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [telegramFullscreen, setTelegramFullscreen] = useState(false);
+  const [telegramSafeAreaTop, setTelegramSafeAreaTop] = useState(0);
+  const [telegramContentSafeAreaTop, setTelegramContentSafeAreaTop] = useState(0);
   const pendingRef = useRef(false);
 
   useEffect(() => {
@@ -149,13 +156,23 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
 
       try {
         webApp.ready();
+        const syncTelegramPresentation = () => {
+          if (!mounted) return;
+          setTelegramFullscreen(webApp.isFullscreen === true);
+          setTelegramSafeAreaTop(Math.max(0, webApp.safeAreaInset?.top ?? 0));
+          setTelegramContentSafeAreaTop(Math.max(0, webApp.contentSafeAreaInset?.top ?? 0));
+        };
+        syncTelegramPresentation();
+
         const supportsFullscreen = typeof webApp.requestFullscreen === "function"
           && (typeof webApp.isVersionAtLeast !== "function" || webApp.isVersionAtLeast("8.0"));
-        if (supportsFullscreen && webApp.onEvent && webApp.offEvent) {
+        if (webApp.onEvent && webApp.offEvent) {
           let active = true;
-          const onFullscreenChanged = () => cleanup();
+          const onFullscreenChanged = () => syncTelegramPresentation();
+          const onSafeAreaChanged = () => syncTelegramPresentation();
+          const onContentSafeAreaChanged = () => syncTelegramPresentation();
           const onFullscreenFailed = () => {
-            cleanup();
+            syncTelegramPresentation();
             if (mounted) {
               try {
                 webApp.expand();
@@ -169,13 +186,18 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
             active = false;
             webApp.offEvent?.("fullscreenChanged", onFullscreenChanged);
             webApp.offEvent?.("fullscreenFailed", onFullscreenFailed);
+            webApp.offEvent?.("safeAreaChanged", onSafeAreaChanged);
+            webApp.offEvent?.("contentSafeAreaChanged", onContentSafeAreaChanged);
             cleanupTelegramFullscreen = null;
           };
           cleanupTelegramFullscreen = cleanup;
           try {
             webApp.onEvent("fullscreenChanged", onFullscreenChanged);
             webApp.onEvent("fullscreenFailed", onFullscreenFailed);
-            webApp.requestFullscreen?.();
+            webApp.onEvent("safeAreaChanged", onSafeAreaChanged);
+            webApp.onEvent("contentSafeAreaChanged", onContentSafeAreaChanged);
+            if (supportsFullscreen) webApp.requestFullscreen?.();
+            else webApp.expand();
           } catch {
             cleanup();
             webApp.expand();
@@ -374,7 +396,14 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   return (
     <>
       {showGlobalError && <p className="app-notice" role="alert">{error}</p>}
-      <LifeOSApp snapshot={snapshot} onAction={handleAction} onDateChange={(date) => void changeDate(date)} />
+      <LifeOSApp
+        snapshot={snapshot}
+        onAction={handleAction}
+        onDateChange={(date) => void changeDate(date)}
+        fullscreen={telegramFullscreen}
+        safeAreaTop={telegramSafeAreaTop}
+        contentSafeAreaTop={telegramContentSafeAreaTop}
+      />
       {snapshot.activeSession && (
         <button type="button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })}>
           {pending ? "Сохраняю…" : "Завершить тренировку"}
