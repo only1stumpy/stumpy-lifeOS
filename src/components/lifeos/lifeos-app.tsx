@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { HTMLAttributes, ReactNode, RefObject, SVGProps } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode, RefObject, SVGProps } from "react";
 import type {
   ExerciseSet,
   LifeOSAction,
@@ -22,6 +22,9 @@ type LifeOSAppProps = {
   onAction(action: LifeOSAction): void;
   initialSection?: ModuleKey;
   onDateChange?(value: string): void;
+  fullscreen?: boolean;
+  safeAreaTop?: number;
+  contentSafeAreaTop?: number;
 };
 
 type IconName = "today" | "nutrition" | "finance" | "gym" | "arrow" | "plus" | "edit" | "trash" | "close" | "back" | "check" | "clock" | "weight" | "list";
@@ -271,7 +274,7 @@ function ExerciseMetrics({ set }: { set: ExerciseSet }) {
   return <span className={styles.setMetrics}>{metrics.length ? metrics.join(" · ") : "Данные подхода не заданы"}</span>;
 }
 
-function LifeOSApp({ snapshot, onAction, initialSection = "today", onDateChange }: LifeOSAppProps) {
+function LifeOSApp({ snapshot, onAction, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
   const [section, setSection] = useState<ModuleKey>(initialSection);
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
@@ -668,9 +671,13 @@ function LifeOSApp({ snapshot, onAction, initialSection = "today", onDateChange 
     finance: renderFinance(),
     gym: renderGym(),
   };
+  const telegramSafeAreaStyle = {
+    "--lifeos-telegram-safe-area-top": `${Math.max(0, safeAreaTop)}px`,
+    "--lifeos-telegram-content-safe-area-top": `${Math.max(0, contentSafeAreaTop)}px`,
+  } as CSSProperties;
 
   return (
-    <div className={styles.stage} data-lg-role="stage">
+    <div className={styles.stage} data-lg-role="stage" data-fullscreen={fullscreen ? "true" : undefined} style={telegramSafeAreaStyle}>
       <div className={styles.stageLight} aria-hidden="true" />
       <span className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">
         {restTimer?.phase === "running" ? "Таймер отдыха запущен." : restTimer?.phase === "paused" ? "Таймер отдыха на паузе." : restTimer?.phase === "finished" ? "Отдых завершён." : ""}
