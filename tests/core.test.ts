@@ -243,6 +243,92 @@ test("ИИ пробует выбранные бесплатные модели G
   }
 });
 
+test("ИИ разбивает несколько блюд и напитков, но прикрепляет общий чек только один раз", async () => {
+  const keys = ["GEMINI_API_KEY", "GEMINI_MODEL", "GROQ_API_KEY", "GROQ_MODEL"] as const;
+  const oldEnvironment = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const oldFetch = globalThis.fetch;
+  for (const key of keys) delete process.env[key];
+  process.env.GEMINI_API_KEY = "test-gemini-key";
+
+  const analysis = {
+    entries: [
+      {
+        food: {
+          label: "Паста четыре сыра",
+          portionLabel: "1 порция",
+          calories: 650,
+          proteinGrams: 20,
+          fatGrams: 25,
+          carbsGrams: 85,
+          estimated: true,
+        },
+        money: {
+          label: "Обед в кафе",
+          amountMinor: 18_000,
+          currency: "PRB",
+          kind: "expense",
+          category: "Кафе и рестораны",
+        },
+        occurredAt: "2026-10-28T12:15:00.000Z",
+      },
+      {
+        food: {
+          label: "Апельсиновый сок",
+          portionLabel: "200 мл",
+          calories: 90,
+          proteinGrams: 1.4,
+          fatGrams: 0.2,
+          carbsGrams: 21,
+          estimated: true,
+        },
+        money: null,
+        occurredAt: "2026-10-28T12:15:00.000Z",
+      },
+    ],
+    clarification: null,
+  };
+  let systemPrompt = "";
+  globalThis.fetch = async (_input, init) => {
+    const request = JSON.parse(String(init?.body)) as {
+      systemInstruction: { parts: { text: string }[] };
+    };
+    systemPrompt = request.systemInstruction.parts.map((part) => part.text).join("\n");
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }],
+    }), { status: 200 });
+  };
+
+  try {
+    const result = await analyzeMessage({
+      text: "Пообедал в кафе, съел пасту четыре сыра и выпил сок, отдал 180 рублей",
+      now: "2026-10-28T12:15:00.000Z",
+      timeZone: "Europe/Chisinau",
+    });
+
+    assert.match(systemPrompt, /кажд.{0,60}самостоятельн.{0,40}блюд.{0,30}напит.{0,100}отдельн/isu);
+    assert.match(systemPrompt, /Не склеивай разные позиции в общий label и не суммируй их КБЖУ/iu);
+    assert.match(systemPrompt, /«паста четыре сыра и сок» — две записи питания/iu);
+    assert.match(systemPrompt, /общую финансовую операцию добавь ровно один раз к первой записи/iu);
+    assert.match(systemPrompt, /money должен быть null/iu);
+    assert.match(systemPrompt, /Самостоятельные операции или приёмы пищи из того же сообщения сохраняй отдельными entries/iu);
+
+    assert.equal(result.entries.length, 2);
+    assert.deepEqual(result.entries.map((entry) => entry.food?.label), ["Паста четыре сыра", "Апельсиновый сок"]);
+    assert.deepEqual(result.entries.map((entry) => entry.food?.calories), [650, 90]);
+    assert.equal(result.entries[0]?.money?.label, "Обед в кафе");
+    assert.equal(result.entries[0]?.money?.amountMinor, 18_000);
+    assert.equal(result.entries[1]?.money, null);
+    assert.equal(result.entries.filter((entry) => entry.money !== null).length, 1);
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const key of keys) {
+      const oldValue = oldEnvironment[key];
+      if (oldValue === undefined) delete process.env[key];
+      else process.env[key] = oldValue;
+    }
+  }
+});
+
 test("ИИ выбирает категорию по сообщению, исправляет неверный вариант и использует Прочее без подсказки", async () => {
   const keys = ["GEMINI_API_KEY", "GEMINI_MODEL", "GROQ_API_KEY", "GROQ_MODEL"] as const;
   const oldEnvironment = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
