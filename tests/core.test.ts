@@ -8,7 +8,7 @@ import { suggestTargets } from "../src/domain/nutrition";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
 import { analyzeMessage } from "../src/server/ai/analyze";
-import { missingMoneyCategoryMessage } from "../src/server/lifeos";
+import { buildNutritionHistoryDays, missingMoneyCategoryMessage } from "../src/server/lifeos";
 import { verifyTelegramInitData } from "../src/server/telegram/auth";
 
 const botToken = "test-bot-token";
@@ -162,6 +162,20 @@ test("ежегодное повторение сохраняет 29 феврал
   assert.equal(nextYear, "2025-02-28");
   assert.equal(followingYear, "2026-02-28");
   assert.equal(leapYear, "2028-02-29");
+});
+
+test("история КБЖУ хранит все даты с едой, суммирует их по часовому поясу и добавляет пустой текущий день", () => {
+  const days = buildNutritionHistoryDays([
+    { occurredAt: "2026-10-27T20:30:00.000Z", macros: { calories: 0, proteinGrams: 0, fatGrams: 0, carbsGrams: 0 } },
+    { occurredAt: "2026-10-27T22:30:00.000Z", macros: { calories: 320, proteinGrams: 12, fatGrams: 4, carbsGrams: 60 } },
+    { occurredAt: "2026-10-28T09:00:00.000Z", macros: { calories: 180, proteinGrams: 8, fatGrams: 6, carbsGrams: 25 } },
+  ], "Europe/Chisinau", "2026-10-29");
+
+  assert.deepEqual(days, [
+    { date: "2026-10-27", entryCount: 1, calories: 0, proteinGrams: 0, fatGrams: 0, carbsGrams: 0 },
+    { date: "2026-10-28", entryCount: 2, calories: 500, proteinGrams: 20, fatGrams: 10, carbsGrams: 85 },
+    { date: "2026-10-29", entryCount: 0, calories: 0, proteinGrams: 0, fatGrams: 0, carbsGrams: 0 },
+  ]);
 });
 
 test("повторения с интервалом больше единицы считают недели и месяцы от якоря", () => {

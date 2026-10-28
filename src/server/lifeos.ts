@@ -30,6 +30,25 @@ const macroStrings = (row: MacroValues) => ({
 });
 const asCurrency = (v: string): "PRB" | "USD" => v === "USD" ? "USD" : "PRB";
 
+export function buildNutritionHistoryDays(
+  rows: { occurredAt: Date | string; macros: MacroValues }[],
+  timeZone: string,
+  localDate: string,
+): AppSnapshot["reports"]["nutritionDays"] {
+  const byDate = new Map<string, { entryCount: number; macros: MacroValues }>();
+  for (const row of rows) {
+    const date = dateKey(row.occurredAt, timeZone);
+    const current = byDate.get(date) ?? { entryCount: 0, macros: { calories: 0, proteinGrams: 0, fatGrams: 0, carbsGrams: 0 } };
+    byDate.set(date, { entryCount: current.entryCount + 1, macros: sumMacros([current.macros, row.macros]) });
+  }
+  if (!byDate.has(localDate)) {
+    byDate.set(localDate, { entryCount: 0, macros: { calories: 0, proteinGrams: 0, fatGrams: 0, carbsGrams: 0 } });
+  }
+  return [...byDate.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, value]) => ({ date, entryCount: value.entryCount, ...value.macros }));
+}
+
 export async function ensureOwner() {
   const telegramUserId = process.env.TELEGRAM_OWNER_ID;
   if (!telegramUserId) throw new AppError(503, "Владелец ещё не настроен.");
@@ -120,7 +139,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     return { name: rows[0].name, count: rows.length, amountMinor: totalExpenses(rows) };
   }).filter((v) => v.count > 1).sort((a, b) => b.amountMinor - a.amountMinor);
   const reports: AppSnapshot["reports"] = {
-    nutritionDays: calendar.map((date) => { const rows = foods.filter((v) => dateKey(v.occurredAt, owner.timezone) === date); return { date, entryCount: rows.length, ...sumMacros(rows.map(macroNumbers)) }; }),
+    nutritionDays: buildNutritionHistoryDays(foods.map((food) => ({ occurredAt: food.occurredAt, macros: macroNumbers(food) })), owner.timezone, localDate),
     expenseDays: calendar.map((date) => ({ date, amountMinor: totalExpenses(expenses.filter((v) => dateKey(v.occurredAt, owner.timezone) === date)) })),
     expenseCategories: categories.map((category) => ({ name: category.name, amountMinor: totalExpenses(monthlyExpenses.filter((v) => v.categoryId === category.id)) })).filter((v) => v.amountMinor > 0).sort((a, b) => b.amountMinor - a.amountMinor),
     monthComparison: { currentMinor: totalExpenses(monthlyExpenses.filter((v) => dateKey(v.occurredAt, owner.timezone) <= localDate)), previousMinor: totalExpenses(previousExpenses), previousPeriodEnd },

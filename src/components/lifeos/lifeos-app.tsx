@@ -220,6 +220,7 @@ function FoodEntry({ entry, timeZone, onEdit, onDelete }: { entry: LifeOSSnapsho
 }
 
 function FinanceEntry({ entry, timeZone, onEdit, onDelete }: { entry: MoneyEntry; timeZone: string; onEdit(): void; onDelete(): void }) {
+  const signedAmountMinor = (entry.kind === "expense" ? -1 : 1) * Math.abs(entry.amountMinor);
   return (
     <li className={styles.entryRow}>
       <div className={styles.entryTime}>{timeLabel(entry.occurredAt, timeZone)}</div>
@@ -228,7 +229,7 @@ function FinanceEntry({ entry, timeZone, onEdit, onDelete }: { entry: MoneyEntry
         <span>{entry.category} · {entry.kind === "income" ? "Доход" : "Расход"}</span>
       </div>
       <div className={styles.moneyEntryAmount}>
-        <strong className={entry.kind === "income" ? styles.income : ""}>{moneyLabel(entry.amountMinor, entry.currency, true)}</strong>
+        <strong className={entry.kind === "income" ? styles.income : ""}>{moneyLabel(signedAmountMinor, entry.currency, true)}</strong>
         <div className={styles.entryActions}>
           <button type="button" className={styles.iconAction} aria-label={`Исправить: ${entry.label}`} onClick={onEdit}><Icon name="edit" /></button>
           <button type="button" className={styles.iconAction} aria-label={`Удалить: ${entry.label}`} onClick={onDelete}><Icon name="trash" /></button>
@@ -579,14 +580,38 @@ function LifeOSApp({ snapshot, onAction, initialSection = "today", onDateChange,
   const renderFinance = () => {
     if (!snapshot) return <SetupState onAction={onAction} />;
     const entries = [...snapshot.finance.entries].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    const primaryAccount = snapshot.finance.accounts.find((account) => account.id === snapshot.settings.defaultAccountId)
+      ?? snapshot.finance.accounts.find((account) => account.isDefault)
+      ?? snapshot.finance.accounts[0];
     return (
       <div className={`${styles.screenStack} ${styles.financeTone}`}>
         <GlassSurface className={styles.moduleSurface} focus>
           <div className={styles.sectionTopline}><span className={styles.eyebrow}>ОБЗОР</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
-          <div className={styles.financeSummary}>
-            <Stat value={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
-            <Stat value={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="За месяц" tone="amber" />
+          <div className={styles.financeOverview}>
+            {primaryAccount ? (
+              <div className={styles.financeBalance}>
+                <span className={styles.financeBalanceLabel}>Текущий баланс</span>
+                <strong className={styles.financeBalanceValue}>
+                  {moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency).replace(primaryAccount.currency === "USD" ? " $" : " р. ПМР", "")}
+                  <small>{primaryAccount.currency === "USD" ? "$" : "р. ПМР"}</small>
+                </strong>
+                <span className={styles.financeBalanceAccount}>{primaryAccount.name.trim() || "Основной счёт"} · {primaryAccount.currency === "USD" ? "доллары США" : "рубли ПМР"}</span>
+              </div>
+            ) : (
+              <div className={styles.financeEmptyBalance}>
+                <span className={styles.financeBalanceLabel}>Текущий баланс</span>
+                <strong>Основной счёт не настроен</strong>
+                <p>Добавьте счёт, чтобы видеть баланс здесь.</p>
+              </div>
+            )}
+            <div className={styles.financeSummary}>
+              <Stat value={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
+              <Stat value={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="За месяц" tone="amber" />
+            </div>
           </div>
+          {!primaryAccount && <div className={styles.financeOverviewActions}>
+            <button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Настроить счёт <Icon name="plus" /></button>
+          </div>}
           <div className={styles.actionRow}>
             <button type="button" className={styles.primaryButton} onClick={(event) => openSheet("finance", event.currentTarget)}><Icon name="plus" /> Добавить операцию</button>
           </div>
