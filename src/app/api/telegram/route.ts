@@ -37,6 +37,12 @@ export async function POST(request: Request): Promise<Response> {
       throw new AppError(400, "Некорректный запрос Telegram.");
     }
 
+    if (!process.env.TELEGRAM_OWNER_ID) {
+      const diagnostic = buildOwnerSetupDiagnostic(getActorId(payload));
+      if (diagnostic) console.info(diagnostic);
+      throw new AppError(503, "Владелец ещё не настроен.");
+    }
+
     const owner = await ensureOwner();
     const actorId = getActorId(payload);
     if (actorId === null || String(actorId) !== owner.telegramUserId) {
@@ -90,6 +96,15 @@ function getActorId(update: Record<string, unknown>): number | null {
     return sender.id;
   }
   return null;
+}
+
+type OwnerSetupDiagnostic = Readonly<{
+  event: "telegram_owner_id_setup";
+  senderId: number;
+}>;
+
+function buildOwnerSetupDiagnostic(actorId: number | null): OwnerSetupDiagnostic | null {
+  return actorId === null ? null : { event: "telegram_owner_id_setup", senderId: actorId };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
