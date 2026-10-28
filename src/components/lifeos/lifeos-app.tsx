@@ -93,7 +93,7 @@ function timeLabel(value: string, timeZone: string): string {
 
 function moneyLabel(minor: number, currency: "PRB" | "USD", signed = false): string {
   const value = minor / 100;
-  const prefix = signed && minor < 0 ? "−" : signed && minor > 0 ? "+" : "";
+  const prefix = minor < 0 ? "−" : signed && minor > 0 ? "+" : "";
   const amount = decimalFormat.format(Math.abs(value));
   return currency === "USD" ? `${prefix}${amount} $` : `${prefix}${amount} р. ПМР`;
 }
@@ -118,10 +118,11 @@ function remainingText(consumed: number, target: number): string {
   return remaining >= 0 ? `Осталось ${numberFormat.format(remaining)}` : `Сверх цели ${numberFormat.format(Math.abs(remaining))}`;
 }
 
-function Stat({ value, unit, label, tone }: { value: string; unit?: string; label: string; tone?: "sage" | "amber" | "plum" }) {
+function Stat({ value, unit, label, detail, tone }: { value: string; unit?: string; label: string; detail?: string; tone?: "sage" | "amber" | "plum" }) {
   return (
     <div className={`${styles.stat} ${tone ? styles[tone] : ""}`}>
       <span className={styles.statLabel}>{label}</span>
+      {detail && <span className={styles.statDetail}>{detail}</span>}
       <span className={styles.statValue}>{value}{unit && <small>{unit}</small>}</span>
     </div>
   );
@@ -500,7 +501,9 @@ function LifeOSApp({ snapshot, onAction, initialSection = "today", onDateChange,
 
   const renderToday = () => {
     if (!snapshot) return <SetupState onAction={onAction} />;
-    const financeEntryCount = snapshot.finance.entries.length;
+    const primaryAccount = snapshot.finance.accounts.find((account) => account.id === snapshot.settings.defaultAccountId)
+      ?? snapshot.finance.accounts.find((account) => account.isDefault)
+      ?? snapshot.finance.accounts[0];
     const workout = snapshot.gym.trainingDay ? snapshot.gym.nextWorkout : null;
     return (
       <GlassSurface className={styles.todaySurface} focus>
@@ -513,11 +516,19 @@ function LifeOSApp({ snapshot, onAction, initialSection = "today", onDateChange,
         <section className={`${styles.todaySection} ${styles.financeTone}`}>
           <ModuleHeading title="Финансы" onOpen={() => navigate("finance")} />
           <div className={styles.financeSummary}>
-            <Stat value={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="Сегодня" tone="amber" />
-            <Stat value={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="За месяц" tone="amber" />
+            <Stat
+              value={primaryAccount ? moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency).replace(primaryAccount.currency === "USD" ? " $" : " р. ПМР", "") : "—"}
+              unit={primaryAccount ? primaryAccount.currency === "USD" ? "$" : "р. ПМР" : undefined}
+              label="Основной счёт"
+              detail={primaryAccount ? primaryAccount.name.trim() || "Основной счёт" : "Счёт не настроен"}
+              tone="amber"
+            />
+            <Stat value={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB").replace(" р. ПМР", "")} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
           </div>
-          <div className={styles.summaryFoot}><span>Рубли ПМР</span><span>{numberFormat.format(financeEntryCount)} {pluralize(financeEntryCount, "операция", "операции", "операций")}</span></div>
-          <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "finance.add" })}><Icon name="plus" />Записать операцию</button>
+          <div className={styles.financeActions}>
+            {!primaryAccount && <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "finance.manage-accounts" })}><Icon name="plus" />Настроить счёт</button>}
+            <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "finance.add" })}><Icon name="plus" />Записать операцию</button>
+          </div>
         </section>
         <section className={`${styles.todaySection} ${styles.gymTone}`}>
           <ModuleHeading title="Зал" onOpen={() => navigate("gym")} />
