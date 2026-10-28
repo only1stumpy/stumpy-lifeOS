@@ -8,6 +8,7 @@ import type { AppCommand } from "@/domain/commands";
 import { EditorDialog } from "@/components/editor/editor";
 import type { EditorState } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
+import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 
 type LifeOSRootProps = { configured: boolean };
@@ -134,6 +135,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [initData, setInitData] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [showAiQuotas, setShowAiQuotas] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
@@ -325,6 +327,8 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     setEditor(nextEditor);
   }, []);
 
+  const closeAiQuotas = useCallback(() => setShowAiQuotas(false), []);
+
   const handleAction = useCallback((action: LifeOSAction) => {
     if (!snapshot || !configured || !initData) return;
     setError(null);
@@ -399,11 +403,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       <LifeOSApp
         snapshot={snapshot}
         onAction={handleAction}
+        onOpenAiQuotas={() => setShowAiQuotas(true)}
         onDateChange={(date) => void changeDate(date)}
         fullscreen={telegramFullscreen}
         safeAreaTop={telegramSafeAreaTop}
         contentSafeAreaTop={telegramContentSafeAreaTop}
       />
+      {showAiQuotas && initData && <AiQuotasPanel initData={initData} onClose={closeAiQuotas} />}
       {snapshot.activeSession && (
         <button type="button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })}>
           {pending ? "Сохраняю…" : "Завершить тренировку"}
