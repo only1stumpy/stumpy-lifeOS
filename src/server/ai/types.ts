@@ -1,5 +1,21 @@
 export type AnalysisProvider = "gemini" | "groq";
 
+/**
+ * Read-only reference question with a compact JSON snapshot assembled by the caller.
+ * Limits: question <= 2,000 chars; serialized JSON context <= 8,000 chars.
+ */
+export type LifeOSQuestionInput = {
+  question: string;
+  context: string;
+};
+
+/** Plain-text Russian answer returned by the configured AI provider. */
+export type LifeOSQuestionResult = {
+  answer: string;
+  provider: AnalysisProvider;
+  model: string;
+};
+
 export type AnalysisFood = {
   label: string;
   portionLabel: string;
