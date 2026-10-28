@@ -78,7 +78,7 @@ test("контекст суммы баланса детерминированн�
     });
 
     assert.deepEqual(kindReply.entries, []);
-    assert.equal(kindReply.clarification, "Уточните категорию дохода.");
+    assert.equal(kindReply.clarification, "Подскажи, пожалуйста, категорию дохода — например, «зарплата».");
     assert.equal(kindReply.provider, "local");
 
     const categoryHistory = nextClarificationHistory(

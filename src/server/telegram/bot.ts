@@ -34,7 +34,7 @@ function getBot(): Bot<Context> {
       .webApp("Открыть LifeOS", appUrl)
       .row()
       .text("Сводка сегодня", "today");
-    await ctx.reply("Присылайте еду и расходы сообщением или фотографией. Подтверждение появится перед записью.", {
+    await ctx.reply("Привет! Просто напиши, что съел или купил, — я подготовлю черновик и покажу его перед записью. Можно отправить фото еды или этикетки; порцию достаточно описать примерно.", {
       reply_markup: keyboard,
     });
   });
@@ -51,7 +51,7 @@ function getBot(): Bot<Context> {
       .update(schema.ownerSettings)
       .set({ editingCaptureId: null, aiClarificationHistory: null, aiClarificationUpdatedAt: null, updatedAt: new Date() })
       .where(eq(schema.ownerSettings.id, owner.id));
-    await ctx.reply("Режим исправления отменён.");
+    await ctx.reply("Хорошо, отменил исправление. Если нужно что-то записать, просто пришли новое сообщение.");
   });
 
   bot.callbackQuery("today", async (ctx) => {
@@ -79,8 +79,8 @@ function getBot(): Bot<Context> {
       if (action === "confirm") {
         await executeCommand({ type: "draft.confirm", id });
         await clearEditingCapture(id);
-        await ctx.answerCallbackQuery({ text: "Записано." });
-        await markMessage(ctx, "Записано.");
+        await ctx.answerCallbackQuery({ text: "Готово, записал." });
+        await markMessage(ctx, "Готово, записал.");
         const [food] = await getDb()
           .select({ id: schema.nutritionEntries.id, name: schema.nutritionEntries.name })
           .from(schema.nutritionEntries)
@@ -99,7 +99,7 @@ function getBot(): Bot<Context> {
             .where(and(eq(schema.foodTemplates.ownerId, ownerId), sql`lower(${schema.foodTemplates.name}) = lower(${food.name})`))
             .limit(1);
           if (repeats.length >= 2 && !template) {
-            await ctx.reply("Это блюдо уже повторялось. Запомнить обычную порцию?", {
+            await ctx.reply("Вижу, это блюдо уже было. Запомнить его как твою обычную порцию?", {
               reply_markup: new InlineKeyboard().text("Запомнить блюдо", `template:${food.id}`),
             });
           }
@@ -110,8 +110,8 @@ function getBot(): Bot<Context> {
       if (action === "cancel") {
         await executeCommand({ type: "draft.reject", id });
         await clearEditingCapture(id);
-        await ctx.answerCallbackQuery({ text: "Черновик отменён." });
-        await markMessage(ctx, "Черновик отменён.");
+        await ctx.answerCallbackQuery({ text: "Хорошо, отменил." });
+        await markMessage(ctx, "Хорошо, черновик отменён. Ничего не записывал.");
         return;
       }
 
@@ -122,7 +122,7 @@ function getBot(): Bot<Context> {
           .set({ editingCaptureId: id, updatedAt: new Date() })
           .where(eq(schema.ownerSettings.id, owner.id));
         await ctx.answerCallbackQuery();
-        await markMessage(ctx, "Напишите исправление следующим сообщением. Для отмены отправьте /cancel.");
+        await markMessage(ctx, "Напиши следующим сообщением, что поправить — например, «гречки две тарелки, мяса вдвое меньше». Если передумал, отправь /cancel.");
         return;
       }
 
@@ -136,14 +136,14 @@ function getBot(): Bot<Context> {
         if (!food) throw new AppError(404, "Запись еды не найдена.");
         await executeCommand({ type: "template.save", foodEntryId: id, name: food.name });
         await ctx.answerCallbackQuery({ text: "Блюдо запомнено." });
-        await markMessage(ctx, "Блюдо сохранено как обычная порция.");
+        await markMessage(ctx, "Готово, сохранил блюдо как обычную порцию. В следующий раз записать его будет быстрее.");
         return;
       }
 
       if (action === "pay") {
         await executeCommand({ type: "recurring.confirm", id });
-        await ctx.answerCallbackQuery({ text: "Оплата подтверждена." });
-        await markMessage(ctx, "Фактическая оплата записана.");
+        await ctx.answerCallbackQuery({ text: "Оплату записал." });
+        await markMessage(ctx, "Готово, записал фактическую оплату.");
         return;
       }
 
@@ -170,7 +170,7 @@ function getBot(): Bot<Context> {
       candidate.width * candidate.height > largest.width * largest.height ? candidate : largest,
     );
     if (!text.trim() && !photo) {
-      await ctx.reply("Понимаю текстовые сообщения и фотографии еды или этикетки.");
+      await ctx.reply("Я умею разбирать текст и фото еды или этикетки. Пришли одно из них — посмотрим, что получится записать.");
       return;
     }
 
@@ -197,11 +197,11 @@ function getBot(): Bot<Context> {
       }
 
       if (photo) {
-        const status = await ctx.reply("Распознаю фото и оцениваю порцию.");
+        const status = await ctx.reply("Смотрю фото и оцениваю порцию…");
         statusMessageId = status.message_id;
         image = await downloadTelegramPhoto(ctx, photo.file_id);
       } else {
-        const status = await ctx.reply("Разбираю сообщение.");
+        const status = await ctx.reply("Разбираю сообщение…");
         statusMessageId = status.message_id;
       }
 
@@ -215,17 +215,17 @@ function getBot(): Bot<Context> {
 
       if (previousDraftId && result.draftIds.length) await clearEditingCapture(previousDraftId);
       if (statusMessageId) {
-        await ctx.api.editMessageText(ctx.chat.id, statusMessageId, "Проверяю распознанные данные.").catch(() => undefined);
+        await ctx.api.editMessageText(ctx.chat.id, statusMessageId, "Сверяю детали перед записью…").catch(() => undefined);
       }
 
       if (!result.draftIds.length) {
         if (statusMessageId) await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
-        await ctx.reply(result.clarification ?? "Уточните описание.");
+        await ctx.reply(result.clarification ?? "Подскажи, пожалуйста, чуть подробнее, что именно нужно записать.");
         return;
       }
 
       if (statusMessageId) {
-        await ctx.api.editMessageText(ctx.chat.id, statusMessageId, "Готовлю отдельные подтверждения.").catch(() => undefined);
+        await ctx.api.editMessageText(ctx.chat.id, statusMessageId, "Готовлю отдельные черновики для подтверждения…").catch(() => undefined);
       }
       const snapshot = await loadSnapshot();
       const drafts = snapshot.drafts.filter((draft) => result.draftIds.includes(draft.id));
@@ -237,7 +237,7 @@ function getBot(): Bot<Context> {
       if (statusMessageId) await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
       const messageText = error instanceof AppError || error instanceof AIAnalysisError
         ? error.message
-        : "Не удалось разобрать сообщение. Попробуйте ещё раз или опишите еду и сумму текстом.";
+        : "Не получилось разобрать сообщение. Попробуй ещё раз или напиши, что съел или купил и сколько это стоило.";
       await ctx.reply(messageText);
       if (error instanceof AppError && error.status < 500) return;
       if (error instanceof AIAnalysisError && (error.code === "invalid_input" || error.code === "not_configured")) return;
@@ -278,12 +278,12 @@ export async function sendOwnerMessage(
 async function sendToday(ctx: Context): Promise<void> {
   try {
     const snapshot = await loadSnapshot();
-    const lines = [`Сегодня · ${snapshot.localDate}`];
+    const lines = [`Вот что уже есть за сегодня · ${snapshot.localDate}`];
     const nutrition = snapshot.nutrition;
     lines.push(`Питание: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
     lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
     if (nutrition.target) {
-      lines.push(`До цели: ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+      lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
     }
     lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")} сегодня · ${formatMoney(snapshot.finance.spentMonthPrbMinor, "PRB")} за месяц`);
     if (snapshot.gym.nextWorkout) {
@@ -366,15 +366,15 @@ function formatDraft(
   } catch {
     time = draft.occurredAt;
   }
-  const lines = [`Черновик · ${time}`];
+  const lines = [`Проверь, пожалуйста · ${time}`];
   if (draft.food) {
     lines.push(`Еда: ${draft.food.label} · ${draft.food.portionLabel}`);
     lines.push(`КБЖУ: ${Math.round(draft.food.calories)} ккал · Б ${round1(draft.food.proteinGrams)} · Ж ${round1(draft.food.fatGrams)} · У ${round1(draft.food.carbsGrams)} г`);
-    if (draft.food.estimated) lines.push("Значения примерные.");
+    if (draft.food.estimated) lines.push("КБЖУ оценены примерно.");
   }
   if (draft.money) {
     lines.push(`${draft.money.kind === "income" ? "Доход" : "Расход"}: ${draft.money.label} · ${formatMoney(draft.money.amountMinor, draft.money.currency)}`);
-    lines.push(draft.money.category ? `Категория: ${draft.money.category}` : "Категория не определена — укажите её через «Исправить».");
+    lines.push(draft.money.category ? `Категория: ${draft.money.category}` : "Категорию пока не распознал — выбери её через «Исправить».");
   }
   return lines.join("\n");
 }
@@ -512,30 +512,30 @@ export async function sendDeduplicatedOwnerNotification(
 
 export async function sendDuePaymentReminder(paymentId: string, name: string, amountMinor: number, currency: "PRB" | "USD", dueOn: string): Promise<boolean> {
   const keyboard = new InlineKeyboard().text("Оплата списана", `pay:${paymentId}`);
-  const text = `Пора проверить платёж: ${name} · ${formatMoney(amountMinor, currency)} · срок ${dueOn}. Записываю расход только после вашего подтверждения.`;
+  const text = `Похоже, подошёл срок платежа: ${name} · ${formatMoney(amountMinor, currency)} · ${dueOn}. Проверь, списались ли деньги. Расход запишу только после твоего подтверждения.`;
   return sendDeduplicatedOwnerNotification(`payment:${paymentId}:${dueOn}`, text, keyboard);
 }
 
 export async function sendDailySummary(now: Date, timeZone: string): Promise<boolean> {
   const today = dateKey(now, timeZone);
   const snapshot = await loadSnapshot(today);
-  const lines = [`Сводка за ${today}`];
+  const lines = [`Вот твоя сводка за сегодня · ${today}`];
   const nutrition = snapshot.nutrition;
   lines.push(`КБЖУ: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
   lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
-  if (nutrition.target) lines.push(`До цели: ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+  if (nutrition.target) lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
   lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")}`);
   const remaining = nutrition.target ? Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories)) : 0;
   if (remaining > 0) {
     const owner = await ensureOwner();
     const suggestions = await getUsualFoodSuggestions(owner.id, remaining);
     if (suggestions.length) {
-      lines.push("Из привычного можно добрать:");
+      lines.push("Если захочешь добрать калории, вот знакомые варианты:");
       for (const suggestion of suggestions) {
         lines.push(`${formatPortionCount(suggestion.fraction)} «${suggestion.name}» (${suggestion.portionLabel}) ≈ ${Math.round(suggestion.macros.calories)} ккал · Б ${round1(suggestion.macros.proteinGrams)} · Ж ${round1(suggestion.macros.fatGrams)} · У ${round1(suggestion.macros.carbsGrams)} г`);
       }
     } else {
-      lines.push("Пока нет сохранённых или повторяющихся блюд для конкретной подсказки.");
+      lines.push("Пока не нашёл знакомых блюд для подсказки. Повторяющиеся блюда можно сохранить как обычную порцию.");
     }
   }
   return sendDeduplicatedOwnerNotification(`daily:${today}`, lines.join("\n"));
@@ -671,7 +671,7 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     ? weeklyWeights.length === 1 ? `Вес: ${round1(Number(weeklyWeights[0].weightKg))} кг · одна запись за неделю` : "Вес: записей на этой неделе нет"
     : `Вес: ${round1(Number(weeklyWeights[0].weightKg))} → ${round1(Number(weeklyWeights[weeklyWeights.length - 1].weightKg))} кг (${formatSigned(Number(weeklyWeights[weeklyWeights.length - 1].weightKg) - Number(weeklyWeights[0].weightKg))} кг)`;
   const text = [
-    `Итоги недели · ${weekStart} — ${localToday}`,
+    `Вот как прошла неделя · ${weekStart} — ${localToday}`,
     `Питание: ${Math.round(macros.calories)} ккал · Б ${Math.round(macros.proteinGrams)} · Ж ${Math.round(macros.fatGrams)} · У ${Math.round(macros.carbsGrams)} г суммарно`,
     loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : "Питание: записей за неделю нет",
     `Расходы: ${formatMoney(weeklySpending, "PRB")}`,
