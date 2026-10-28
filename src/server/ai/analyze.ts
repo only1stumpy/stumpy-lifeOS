@@ -6,6 +6,7 @@ import {
   type AnalysisResult,
   type AnalyzeMessageInput,
 } from "./types";
+import { normalizeClarificationHistory } from "./clarification";
 
 const MAX_TEXT_LENGTH = 8_000;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -81,6 +82,7 @@ const SYSTEM_PROMPT = `Ты разбираешь сообщения и фото�
 - Для денег amountMinor — целое число в копейках PRB или центах USD: 85 рублей = 8500 PRB minor, 10 USD = 1000 USD minor. Сумма положительная. Не конвертируй валюты. Если валюта не названа, используй PRB. Неясную категорию верни null. Для знакомой покупки используй предоставленные категории. Новую категорию предлагай только если пользователь явно назвал её в сообщении; иначе верни null и попроси уточнение.
 - Определи kind=expense для трат, kind=income для доходов. Не создавай регулярный платёж без фактической операции.
 - Для даты используй переданные now и timeZone. Если время не указано, ставь now. Понимай явные слова вроде «вчера», «утром», «сейчас». Верни occurredAt как ISO datetime в UTC с суффиксом Z. Не угадывай дату, если текст неоднозначен: уточни её.
+- Если передана clarificationHistory, это короткая история незавершённого разбора, а не дополнительные операции. Считай последнее сообщение пользователя ответом на последний вопрос ассистента, если оно явно не описывает новое самостоятельное событие. При ответе вроде «доход» или «да» восстанови исходное событие из истории и текущего сообщения; не создавай запись без суммы и других обязательных данных. Если текущее сообщение явно описывает новое событие, разбирай его отдельно и не переноси в него значения из старого вопроса.
 - Если передан previousDraft и сообщение явно исправляет его, верни полную обновлённую версию черновика: сохрани все неизменённые значения и записи, меняй только то, что пользователь явно поправил. Если это новое независимое событие — не редактируй черновик.
 - Если нечего уверенно предложить, верни entries=[] и короткий вопрос в clarification. У каждой записи должен быть food, money или оба поля.
 
@@ -183,12 +185,17 @@ function validateInput(input: AnalyzeMessageInput): AnalyzeMessageInput {
       templates: input.templates ?? [],
       categories: input.categories ?? [],
       previousDraft: input.previousDraft ?? null,
+      clarificationHistory: input.clarificationHistory ?? [],
     });
     if (typeof contextText !== "string" || contextText.length > MAX_CONTEXT_LENGTH) {
       throw new Error();
     }
 
-    return input;
+    const clarificationHistory = input.clarificationHistory === undefined
+      ? undefined
+      : normalizeClarificationHistory(input.clarificationHistory);
+    if (input.clarificationHistory !== undefined && input.clarificationHistory.length > 10) throw new Error();
+    return { ...input, clarificationHistory: clarificationHistory ?? undefined };
   } catch {
     throw new AIAnalysisError(
       "invalid_input",
@@ -202,6 +209,7 @@ function makeUserContext(input: AnalyzeMessageInput): string {
     now: new Date(input.now).toISOString(),
     timeZone: input.timeZone,
     message: input.text,
+    clarificationHistory: input.clarificationHistory ?? [],
     templates: input.templates ?? [],
     categories: input.categories ?? [],
     previousDraft: input.previousDraft ?? null,

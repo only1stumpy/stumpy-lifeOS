@@ -20,7 +20,6 @@ export type EditorState =
   | { kind: "program" }
   | { kind: "exercise"; dayId: string }
   | { kind: "set"; dayId: string; exerciseId: string; set: ExerciseSet }
-  | { kind: "draft-correction"; draftId: string; description: string }
   | { kind: "delete-food"; id: string; label: string }
   | { kind: "delete-money"; id: string; label: string };
 
@@ -34,14 +33,6 @@ type EditorDialogProps = {
   onCommand(command: AppCommand, keepOpen?: boolean): Promise<boolean>;
 };
 
-type DraftQueueProps = {
-  drafts: AppSnapshot["drafts"];
-  pending: boolean;
-  onCommand(command: AppCommand, keepOpen?: boolean): Promise<boolean>;
-  onCorrect(draft: AppSnapshot["drafts"][number]): void;
-};
-
-const decimal = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
 const moneyDecimal = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function recordValue(form: FormData, name: string): string {
@@ -584,7 +575,6 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "program": return renderProgramForm();
       case "exercise": return renderExerciseForm(editor.dayId);
       case "set": return renderSetForm(editor.dayId, editor.exerciseId, editor.set);
-      case "draft-correction": return <form onSubmit={(event) => submitForm(event, (form) => ({ type: "analyze", previousDraftId: editor.draftId, text: requiredText(form, "text", "Исправление") }))}><p>Напишите, что изменить в распознанной записи.</p><label>Исправление<textarea name="text" rows={3} maxLength={10000} required defaultValue={editor.description} placeholder="Например: гречки две тарелки, мяса вдвое меньше" /></label><div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Пересчитать</button></div></form>;
       case "delete-food": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "food.delete", id: editor.id })} />;
       case "delete-money": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "money.delete", id: editor.id })} />;
     }
@@ -617,32 +607,6 @@ function MoveButton({ direction, label, disabled, onClick }: { direction: "up" |
   return <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{direction === "up" ? "↑" : "↓"}</button>;
 }
 
-export function DraftQueue({ drafts, pending, onCommand, onCorrect }: DraftQueueProps) {
-  if (drafts.length === 0) return null;
-  return (
-    <aside className="app-notice" aria-labelledby="lifeos-drafts-title">
-      <h2 id="lifeos-drafts-title">Проверьте распознанное</h2>
-      <ul>
-        {drafts.map((draft) => {
-          const hasItems = Boolean(draft.food || draft.money);
-          return (
-            <li key={draft.id}>
-              <p><strong>{draft.description || "Запись без описания"}</strong></p>
-              {draft.food && <p>{draft.food.label} · {draft.food.portionLabel} · {decimal.format(draft.food.calories)} ккал · Б {decimal.format(draft.food.proteinGrams)} / Ж {decimal.format(draft.food.fatGrams)} / У {decimal.format(draft.food.carbsGrams)} г{draft.food.estimated ? " · оценка" : ""}</p>}
-              {draft.money && <p>{draft.money.label} · {amountLabel(draft.money.amountMinor, draft.money.currency)} · {draft.money.category ?? "категория не выбрана"}</p>}
-              <div className="actions">
-                <button type="button" disabled={pending} onClick={() => onCorrect(draft)}>Исправить</button>
-                {hasItems && <button className="submit" type="button" disabled={pending} onClick={() => onCommand({ type: "draft.confirm", id: draft.id }, true)}>{draft.food && draft.money ? "Записать всё" : draft.food ? "Записать еду" : "Записать операцию"}</button>}
-                <button type="button" disabled={pending} onClick={() => onCommand({ type: "draft.reject", id: draft.id }, true)}>Отклонить</button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
-  );
-}
-
 function editorTitle(editor: EditorState): string {
   switch (editor.kind) {
     case "food": return editor.entry ? "Исправить еду" : "Добавить еду";
@@ -654,7 +618,6 @@ function editorTitle(editor: EditorState): string {
     case "program": return "Тренировочный план";
     case "exercise": return "Новое упражнение";
     case "set": return "Результат подхода";
-    case "draft-correction": return "Исправить распознавание";
     case "delete-food": return "Удалить запись еды";
     case "delete-money": return "Удалить операцию";
   }

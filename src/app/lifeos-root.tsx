@@ -7,7 +7,6 @@ import { commandSchema } from "@/domain/commands";
 import type { AppCommand } from "@/domain/commands";
 import { EditorDialog } from "@/components/editor/editor";
 import type { EditorState } from "@/components/editor/editor";
-import { DraftQueue } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 
@@ -112,7 +111,6 @@ function editorIdentity(editor: EditorState): string {
     case "recurring": return `recurring:${editor.item?.id ?? "new"}`;
     case "exercise": return `exercise:${editor.dayId}`;
     case "set": return `set:${editor.dayId}:${editor.exerciseId}:${editor.set.id}`;
-    case "draft-correction": return `draft-correction:${editor.draftId}`;
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
     case "target":
@@ -334,7 +332,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   return (
     <>
       {showGlobalError && <p className="app-notice" role="alert">{error}</p>}
-      <DraftQueue drafts={snapshot.drafts} pending={pending} onCommand={sendCommand} onCorrect={(draft) => openEditor({ kind: "draft-correction", draftId: draft.id, description: draft.description })} />
       <LifeOSApp snapshot={snapshot} onAction={handleAction} onDateChange={(date) => void changeDate(date)} />
       {snapshot.activeSession && (
         <button type="button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })}>

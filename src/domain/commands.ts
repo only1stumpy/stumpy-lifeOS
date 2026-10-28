@@ -27,6 +27,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("session.finish"), id }),
   z.object({ type: z.literal("draft.confirm"), id }),
   z.object({ type: z.literal("draft.reject"), id }),
+  z.object({ type: z.literal("draft.money-category.set"), id, category: text }),
   z.object({ type: z.literal("template.save"), foodEntryId: id, name: text }),
   z.object({ type: z.literal("analyze"), text: z.string().trim().min(1).max(10000), previousDraftId: id.optional() }),
 ]);

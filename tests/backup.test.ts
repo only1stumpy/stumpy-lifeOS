@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
+import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import {
   createBackup,
@@ -11,6 +12,8 @@ import {
   validateBackup,
   type BackupDatabase,
 } from "@/server/backup";
+import { setPendingMoneyDraftCategory } from "@/server/lifeos";
+import type { Transaction } from "@/db/client";
 
 const OWNER_ID = "123456789";
 const OWNER_UUID = "10000000-0000-4000-8000-000000000001";
@@ -57,7 +60,7 @@ test("recurring payment migration backfills anchors from existing due dates", as
 
   try {
     const migrations = await migrationNames();
-    assert.equal(migrations.length, 2);
+    assert.equal(migrations.length, 3);
     await applyMigration(client, migrations[0]);
     await client.exec(`
       INSERT INTO owner_settings (id, telegram_user_id)
@@ -70,11 +73,123 @@ test("recurring payment migration backfills anchors from existing due dates", as
       VALUES ('80000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001', 'Подписка', 10, 'PRB', '2026-01-31', 'month');
     `);
     await applyMigration(client, migrations[1]);
+    await applyMigration(client, migrations[2]!);
 
     const result = await client.query(
       "SELECT anchor_day, anchor_month FROM recurring_payments WHERE id = '80000000-0000-4000-8000-000000000001'",
     );
     assert.deepEqual(result.rows[0], { anchor_day: 31, anchor_month: 1 });
+  } finally {
+    await client.close();
+  }
+});
+
+test("clarification history is owner-scoped JSON text with a separate expiry timestamp", async () => {
+  const client = new PGlite();
+  try {
+    await migrate(client);
+    const database = drizzle(client, { schema });
+    await database.insert(schema.ownerSettings).values({ id: OWNER_UUID, telegramUserId: OWNER_ID });
+    const updatedAt = new Date("2026-10-28T06:00:00.000Z");
+    await database.update(schema.ownerSettings).set({
+      aiClarificationHistory: [
+        { role: "user", text: "у меня на счету 742р" },
+        { role: "assistant", text: "Это доход или остаток?" },
+      ],
+      aiClarificationUpdatedAt: updatedAt,
+    }).where(eq(schema.ownerSettings.id, OWNER_UUID));
+
+    const [owner] = await database.select().from(schema.ownerSettings).where(eq(schema.ownerSettings.telegramUserId, OWNER_ID));
+    assert.deepEqual(owner?.aiClarificationHistory, [
+      { role: "user", text: "у меня на счету 742р" },
+      { role: "assistant", text: "Это доход или остаток?" },
+    ]);
+    assert.equal(owner?.aiClarificationUpdatedAt?.toISOString(), updatedAt.toISOString());
+  } finally {
+    await client.close();
+  }
+});
+
+test("уточнение категории меняет только категорию pending income-черновика и не записывает доход", async () => {
+  const client = new PGlite();
+  try {
+    await migrate(client);
+    const database = drizzle(client, { schema });
+    const occurredAt = new Date("2026-10-28T06:04:00.000Z");
+    await database.insert(schema.ownerSettings).values({ id: OWNER_UUID, telegramUserId: OWNER_ID });
+    await database.insert(schema.financeAccounts).values({
+      id: ACCOUNT_PRB_UUID,
+      ownerId: OWNER_UUID,
+      name: "Основной",
+      currency: "PRB",
+      isDefault: true,
+    });
+    await database.insert(schema.captureDrafts).values({
+      id: CAPTURE_UUID,
+      ownerId: OWNER_UUID,
+      kind: "finance",
+      status: "pending",
+      messageText: "доход",
+    });
+    await database.insert(schema.moneyDrafts).values({
+      ownerId: OWNER_UUID,
+      captureDraftId: CAPTURE_UUID,
+      accountId: ACCOUNT_PRB_UUID,
+      proposedCategory: null,
+      categoryId: null,
+      entryType: "income",
+      name: "Доход",
+      amount: "742.0000",
+      currency: "PRB",
+      occurredAt,
+    });
+
+    await database.transaction((tx) => setPendingMoneyDraftCategory(
+      tx as unknown as Transaction,
+      OWNER_UUID,
+      CAPTURE_UUID,
+      "Зарплата",
+    ));
+
+    const [money] = await database.select().from(schema.moneyDrafts)
+      .where(eq(schema.moneyDrafts.captureDraftId, CAPTURE_UUID));
+    const [capture] = await database.select().from(schema.captureDrafts)
+      .where(eq(schema.captureDrafts.id, CAPTURE_UUID));
+    const [category] = await database.select().from(schema.financeCategories)
+      .where(and(eq(schema.financeCategories.id, money!.categoryId!), eq(schema.financeCategories.ownerId, OWNER_UUID)));
+    const entries = await database.select().from(schema.financeEntries)
+      .where(eq(schema.financeEntries.captureDraftId, CAPTURE_UUID));
+
+    assert.equal(category?.name, "Зарплата");
+    assert.equal(category?.entryType, "income");
+    assert.equal(money?.name, "Доход");
+    assert.equal(money?.amount, "742.0000");
+    assert.equal(money?.currency, "PRB");
+    assert.equal(money?.entryType, "income");
+    assert.equal(money?.accountId, ACCOUNT_PRB_UUID);
+    assert.equal(money?.occurredAt.toISOString(), occurredAt.toISOString());
+    assert.equal(capture?.status, "pending");
+    assert.equal(entries.length, 0);
+    await assert.rejects(
+      database.transaction((tx) => setPendingMoneyDraftCategory(
+        tx as unknown as Transaction,
+        "20000000-0000-4000-8000-000000000099",
+        CAPTURE_UUID,
+        "Не владелец",
+      )),
+      /Черновик не найден/,
+    );
+    await database.update(schema.captureDrafts).set({ status: "cancelled" })
+      .where(eq(schema.captureDrafts.id, CAPTURE_UUID));
+    await assert.rejects(
+      database.transaction((tx) => setPendingMoneyDraftCategory(
+        tx as unknown as Transaction,
+        OWNER_UUID,
+        CAPTURE_UUID,
+        "Другая категория",
+      )),
+      /Черновик уже отменён/,
+    );
   } finally {
     await client.close();
   }

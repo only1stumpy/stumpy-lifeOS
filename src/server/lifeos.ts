@@ -10,6 +10,7 @@ import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { AppError } from "./http";
 import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
+import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
 
 const decimal = (minor: number) => {
   const n = BigInt(minor);
@@ -172,6 +173,33 @@ async function category(tx: Transaction, ownerId: string, name: string, entryTyp
   const [row] = await tx.select().from(s.financeCategories).where(and(eq(s.financeCategories.ownerId, ownerId), eq(s.financeCategories.name, name), eq(s.financeCategories.entryType, entryType)));
   return row;
 }
+
+export async function setPendingMoneyDraftCategory(
+  tx: Transaction,
+  ownerId: string,
+  draftId: string,
+  name: string,
+): Promise<void> {
+  const [draft] = await tx.select().from(s.captureDrafts)
+    .where(and(eq(s.captureDrafts.id, draftId), eq(s.captureDrafts.ownerId, ownerId)))
+    .for("update");
+  if (!draft) throw new AppError(404, "Черновик не найден.");
+  if (draft.status !== "pending") throw new AppError(409, "Черновик уже отменён.");
+
+  const [money] = await tx.select().from(s.moneyDrafts)
+    .where(and(eq(s.moneyDrafts.captureDraftId, draftId), eq(s.moneyDrafts.ownerId, ownerId)));
+  if (!money) throw new AppError(400, "Черновик не содержит финансовую операцию.");
+
+  const group = await category(tx, ownerId, name, money.entryType as "expense" | "income");
+  await tx.update(s.moneyDrafts)
+    .set({ categoryId: group.id, proposedCategory: group.name })
+    .where(and(eq(s.moneyDrafts.captureDraftId, draftId), eq(s.moneyDrafts.ownerId, ownerId)));
+}
+
+export function missingMoneyCategoryMessage(entryType: "expense" | "income"): string {
+  const categoryKind = entryType === "income" ? "дохода" : "расхода";
+  return `Уточните категорию ${categoryKind} через «Исправить».`;
+}
 async function account(tx: Transaction, ownerId: string, accountId?: string, currency?: string) {
   const rows = await tx.select().from(s.financeAccounts).where(and(eq(s.financeAccounts.ownerId, ownerId), eq(s.financeAccounts.isArchived, false)));
   const row = accountId ? rows.find((v) => v.id === accountId) : rows.find((v) => v.isDefault && (!currency || v.currency === currency)) ?? rows.find((v) => !currency || v.currency === currency);
@@ -209,8 +237,25 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   }
   const snapshot = await loadSnapshot();
   const templates = await getDb().select().from(s.foodTemplates).where(eq(s.foodTemplates.ownerId, owner.id));
-  const analysis = await analyzeMessage({ ...input, now: new Date().toISOString(), timeZone: owner.timezone, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) });
-  if (!analysis.entries.length) throw new AppError(400, analysis.clarification ?? "Уточните описание.");
+  const analyzedAt = new Date();
+  const clarificationHistory = activeClarificationHistory(
+    owner.aiClarificationHistory,
+    owner.aiClarificationUpdatedAt,
+    analyzedAt,
+  );
+  if (!clarificationHistory && (owner.aiClarificationHistory || owner.aiClarificationUpdatedAt)) {
+    await getDb().update(s.ownerSettings)
+      .set({ aiClarificationHistory: null, aiClarificationUpdatedAt: null, updatedAt: analyzedAt })
+      .where(eq(s.ownerSettings.id, owner.id));
+  }
+  const analysis = await analyzeMessage({ ...input, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) });
+  if (!analysis.entries.length) {
+    const nextHistory = nextClarificationHistory(clarificationHistory, input.text, analysis.clarification, false);
+    await getDb().update(s.ownerSettings)
+      .set({ aiClarificationHistory: nextHistory, aiClarificationUpdatedAt: nextHistory ? analyzedAt : null, updatedAt: analyzedAt })
+      .where(eq(s.ownerSettings.id, owner.id));
+    return { ...analysis, draftIds: [] as string[] };
+  }
   const draftIds: string[] = [];
   await getDb().transaction(async (tx) => {
     if (input.previousDraftId) await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.id, input.previousDraftId), eq(s.captureDrafts.status, "pending")));
@@ -225,6 +270,10 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
         await tx.insert(s.moneyDrafts).values({ ownerId: owner.id, captureDraftId: capture.id, name: entry.money.label, entryType: entry.money.kind, amount: decimal(entry.money.amountMinor), currency: entry.money.currency, accountId: chosen?.id ?? null, proposedCategory: entry.money.category, occurredAt });
       }
     }
+    const resolvedHistory = nextClarificationHistory(clarificationHistory, input.text, analysis.clarification, draftIds.length > 0);
+    await tx.update(s.ownerSettings)
+      .set({ aiClarificationHistory: resolvedHistory, aiClarificationUpdatedAt: resolvedHistory ? analyzedAt : null, updatedAt: analyzedAt })
+      .where(eq(s.ownerSettings.id, owner.id));
   });
   return { ...analysis, draftIds };
 }
@@ -367,6 +416,7 @@ export async function executeCommand(command: AppCommand) {
       }
       case "session.finish": await tx.update(s.workoutSessions).set({ status: "completed", completedAt: new Date() }).where(and(eq(s.workoutSessions.id, command.id), eq(s.workoutSessions.ownerId, owner.id), eq(s.workoutSessions.status, "active"))); break;
       case "draft.reject": await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.status, "pending"))); break;
+      case "draft.money-category.set": await setPendingMoneyDraftCategory(tx, owner.id, command.id, command.category); break;
       case "draft.confirm": {
         const [draft] = await tx.select().from(s.captureDrafts).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
         if (!draft) throw new AppError(404, "Черновик не найден.");
@@ -376,7 +426,7 @@ export async function executeCommand(command: AppCommand) {
         const [money] = await tx.select().from(s.moneyDrafts).where(eq(s.moneyDrafts.captureDraftId, draft.id));
         if (food) await tx.insert(s.nutritionEntries).values({ ownerId: owner.id, captureDraftId: draft.id, name: food.name, portionLabel: food.portionLabel, ...macroStrings(macroNumbers(food)), occurredAt: food.occurredAt, estimated: food.estimated });
         if (money) {
-          if (!money.proposedCategory && !money.categoryId) throw new AppError(400, "Уточните категорию расхода через «Исправить».");
+          if (!money.proposedCategory && !money.categoryId) throw new AppError(400, missingMoneyCategoryMessage(money.entryType === "income" ? "income" : "expense"));
           const chosen = await account(tx, owner.id, money.accountId ?? undefined, money.currency);
           const group = money.categoryId ? null : await category(tx, owner.id, money.proposedCategory!, money.entryType as "expense" | "income");
           const rate = await rateAt(tx, owner.id, chosen.currency, money.occurredAt);

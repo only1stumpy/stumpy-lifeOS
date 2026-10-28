@@ -8,6 +8,7 @@ import { suggestTargets } from "../src/domain/nutrition";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
 import { analyzeMessage } from "../src/server/ai/analyze";
+import { missingMoneyCategoryMessage } from "../src/server/lifeos";
 import { verifyTelegramInitData } from "../src/server/telegram/auth";
 
 const botToken = "test-bot-token";
@@ -199,13 +200,25 @@ test("ИИ пробует выбранные бесплатные модели G
   };
 
   try {
-    const result = await analyzeMessage({ text: "тарелка гречки", now: "2026-10-27T16:00:00.000Z", timeZone: "Europe/Chisinau" });
+    const result = await analyzeMessage({
+      text: "доход",
+      clarificationHistory: [
+        { role: "user", text: "у меня на счету 742р" },
+        { role: "assistant", text: "Это доход или остаток по счёту?" },
+      ],
+      now: "2026-10-27T16:00:00.000Z",
+      timeZone: "Europe/Chisinau",
+    });
     assert.equal(calls.length, 2);
     assert.equal(calls[0]?.url.includes("/models/gemini-3.5-flash-lite:"), true);
     assert.equal(JSON.parse(String(calls[1]?.init?.body)).model, "qwen/qwen3.8-27b");
     assert.equal(result.provider, "groq");
     assert.equal(result.model, "qwen/qwen3.8-27b");
     assert.equal(result.entries[0]?.food?.estimated, true);
+    const groqRequest = JSON.parse(String(calls[1]?.init?.body)) as { messages: { role: string; content: string }[] };
+    assert.match(groqRequest.messages[1]?.content ?? "", /у меня на счету 742р/);
+    assert.match(groqRequest.messages[1]?.content ?? "", /Это доход или остаток по счёту\?/);
+    assert.match(groqRequest.messages[1]?.content ?? "", /"message":"доход"/);
   } finally {
     globalThis.fetch = oldFetch;
     for (const key of keys) {
@@ -238,6 +251,14 @@ test("команды отклоняют отрицательные или нек
   assert.equal(commandSchema.safeParse({ type: "weight.save", date: "2026-10-27", weightKg: -80 }).success, false);
   assert.equal(commandSchema.safeParse({ type: "day.save", name: "A", weekday: 7 }).success, false);
   assert.equal(commandSchema.safeParse({ type: "food.delete", id: "not-a-uuid" }).success, false);
+  assert.deepEqual(commandSchema.parse({ type: "draft.money-category.set", id: entryId, category: " зарплата " }), {
+    type: "draft.money-category.set",
+    id: entryId,
+    category: "зарплата",
+  });
+  assert.equal(commandSchema.safeParse({ type: "draft.money-category.set", id: "bad-id", category: "" }).success, false);
+  assert.equal(missingMoneyCategoryMessage("income"), "Уточните категорию дохода через «Исправить».");
+  assert.equal(missingMoneyCategoryMessage("expense"), "Уточните категорию расхода через «Исправить».");
 });
 
 test("предложенная цель КБЖУ даёт редактируемые числовые значения и отклоняет неподходящие параметры", () => {

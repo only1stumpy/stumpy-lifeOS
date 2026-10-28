@@ -28,6 +28,8 @@ export const ownerSettings = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     telegramUserId: text("telegram_user_id").notNull(),
     editingCaptureId: uuid("editing_capture_id"),
+    aiClarificationHistory: jsonb("ai_clarification_history").$type<{ role: "user" | "assistant"; text: string }[]>(),
+    aiClarificationUpdatedAt: timestamp("ai_clarification_updated_at", { withTimezone: true, mode: "date" }),
     timezone: text("timezone").default("Europe/Chisinau").notNull(),
     dateOfBirth: date("date_of_birth", { mode: "string" }),
     heightCm: numeric("height_cm", { precision: 6, scale: 2 }),
