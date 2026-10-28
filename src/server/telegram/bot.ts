@@ -6,6 +6,8 @@ import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
 import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
 import { executeCommand, ensureOwner, analyzeCapture, loadSnapshot } from "@/server/lifeos";
+import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
+import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
 
@@ -180,6 +182,26 @@ function getBot(): Bot<Context> {
     let image: { mimeType: string; dataBase64: string } | undefined;
 
     try {
+      if (!photo && text.trim() && isReferenceQuestion(text)) {
+        const snapshot = await loadSnapshot();
+        const knownAnswer = answerKnownReferenceQuestion(text, snapshot);
+        if (knownAnswer) {
+          await ctx.reply(knownAnswer);
+          return;
+        }
+
+        // A pending correction keeps its editing context. Direct factual queries above are still answered.
+        if (!previousDraftId) {
+          const status = await ctx.reply("Сверяюсь с твоими данными и подбираю ответ…");
+          statusMessageId = status.message_id;
+          const result = await answerLifeOSQuestion({ question: text, context: makeReferenceContext(snapshot) });
+          await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
+          statusMessageId = undefined;
+          await ctx.reply(result.answer);
+          return;
+        }
+      }
+
       if (previousDraftId && !photo && text.trim() && await isUncategorizedPendingMoneyDraft(owner.id, previousDraftId)) {
         const categoryCommand = commandSchema.safeParse({
           type: "draft.money-category.set",
