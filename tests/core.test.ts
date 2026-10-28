@@ -203,7 +203,7 @@ test("ИИ пробует выбранные бесплатные модели G
     const result = await analyzeMessage({
       text: "доход",
       clarificationHistory: [
-        { role: "user", text: "у меня на счету 742р" },
+        { role: "user", text: "у меня на счету" },
         { role: "assistant", text: "Это доход или остаток по счёту?" },
       ],
       now: "2026-10-27T16:00:00.000Z",
@@ -216,7 +216,7 @@ test("ИИ пробует выбранные бесплатные модели G
     assert.equal(result.model, "qwen/qwen3.8-27b");
     assert.equal(result.entries[0]?.food?.estimated, true);
     const groqRequest = JSON.parse(String(calls[1]?.init?.body)) as { messages: { role: string; content: string }[] };
-    assert.match(groqRequest.messages[1]?.content ?? "", /у меня на счету 742р/);
+    assert.match(groqRequest.messages[1]?.content ?? "", /у меня на счету/);
     assert.match(groqRequest.messages[1]?.content ?? "", /Это доход или остаток по счёту\?/);
     assert.match(groqRequest.messages[1]?.content ?? "", /"message":"доход"/);
   } finally {

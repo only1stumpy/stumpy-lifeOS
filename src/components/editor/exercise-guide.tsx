@@ -19,12 +19,12 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
   const selected = entries.find((entry) => entry.id === selectedId) ?? null;
 
   return (
-    <section aria-label="Каталог упражнений">
-      <div className="fields-row">
+    <section className="exercise-guide" aria-label="Каталог упражнений">
+      <div className="fields-row exercise-guide__filters">
         <label>Поиск упражнения<input type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Название, мышцы или инвентарь" /></label>
         <label>Раздел<select value={category} onChange={(event) => setCategory(event.currentTarget.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
       </div>
-      <div role="group" aria-label="Найденные упражнения" style={{ display: "grid", gap: 8, maxHeight: 300, overflowY: "auto", padding: "2px 4px 2px 0" }}>
+      <div className="exercise-guide__list" role="group" aria-label="Найденные упражнения" tabIndex={0}>
         {filtered.map((entry) => {
           const isSelected = entry.id === selectedId;
           return (
@@ -34,11 +34,11 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
               aria-pressed={isSelected}
               aria-label={`${entry.name}; ${entry.muscles}; ${entry.equipment}`}
               onClick={() => onSelect(entry.id)}
-              style={{ display: "grid", gridTemplateColumns: "62px minmax(0, 1fr)", alignItems: "center", gap: 12, width: "100%", minHeight: 72, padding: 8, borderRadius: 16, borderColor: isSelected ? "#742b45" : "#742b4530", background: isSelected ? "#742b4510" : "#ffffff50", color: "inherit", textAlign: "left" }}
+              className={`exercise-guide__item${isSelected ? " is-selected" : ""}`}
             >
               <ExerciseIllustration kind={entry.illustration} />
-              <span style={{ display: "grid", gap: 3, minWidth: 0 }}>
-                <strong style={{ fontWeight: 500 }}>{entry.name}</strong>
+              <span className="exercise-guide__item-copy">
+                <strong>{entry.name}</strong>
                 <small>{entry.muscles} · {entry.equipment}</small>
               </span>
             </button>
@@ -47,7 +47,7 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
         {filtered.length === 0 && <p role="status">Ничего не нашлось. Попробуйте другое название или выберите упражнение вручную.</p>}
       </div>
       {selected && (
-        <p aria-live="polite" style={{ marginTop: 12 }}>
+        <p className="exercise-guide__details" aria-live="polite">
           <strong>{selected.category}</strong> · {selected.muscles}<br />
           <small>{selected.instructions}</small>
         </p>
@@ -58,7 +58,7 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
 
 function ExerciseIllustration({ kind }: { kind: ExerciseIllustration }) {
   return (
-    <svg width="62" height="54" viewBox="0 0 96 72" aria-hidden="true" focusable="false">
+    <svg className="exercise-guide__illustration" width="62" height="54" viewBox="0 0 96 72" aria-hidden="true" focusable="false">
       <path d="M9 61H87" stroke="#742b4530" strokeWidth="1.5" strokeLinecap="round" />
       <g fill="none" stroke="#742b45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         {drawMovement(kind)}

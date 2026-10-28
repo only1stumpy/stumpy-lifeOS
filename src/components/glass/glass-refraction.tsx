@@ -52,10 +52,10 @@ function createDisplacementPixels(
   radius: number,
   profile: GlassProfile,
 ): { data: Uint8ClampedArray; scale: number } {
-  const magnify = 1;
-  const bend = 0.06;
+  const magnify = 0.38;
+  const bend = 0.02;
   const spread = 0.58;
-  const bezelRatio = 0.62;
+  const bezelRatio = 0.36;
   const bezel = clamp(Math.min(width, height) * 0.5 * bezelRatio, 10, 220);
   const centerX = width / 2;
   const centerY = height / 2;
@@ -214,7 +214,7 @@ export function GlassRefraction({
 
       image.setAttribute("href", map.url);
       image.setAttributeNS(xlinkNamespace, "xlink:href", map.url);
-      const scale = map.scale * (profile === "thin" ? 1.35 : 1.1);
+      const scale = map.scale * (profile === "thin" ? 0.65 : 0.7);
       displacement.setAttribute("scale", scale.toFixed(2));
       surface.style.setProperty("backdrop-filter", `url("#${filterId}") blur(.3px) saturate(1.12)`);
       surface.style.setProperty("-webkit-backdrop-filter", `url("#${filterId}") blur(.3px) saturate(1.12)`);
@@ -259,10 +259,10 @@ export function GlassRefraction({
           ref={filterRef}
           id={filterId}
           colorInterpolationFilters="sRGB"
-          x="-35%"
-          y="-35%"
-          width="170%"
-          height="170%"
+          x="0%"
+          y="0%"
+          width="100%"
+          height="100%"
         >
           <feImage x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map" />
           <feDisplacementMap

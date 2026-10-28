@@ -7,13 +7,13 @@
 
 .reportStack {
   display: grid;
-  gap: 14px;
-  margin-top: 14px;
+  gap: 22px;
+  margin-top: 0;
 }
 
 .reportSurface {
   overflow: hidden;
-  padding: 21px 20px 20px;
+  padding: 26px 24px 24px;
   border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 27px;
   background:

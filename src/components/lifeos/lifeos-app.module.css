@@ -115,11 +115,14 @@
 }
 
 .main {
-  padding: 16px 22px calc(126px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding: 20px 24px calc(158px + env(safe-area-inset-bottom, 0px));
 }
 
 .pageHeading {
-  margin: 0 2px 18px;
+  margin: 0 2px;
 }
 
 .eyebrow {
@@ -143,7 +146,7 @@
 
 .screenStack {
   display: grid;
-  gap: 18px;
+  gap: 30px;
   min-width: 0;
 }
 
@@ -182,7 +185,7 @@
 
 .todaySurface {
   --surface-radius: 31px;
-  padding: 0 23px;
+  padding: 0 27px;
   border-color: rgba(255, 255, 255, 0.92);
   background:
     radial-gradient(ellipse at 14% 0%, rgba(255, 255, 255, 0.44), transparent 42%),
@@ -198,7 +201,7 @@
   --module: var(--wine);
   --module-soft: rgba(116, 43, 69, 0.1);
   position: relative;
-  padding: 25px 0 23px;
+  padding: 30px 0 28px;
 }
 
 .todaySection + .todaySection {
@@ -223,7 +226,7 @@
 .moduleSurface,
 .listSurface,
 .setupSurface {
-  padding: 22px 22px 21px;
+  padding: 27px 26px 26px;
 }
 
 .exerciseSurface {
@@ -271,9 +274,9 @@
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 8px;
   flex: 0 0 auto;
-  padding: 8px 10px;
+  padding: 10px 13px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -310,8 +313,8 @@
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 2px 0 8px;
+  gap: 12px;
+  margin: 5px 0 12px;
 }
 
 .calorieLine strong {
@@ -570,7 +573,7 @@
 }
 
 .sectionTopline {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .sectionTopline .eyebrow,
@@ -582,18 +585,18 @@
 .actionRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 14px;
+  margin-top: 24px;
 }
 
 .primaryButton,
 .secondaryButton {
   display: inline-flex;
-  min-height: 48px;
+  min-height: 52px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 14px 20px;
   border: 1px solid transparent;
   border-radius: 14px;
   cursor: pointer;
@@ -635,7 +638,7 @@
 }
 
 .listHeading {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .listHeading h2 {
@@ -1078,7 +1081,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 18px;
 }
 
 .workoutList {
@@ -1154,11 +1157,11 @@
 .programButton {
   display: flex;
   width: 100%;
-  min-height: 66px;
+  min-height: 72px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 11px 2px;
+  gap: 16px;
+  padding: 14px 4px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -1434,8 +1437,8 @@
 
 @media (max-width: 380px) {
   .appHeader { padding-inline: 19px; }
-  .main { padding-inline: 16px; }
-  .todaySurface { padding-inline: 18px; }
+  .main { padding-inline: 18px; }
+  .todaySurface { padding-inline: 21px; }
   .moduleSurface,
   .listSurface,
   .setupSurface { padding-inline: 18px; }
@@ -1453,12 +1456,12 @@
   }
 
   .appHeader { padding-inline: 28px; }
-  .main { padding: 20px 28px 128px; }
-  .todaySurface { padding-inline: 27px; }
-  .todaySection { padding-block: 24px 22px; }
+  .main { padding: 22px 30px calc(164px + env(safe-area-inset-bottom, 0px)); }
+  .todaySurface { padding-inline: 31px; }
+  .todaySection { padding-block: 30px 28px; }
   .moduleSurface,
   .listSurface,
-  .setupSurface { padding: 24px; }
+  .setupSurface { padding: 29px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

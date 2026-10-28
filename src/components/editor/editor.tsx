@@ -153,6 +153,17 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
 
   const title = editorTitle(editor);
   const activeError = formError ?? error;
+  const canGoBack = editor.kind === "program" && selectedDayId !== null;
+  const backLabel = selectedReplacementId ? "Назад к упражнениям дня" : "Назад к тренировочным дням";
+
+  function goBack() {
+    if (!canGoBack) return;
+    if (selectedReplacementId) {
+      setSelectedReplacementId(null);
+      return;
+    }
+    setSelectedDayId(null);
+  }
 
   async function submitForm(event: FormEvent<HTMLFormElement>, build: (form: FormData) => AppCommand, keepOpen = false): Promise<boolean> {
     event.preventDefault();
@@ -436,7 +447,6 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       const replacing = selectedDay.exercises.find((exercise) => exercise.id === selectedReplacementId) ?? null;
       if (replacing) return (
         <>
-          <button type="button" onClick={() => setSelectedReplacementId(null)}>К упражнениям дня</button>
           <h3>Заменить «{replacing.name}»</h3>
           <p>Количество подходов, целевые повторы и отдых останутся прежними. История уже проведённых тренировок сохранится.</p>
           {renderExerciseForm(selectedDay.id, replacing.id)}
@@ -444,7 +454,6 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       );
       return (
         <>
-          <button type="button" onClick={() => { setSelectedReplacementId(null); setSelectedDayId(null); }}>К тренировочным дням</button>
           <h3>{selectedDay.name}</h3>
           {selectedDay.exercises.length ? <ol>{selectedDay.exercises.map((exercise, index) => <li key={exercise.id}>
             <strong>{exercise.name}</strong> · {exercise.sets.length} подходов
@@ -583,14 +592,21 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   return (
     <dialog
       ref={dialogRef}
-      className="editor"
+      className={`editor${editor.kind === "program" || editor.kind === "exercise" || editor.kind === "set" ? " editor--workout" : ""}`}
       aria-labelledby="lifeos-editor-title"
       onCancel={(event) => { event.preventDefault(); if (!pending) onClose(); }}
       onClick={(event) => { if (event.target === dialogRef.current && !pending) onClose(); }}
     >
       <header className="editor-header">
-        <div><small>LifeOS</small><h2 id="lifeos-editor-title">{title}</h2></div>
-        <button type="button" aria-label="Закрыть панель" disabled={pending} onClick={onClose}>Закрыть</button>
+        {canGoBack && (
+          <button className="editor-icon-button" type="button" aria-label={backLabel} title={backLabel} disabled={pending} onClick={goBack}>
+            <EditorIcon kind="back" />
+          </button>
+        )}
+        <div className="editor-header__title"><small>LifeOS</small><h2 id="lifeos-editor-title">{title}</h2></div>
+        <button className="editor-icon-button" type="button" aria-label="Закрыть панель" title="Закрыть" disabled={pending} onClick={onClose}>
+          <EditorIcon kind="close" />
+        </button>
       </header>
       {activeError && <p className="error" role="alert">{activeError}</p>}
       {pending && <p role="status" aria-live="polite">Сохраняю…</p>}
@@ -605,6 +621,14 @@ function ConfirmDelete({ label, pending, onCancel, onConfirm }: { label: string;
 
 function MoveButton({ direction, label, disabled, onClick }: { direction: "up" | "down"; label: string; disabled: boolean; onClick(): void }) {
   return <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{direction === "up" ? "↑" : "↓"}</button>;
+}
+
+function EditorIcon({ kind }: { kind: "back" | "close" }) {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {kind === "back" ? <path d="M19 12H5m0 0 7-7m-7 7 7 7" /> : <path d="m18 6-12 12M6 6l12 12" />}
+    </svg>
+  );
 }
 
 function editorTitle(editor: EditorState): string {
