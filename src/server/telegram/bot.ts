@@ -3,6 +3,7 @@ import { Bot, InlineKeyboard, type Context } from "grammy";
 import type { InlineKeyboardMarkup, Update } from "grammy/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
+import { commandSchema } from "@/domain/commands";
 import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
 import { executeCommand, ensureOwner, analyzeCapture, loadSnapshot } from "@/server/lifeos";
 import { AppError } from "@/server/http";
@@ -48,7 +49,7 @@ function getBot(): Bot<Context> {
     const owner = await ensureOwner();
     await getDb()
       .update(schema.ownerSettings)
-      .set({ editingCaptureId: null, updatedAt: new Date() })
+      .set({ editingCaptureId: null, aiClarificationHistory: null, aiClarificationUpdatedAt: null, updatedAt: new Date() })
       .where(eq(schema.ownerSettings.id, owner.id));
     await ctx.reply("Режим исправления отменён.");
   });
@@ -179,6 +180,22 @@ function getBot(): Bot<Context> {
     let image: { mimeType: string; dataBase64: string } | undefined;
 
     try {
+      if (previousDraftId && !photo && text.trim() && await isUncategorizedPendingMoneyDraft(owner.id, previousDraftId)) {
+        const categoryCommand = commandSchema.safeParse({
+          type: "draft.money-category.set",
+          id: previousDraftId,
+          category: text.trim(),
+        });
+        if (!categoryCommand.success) throw new AppError(400, "Название категории должно быть не длиннее 300 символов.");
+        await executeCommand(categoryCommand.data);
+        await clearEditingCapture(previousDraftId);
+        const snapshot = await loadSnapshot();
+        const draft = snapshot.drafts.find((item) => item.id === previousDraftId);
+        if (!draft) throw new AppError(404, "Обновлённый черновик не найден.");
+        await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+        return;
+      }
+
       if (photo) {
         const status = await ctx.reply("Распознаю фото и оцениваю порцию.");
         statusMessageId = status.message_id;
@@ -196,7 +213,7 @@ function getBot(): Bot<Context> {
         telegramUpdateRowId: updateRowId,
       });
 
-      if (previousDraftId) await clearEditingCapture(previousDraftId);
+      if (previousDraftId && result.draftIds.length) await clearEditingCapture(previousDraftId);
       if (statusMessageId) {
         await ctx.api.editMessageText(ctx.chat.id, statusMessageId, "Проверяю распознанные данные.").catch(() => undefined);
       }
@@ -670,6 +687,30 @@ async function clearEditingCapture(id: string): Promise<void> {
     .update(schema.ownerSettings)
     .set({ editingCaptureId: null, updatedAt: new Date() })
     .where(and(eq(schema.ownerSettings.id, owner.id), eq(schema.ownerSettings.editingCaptureId, id)));
+}
+
+async function isUncategorizedPendingMoneyDraft(ownerId: string, draftId: string): Promise<boolean> {
+  const [draft] = await getDb().select({ id: schema.captureDrafts.id })
+    .from(schema.captureDrafts)
+    .where(and(
+      eq(schema.captureDrafts.id, draftId),
+      eq(schema.captureDrafts.ownerId, ownerId),
+      eq(schema.captureDrafts.status, "pending"),
+    ))
+    .limit(1);
+  if (!draft) return false;
+
+  const [money] = await getDb().select({
+    categoryId: schema.moneyDrafts.categoryId,
+    proposedCategory: schema.moneyDrafts.proposedCategory,
+  })
+    .from(schema.moneyDrafts)
+    .where(and(
+      eq(schema.moneyDrafts.captureDraftId, draftId),
+      eq(schema.moneyDrafts.ownerId, ownerId),
+    ))
+    .limit(1);
+  return Boolean(money && !money.categoryId && !money.proposedCategory);
 }
 
 async function markMessage(ctx: Context, text: string): Promise<void> {

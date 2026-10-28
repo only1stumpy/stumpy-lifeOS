@@ -38,11 +38,18 @@ export type AnalyzeMessageInput = {
     mimeType: string;
     dataBase64: string;
   };
+  clarificationHistory?: ClarificationMessage[];
   timeZone: string;
   now: string;
   templates?: unknown[];
   categories?: string[];
   previousDraft?: unknown;
+};
+
+/** Short, text-only conversation history for an unanswered AI clarification. */
+export type ClarificationMessage = {
+  role: "user" | "assistant";
+  text: string;
 };
 
 export type AIAnalysisErrorCode =

@@ -143,7 +143,7 @@
 
 .screenStack {
   display: grid;
-  gap: 13px;
+  gap: 18px;
   min-width: 0;
 }
 
@@ -198,7 +198,7 @@
   --module: var(--wine);
   --module-soft: rgba(116, 43, 69, 0.1);
   position: relative;
-  padding: 21px 0 19px;
+  padding: 25px 0 23px;
 }
 
 .todaySection + .todaySection {
@@ -223,7 +223,7 @@
 .moduleSurface,
 .listSurface,
 .setupSurface {
-  padding: 20px 20px 19px;
+  padding: 22px 22px 21px;
 }
 
 .exerciseSurface {
@@ -268,12 +268,12 @@
 .textLink,
 .backButton {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 5px;
   flex: 0 0 auto;
-  padding: 5px 0 5px 8px;
+  padding: 8px 10px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -303,7 +303,7 @@
 }
 
 .moduleHeading .textLink {
-  min-height: 36px;
+  min-height: 44px;
 }
 
 .calorieLine {
@@ -437,11 +437,11 @@
 
 .inlineEntry {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 46px;
   align-items: center;
   gap: 7px;
   margin: 12px 0 -4px;
-  padding: 6px 10px 6px 0;
+  padding: 8px 12px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -582,18 +582,18 @@
 .actionRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   margin-top: 20px;
 }
 
 .primaryButton,
 .secondaryButton {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 48px;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border: 1px solid transparent;
   border-radius: 14px;
   cursor: pointer;
@@ -677,7 +677,7 @@
   align-items: start;
   gap: 9px;
   min-width: 0;
-  padding: 13px 0;
+  padding: 15px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -719,8 +719,8 @@
 
 .iconAction {
   display: inline-grid;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
   place-items: center;
   padding: 0;
@@ -776,7 +776,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 13px 0;
+  padding: 15px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -925,7 +925,7 @@
 
 .setRow {
   min-width: 0;
-  padding: 10px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -946,11 +946,11 @@
 .setButton {
   display: inline-flex;
   min-width: 76px;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 9px;
+  padding: 8px 11px;
   border: 1px solid rgba(107, 102, 132, 0.23);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.25);
@@ -1039,11 +1039,11 @@
 .restTimerButton {
   display: inline-flex;
   min-width: 0;
-  min-height: 42px;
+  min-height: 44px;
   flex: 1 1 64px;
   align-items: center;
   justify-content: center;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border: 1px solid rgba(107, 102, 132, 0.28);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.25);
@@ -1092,7 +1092,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 12px 0;
+  padding: 14px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -1106,7 +1106,7 @@
 .exerciseOpen {
   display: grid;
   min-width: 0;
-  min-height: 44px;
+  min-height: 48px;
   align-content: center;
   gap: 3px;
   padding: 3px 0;
@@ -1154,11 +1154,11 @@
 .programButton {
   display: flex;
   width: 100%;
-  min-height: 62px;
+  min-height: 66px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 1px;
+  padding: 11px 2px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -1167,15 +1167,18 @@
 
 .programButton > div {
   display: grid;
+  min-width: 0;
   gap: 3px;
 }
 
 .programButton strong {
+  overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 560;
 }
 
 .programButton span {
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 10px;
 }
@@ -1267,7 +1270,7 @@
   display: grid;
   width: 100%;
   min-width: 44px;
-  min-height: 52px;
+  min-height: 56px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -1371,11 +1374,11 @@
 .sheetOption {
   display: flex;
   width: 100%;
-  min-height: 60px;
+  min-height: 64px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 15px;
   background: rgba(255, 255, 255, 0.32);
@@ -1400,11 +1403,13 @@
 }
 
 .sheetOption strong {
+  overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 560;
 }
 
 .sheetOption small {
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.35;
@@ -1433,10 +1438,10 @@
   .todaySurface { padding-inline: 18px; }
   .moduleSurface,
   .listSurface,
-  .setupSurface { padding-inline: 16px; }
+  .setupSurface { padding-inline: 18px; }
   .entryRow { grid-template-columns: 37px minmax(0, 1fr) auto; gap: 6px; }
   .entryActions { gap: 0; }
-  .iconAction { width: 34px; height: 38px; }
+  .iconAction { width: 44px; height: 44px; }
   .moneyEntryAmount > strong { font-size: 10px; }
   .macroRow { grid-template-columns: 18px minmax(32px, 1fr) minmax(68px, auto); gap: 7px; }
 }
