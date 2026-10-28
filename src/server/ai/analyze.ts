@@ -78,11 +78,11 @@ const SYSTEM_PROMPT = `Ты разбираешь сообщения и фото�
 - Пиши естественно, тепло и по-человечески, обращайся на «ты». Если данных не хватает, задай один короткий и конкретный вопрос, например: «Подскажи, пожалуйста, какая была порция?». Без канцелярита, эмодзи, лишних вступлений и советов, о которых не просили.
 
 ПРАВИЛА РАЗБОРА
-- Пиши по-русски. Не выдумывай факты, блюдо, цену, дату, категорию или порцию. Если данных недостаточно, задай короткий уточняющий вопрос в clarification и не создавай соответствующую запись.
+- Пиши по-русски. Не выдумывай факты, блюдо, цену, дату или порцию. Если данных недостаточно, задай короткий уточняющий вопрос в clarification и не создавай соответствующую запись.
 - Создавай отдельную запись для каждого отдельного блюда или финансовой операции. Если одно событие одновременно описывает еду и её цену (например, «съел удон за 85 рублей»), заполни food и money в одной записи. Не объединяй несвязанные события.
 - Для еды оцени только калории, белки, жиры и углеводы. Не требуй точного взвешивания: используй бытовые меры, обычную порцию и явную приблизительность. Не выдавай оценку по фото за измеренные граммы. Установи estimated=true для приблизительных значений; false допускается только для данных, явно прочитанных с этикетки/введённых пользователем и рассчитанных для названной порции.
 - Если на фото этикетка, считай только читаемые значения. Не угадывай нечитаемые цифры. Если этикетка показывает значения на 100 г, но количество съеденного неизвестно, спроси о количестве.
-- Для денег amountMinor — целое число в копейках PRB или центах USD: 85 рублей = 8500 PRB minor, 10 USD = 1000 USD minor. Сумма положительная. Не конвертируй валюты. Если валюта не названа, используй PRB. Неясную категорию верни null. Для знакомой покупки используй предоставленные категории. Новую категорию предлагай только если пользователь явно назвал её в сообщении; иначе верни null и попроси уточнение.
+- Для денег amountMinor — целое число в копейках PRB или центах USD: 85 рублей = 8500 PRB minor, 10 USD = 1000 USD minor. Сумма положительная. Не конвертируй валюты. Если валюта не названа, используй PRB. Всегда назначай категорию по смыслу названия операции и сообщения. Если подходит одна из предоставленных категорий, используй её; иначе выбери короткое понятное название категории. Например: маршрутка, автобус и такси — «Транспорт»; бензин и ремонт машины — «Авто»; продукты — «Продукты»; кафе, ресторан и доставка — «Кафе и рестораны»; зарплата — «Зарплата». Если в сообщении нет содержательной подсказки о категории, используй «Прочее». Не возвращай null и не задавай вопрос только о категории.
 - Определи kind=expense для трат, kind=income для доходов. Не создавай регулярный платёж без фактической операции.
 - Для даты используй переданные now и timeZone. Если время не указано, ставь now. Понимай явные слова вроде «вчера», «утром», «сейчас». Верни occurredAt как ISO datetime в UTC с суффиксом Z. Не угадывай дату, если текст неоднозначен: уточни её.
 - Если передана clarificationHistory, это короткая история незавершённого разбора, а не дополнительные операции. Считай последнее сообщение пользователя ответом на последний вопрос ассистента, если оно явно не описывает новое самостоятельное событие. При ответе вроде «доход» или «да» восстанови исходное событие из истории и текущего сообщения; не создавай запись без суммы и других обязательных данных. Если текущее сообщение явно описывает новое событие, разбирай его отдельно и не переноси в него значения из старого вопроса.
@@ -90,7 +90,7 @@ const SYSTEM_PROMPT = `Ты разбираешь сообщения и фото�
 - Если нечего уверенно предложить, верни entries=[] и короткий вопрос в clarification. У каждой записи должен быть food, money или оба поля.
 
 ФОРМАТ
-Верни только объект JSON с ключами entries и clarification. У каждой записи ключи food, money, occurredAt. food — null или объект с label, portionLabel, calories, proteinGrams, fatGrams, carbsGrams, estimated. money — null или объект с label, amountMinor, currency (PRB/USD), kind (expense/income), category (строка или null). clarification — строка или null. Не оборачивай JSON в markdown.`;
+Верни только объект JSON с ключами entries и clarification. У каждой записи ключи food, money, occurredAt. food — null или объект с label, portionLabel, calories, proteinGrams, fatGrams, carbsGrams, estimated. money — null или объект с label, amountMinor, currency (PRB/USD), kind (expense/income), category (строка). clarification — строка или null. Не оборачивай JSON в markdown.`;
 
 /** Uses configured cloud providers only; photos are sent inline and never stored. */
 export async function analyzeMessage(
@@ -102,17 +102,6 @@ export async function analyzeMessage(
     validatedInput.text,
     validatedInput.clarificationHistory,
   );
-  if (moneyClarification?.type === "category_required") {
-    const clarification = moneyClarification.kind === "income"
-      ? "Подскажи, пожалуйста, категорию дохода — например, «зарплата»."
-      : "Подскажи, пожалуйста, категорию расхода — например, «еда» или «транспорт».";
-    return {
-      entries: [],
-      clarification,
-      provider: "local",
-      model: null,
-    };
-  }
   if (moneyClarification?.type === "resolved") {
     return {
       entries: [{ food: null, money: moneyClarification.money, occurredAt: new Date(validatedInput.now).toISOString() }],
@@ -140,7 +129,7 @@ export async function analyzeMessage(
         config.provider === "gemini"
           ? await callGemini(config, context, validatedInput.image)
           : await callGroq(config, context, validatedInput.image);
-      const payload = parseAnalysisPayload(text);
+      const payload = normalizeMoneyCategories(parseAnalysisPayload(text), validatedInput);
 
       return {
         ...payload,
@@ -428,6 +417,117 @@ function parseAnalysisPayload(
   }));
 
   return { entries, clarification: parsed.data.clarification };
+}
+
+type MoneyCategoryGroup = {
+  kind: NonNullable<AnalysisEntry["money"]>["kind"];
+  categoryPattern: RegExp;
+  transactionPattern: RegExp;
+  fallback: string;
+};
+
+const MONEY_CATEGORY_GROUPS: MoneyCategoryGroup[] = [
+  {
+    kind: "expense",
+    categoryPattern: /транспорт|проезд|маршрут|автобус|такси/iu,
+    transactionPattern: /маршрут|автобус|троллейбус|трамва|метро|такси|проезд/iu,
+    fallback: "Транспорт",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /авто|машин|топлив|бензин|дизел/iu,
+    transactionPattern: /бензин|дизел|топлив|заправ|автосервис|ремонт\s+(?:авто|машин)|автомобил/iu,
+    fallback: "Авто",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /продукт|магазин|питан|еда/iu,
+    transactionPattern: /продукт|покупк.{0,12}магазин|магазин.{0,12}продукт/iu,
+    fallback: "Продукты",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /кафе|ресторан|столов|общепит|питан|еда/iu,
+    transactionPattern: /кафе|ресторан|столов|доставк|суши|ролл|пицц|шаурм|фастфуд|кофе/iu,
+    fallback: "Кафе и рестораны",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /питан|еда|продукт|кафе|ресторан/iu,
+    transactionPattern: /обед|ужин|завтрак|еда|питани|блюдо|суп|лапш|удон/iu,
+    fallback: "Еда",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /подпис|сервис|развлеч|spotify|chatgpt/iu,
+    transactionPattern: /подпис|spotify|chatgpt|netflix|youtube\s*premium/iu,
+    fallback: "Подписки",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /связ|телефон|мобильн|интернет/iu,
+    transactionPattern: /телефон|мобильн.{0,12}связ|связь|интернет/iu,
+    fallback: "Связь",
+  },
+  {
+    kind: "expense",
+    categoryPattern: /здоров|медицин|аптек|лекарств/iu,
+    transactionPattern: /аптек|лекарств|медицин|врач|стоматолог/iu,
+    fallback: "Здоровье",
+  },
+  {
+    kind: "income",
+    categoryPattern: /зарплат|оклад|преми/iu,
+    transactionPattern: /зарплат|оклад|аванс|преми/iu,
+    fallback: "Зарплата",
+  },
+];
+
+function normalizeMoneyCategories(
+  payload: Omit<AnalysisResult, "provider" | "model">,
+  input: AnalyzeMessageInput,
+): Omit<AnalysisResult, "provider" | "model"> {
+  const categories = input.categories ?? [];
+  const entries = payload.entries.map((entry) => {
+    if (!entry.money) return entry;
+
+    const selectedCategory = entry.money.category?.trim();
+    const textGroup = MONEY_CATEGORY_GROUPS.find(
+      (candidate) =>
+        candidate.kind === entry.money?.kind &&
+        candidate.transactionPattern.test(`${entry.money.label} ${input.text}`),
+    );
+    const group = textGroup ?? (selectedCategory
+      ? MONEY_CATEGORY_GROUPS.find(
+          (candidate) => candidate.kind === entry.money?.kind && candidate.categoryPattern.test(selectedCategory),
+        )
+      : undefined);
+    if (!group) {
+      const exactMatch = selectedCategory
+        ? categories.find((category) => normalizeCategoryName(category) === normalizeCategoryName(selectedCategory))
+        : undefined;
+      return {
+        ...entry,
+        money: { ...entry.money, category: exactMatch ?? selectedCategory ?? existingOtherCategory(categories) },
+      };
+    }
+
+    const existingCategory = categories.find((category) => group.categoryPattern.test(category));
+    return {
+      ...entry,
+      money: { ...entry.money, category: existingCategory ?? (textGroup ? group.fallback : selectedCategory ?? group.fallback) },
+    };
+  });
+
+  return { ...payload, entries };
+}
+
+function existingOtherCategory(categories: string[]): string {
+  return categories.find((category) => normalizeCategoryName(category) === "прочее") ?? "Прочее";
+}
+
+function normalizeCategoryName(value: string): string {
+  return value.trim().toLocaleLowerCase("ru-RU").replace(/ё/gu, "е");
 }
 
 function isValidBase64(value: string): boolean {
