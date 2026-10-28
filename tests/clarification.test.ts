@@ -52,7 +52,7 @@ test("создание черновика очищает историю, а но
   );
 });
 
-test("контекст суммы баланса детерминированно превращается в уточнение категории и финансовый черновик", async () => {
+test("контекст суммы баланса создаёт черновик без отдельного вопроса о категории", async () => {
   const keys = ["GEMINI_API_KEY", "GEMINI_MODEL", "GROQ_API_KEY", "GROQ_MODEL"] as const;
   const oldEnvironment = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   const oldFetch = globalThis.fetch;
@@ -77,36 +77,43 @@ test("контекст суммы баланса детерминированн�
       timeZone: "Europe/Chisinau",
     });
 
-    assert.deepEqual(kindReply.entries, []);
-    assert.equal(kindReply.clarification, "Подскажи, пожалуйста, категорию дохода — например, «зарплата».");
+    assert.deepEqual(kindReply.entries, [{
+      food: null,
+      money: {
+        label: "Прочее",
+        amountMinor: 74_200,
+        currency: "PRB",
+        kind: "income",
+        category: "Прочее",
+      },
+      occurredAt: "2026-10-28T06:33:00.000Z",
+    }]);
+    assert.equal(kindReply.clarification, null);
     assert.equal(kindReply.provider, "local");
 
-    const categoryHistory = nextClarificationHistory(
-      history,
-      "доход",
-      kindReply.clarification,
-      false,
-    );
-    const categoryReply = await analyzeMessage({
-      text: "зарплата",
-      clarificationHistory: categoryHistory ?? undefined,
+    const knownSourceCategory = await analyzeMessage({
+      text: "доход",
+      clarificationHistory: [
+        { role: "user", text: "у меня на счету 742р зарплата" },
+        { role: "assistant", text: "Это доход или остаток по счёту?" },
+      ],
       now: "2026-10-28T06:34:00.000Z",
       timeZone: "Europe/Chisinau",
     });
 
-    assert.deepEqual(categoryReply.entries, [{
+    assert.deepEqual(knownSourceCategory.entries, [{
       food: null,
       money: {
         label: "Зарплата",
         amountMinor: 74_200,
         currency: "PRB",
         kind: "income",
-        category: "зарплата",
+        category: "Зарплата",
       },
       occurredAt: "2026-10-28T06:34:00.000Z",
     }]);
-    assert.equal(categoryReply.clarification, null);
-    assert.equal(categoryReply.provider, "local");
+    assert.equal(knownSourceCategory.clarification, null);
+    assert.equal(knownSourceCategory.provider, "local");
 
     const recoveredLegacyReply = await analyzeMessage({
       text: "зарплата",

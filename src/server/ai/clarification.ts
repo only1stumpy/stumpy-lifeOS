@@ -4,9 +4,7 @@ export const CLARIFICATION_TTL_MS = 30 * 60 * 1_000;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_HISTORY_MESSAGE_LENGTH = 1_200;
 
-export type MoneyClarificationResolution =
-  | { type: "category_required"; kind: "income" | "expense" }
-  | { type: "resolved"; money: AnalysisMoney };
+export type MoneyClarificationResolution = { type: "resolved"; money: AnalysisMoney };
 
 /** Return a clean, owner-scoped clarification history only while its TTL is valid. */
 export function activeClarificationHistory(
@@ -76,7 +74,7 @@ export function resolveMoneyClarification(
 
   if (source.questionIndex === history.length - 1) {
     const kind = parseOperationKind(text);
-    return kind ? { type: "category_required", kind } : null;
+    return kind ? resolvedMoney(source, kind, inferBalanceCategory(source.sourceText, kind)) : null;
   }
 
   const kindAnswer = history[source.questionIndex + 1];
@@ -121,6 +119,7 @@ export function resolveMoneyClarification(
 
 type BalanceQuestionContext = {
   questionIndex: number;
+  sourceText: string;
   amountMinor: number;
   currency: "PRB" | "USD";
 };
@@ -137,7 +136,7 @@ function findBalanceQuestion(history: ClarificationMessage[]): BalanceQuestionCo
     const sourceMentionsAccount = /(?:на\s+(?:мо[её]м\s+)?сч[её]т(?:у|е)?|баланс|остат)/iu.test(source.text);
     const amount = parseExplicitMoneyAmount(source.text);
     if (asksBalanceVsOperation && sourceMentionsAccount && amount) {
-      return { questionIndex, ...amount };
+      return { questionIndex, sourceText: source.text, ...amount };
     }
   }
   return null;
@@ -158,6 +157,20 @@ function resolvedMoney(
       category,
     },
   };
+}
+
+function inferBalanceCategory(text: string, kind: "income" | "expense"): string {
+  const normalized = text.toLocaleLowerCase("ru-RU");
+  if (kind === "income" && /зарплат|оклад|аванс|преми/iu.test(normalized)) return "Зарплата";
+  if (kind === "expense") {
+    if (/маршрут|автобус|троллейбус|трамва|метро|такси|проезд/iu.test(normalized)) return "Транспорт";
+    if (/бензин|дизел|топлив|заправ|автосервис|автомобил/iu.test(normalized)) return "Авто";
+    if (/продукт|покупк.{0,12}магазин/iu.test(normalized)) return "Продукты";
+    if (/кафе|ресторан|столов|доставк|суши|ролл|пицц|шаурм|кофе/iu.test(normalized)) return "Кафе и рестораны";
+    if (/обед|ужин|завтрак|еда|питани|блюдо|суп|лапш|удон/iu.test(normalized)) return "Еда";
+    if (/подпис|spotify|chatgpt|netflix|youtube\s*premium/iu.test(normalized)) return "Подписки";
+  }
+  return "Прочее";
 }
 
 function parseOperationKind(value: string): "income" | "expense" | null {

@@ -28,6 +28,8 @@
   --gym-soft: rgba(107, 102, 132, 0.11);
   --glass-alpha: 0.22;
   --surface-radius: 28px;
+  --lifeos-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  --lifeos-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   position: relative;
   isolation: isolate;
   color-scheme: light;
@@ -86,7 +88,7 @@
   min-height: 100vh;
   min-height: 100svh;
   margin-inline: auto;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: 0;
 }
 
 .appHeader {
@@ -95,7 +97,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: max(10px, env(safe-area-inset-top, 0px)) 24px 4px;
+  padding: max(10px, var(--lifeos-safe-top)) 24px 4px;
 }
 
 .brand {
@@ -118,7 +120,7 @@
   display: flex;
   flex-direction: column;
   gap: 30px;
-  padding: 20px 24px calc(158px + env(safe-area-inset-bottom, 0px));
+  padding: 20px 24px calc(158px + var(--lifeos-safe-bottom));
 }
 
 .pageHeading {
@@ -1223,7 +1225,7 @@
   position: fixed;
   z-index: 10;
   right: max(18px, calc((100vw - 470px) / 2));
-  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  bottom: max(14px, var(--lifeos-safe-bottom));
   left: max(18px, calc((100vw - 470px) / 2));
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1314,7 +1316,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 16px 12px max(12px, env(safe-area-inset-bottom, 0px));
+  padding: 16px 12px max(12px, var(--lifeos-safe-bottom));
   background: rgba(45, 32, 39, 0.2);
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
@@ -1328,7 +1330,7 @@
   max-height: min(82svh, 620px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 10px 20px max(20px, env(safe-area-inset-bottom, 0px));
+  padding: 10px 20px max(20px, var(--lifeos-safe-bottom));
   border: 1px solid rgba(255, 255, 255, 0.94);
   border-radius: 26px;
   background:
@@ -1456,7 +1458,7 @@
   }
 
   .appHeader { padding-inline: 28px; }
-  .main { padding: 22px 30px calc(164px + env(safe-area-inset-bottom, 0px)); }
+  .main { padding: 22px 30px calc(164px + var(--lifeos-safe-bottom)); }
   .todaySurface { padding-inline: 31px; }
   .todaySection { padding-block: 30px 28px; }
   .moduleSurface,

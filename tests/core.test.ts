@@ -229,6 +229,61 @@ test("ИИ пробует выбранные бесплатные модели G
   }
 });
 
+test("ИИ выбирает категорию по сообщению, исправляет неверный вариант и использует Прочее без подсказки", async () => {
+  const keys = ["GEMINI_API_KEY", "GEMINI_MODEL", "GROQ_API_KEY", "GROQ_MODEL"] as const;
+  const oldEnvironment = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const oldFetch = globalThis.fetch;
+  const responses = [
+    { label: "Маршрутка", amountMinor: 550, currency: "PRB", kind: "expense", category: null },
+    { label: "Маршрутка", amountMinor: 550, currency: "PRB", kind: "expense", category: "Еда" },
+    { label: "Платёж", amountMinor: 10_000, currency: "PRB", kind: "expense", category: null },
+  ];
+  for (const key of keys) delete process.env[key];
+  process.env.GEMINI_API_KEY = "test-gemini-key";
+  let responseIndex = 0;
+  globalThis.fetch = async () => {
+    const money = responses[responseIndex++];
+    const analysis = {
+      entries: [{ food: null, money, occurredAt: "2026-10-27T16:00:00.000Z" }],
+      clarification: null,
+    };
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] }), { status: 200 });
+  };
+
+  try {
+    const route = await analyzeMessage({
+      text: "5,5р маршрутка",
+      now: "2026-10-27T16:00:00.000Z",
+      timeZone: "Europe/Chisinau",
+      categories: ["Транспорт"],
+    });
+    const correctedRoute = await analyzeMessage({
+      text: "5,5р маршрутка",
+      now: "2026-10-27T16:00:00.000Z",
+      timeZone: "Europe/Chisinau",
+      categories: ["Еда", "Транспорт"],
+    });
+    const generic = await analyzeMessage({
+      text: "100",
+      now: "2026-10-27T16:00:00.000Z",
+      timeZone: "Europe/Chisinau",
+      categories: ["Прочее"],
+    });
+
+    assert.equal(route.entries[0]?.money?.category, "Транспорт");
+    assert.equal(generic.entries[0]?.money?.category, "Прочее");
+    assert.equal(correctedRoute.entries[0]?.money?.category, "Транспорт");
+    assert.equal(responseIndex, 3);
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const key of keys) {
+      const oldValue = oldEnvironment[key];
+      if (oldValue === undefined) delete process.env[key];
+      else process.env[key] = oldValue;
+    }
+  }
+});
+
 test("команды отклоняют отрицательные или некорректные значения на границе ввода", () => {
   const accountId = "4a66de33-bf66-47c1-af72-44bd7a7d603d";
   const entryId = "7d7e29ee-bc05-4f80-8e77-1a2386d02ec4";

@@ -12,10 +12,15 @@ import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 
 type LifeOSRootProps = { configured: boolean };
 type RootStatus = "checking" | "outside" | "setup" | "loading" | "ready" | "error";
+type TelegramFullscreenEvent = "fullscreenChanged" | "fullscreenFailed";
 type TelegramMiniApp = {
   initData?: string;
+  isVersionAtLeast?(version: string): boolean;
   ready(): void;
   expand(): void;
+  requestFullscreen?(): void;
+  onEvent?(eventType: TelegramFullscreenEvent, handler: () => void): void;
+  offEvent?(eventType: TelegramFullscreenEvent, handler: () => void): void;
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
 };
@@ -23,7 +28,7 @@ type TelegramMiniApp = {
 const finishButtonStyle: CSSProperties = {
   position: "fixed",
   zIndex: 20,
-  bottom: "94px",
+  bottom: "calc(94px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))))",
   left: "50%",
   transform: "translateX(-50%)",
   minHeight: 44,
@@ -131,6 +136,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
 
   useEffect(() => {
     let mounted = true;
+    let cleanupTelegramFullscreen: (() => void) | null = null;
     const initialize = async () => {
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       if (!mounted) return;
@@ -143,7 +149,40 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
 
       try {
         webApp.ready();
-        webApp.expand();
+        const supportsFullscreen = typeof webApp.requestFullscreen === "function"
+          && (typeof webApp.isVersionAtLeast !== "function" || webApp.isVersionAtLeast("8.0"));
+        if (supportsFullscreen && webApp.onEvent && webApp.offEvent) {
+          let active = true;
+          const onFullscreenChanged = () => cleanup();
+          const onFullscreenFailed = () => {
+            cleanup();
+            if (mounted) {
+              try {
+                webApp.expand();
+              } catch {
+                // Fullscreen fallback is best-effort on Telegram clients.
+              }
+            }
+          };
+          const cleanup = () => {
+            if (!active) return;
+            active = false;
+            webApp.offEvent?.("fullscreenChanged", onFullscreenChanged);
+            webApp.offEvent?.("fullscreenFailed", onFullscreenFailed);
+            cleanupTelegramFullscreen = null;
+          };
+          cleanupTelegramFullscreen = cleanup;
+          try {
+            webApp.onEvent("fullscreenChanged", onFullscreenChanged);
+            webApp.onEvent("fullscreenFailed", onFullscreenFailed);
+            webApp.requestFullscreen?.();
+          } catch {
+            cleanup();
+            webApp.expand();
+          }
+        } else {
+          webApp.expand();
+        }
         webApp.setHeaderColor?.("#f6f2ec");
         webApp.setBackgroundColor?.("#f6f2ec");
       } catch {
@@ -178,7 +217,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     };
 
     void initialize();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      cleanupTelegramFullscreen?.();
+    };
   }, [configured]);
 
   const retryLoad = useCallback(async () => {
