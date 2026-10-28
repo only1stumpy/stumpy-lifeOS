@@ -26,7 +26,7 @@
   --finance-soft: rgba(169, 103, 67, 0.11);
   --gym: #6b6684;
   --gym-soft: rgba(107, 102, 132, 0.11);
-  --glass-alpha: 0.12;
+  --glass-alpha: 0.085;
   --surface-radius: 28px;
   --lifeos-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 0px)), var(--lifeos-telegram-safe-area-top, 0px), var(--lifeos-telegram-content-safe-area-top, 0px));
   --lifeos-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
@@ -38,9 +38,11 @@
   overflow-x: clip;
   color: var(--ink);
   background:
-    radial-gradient(ellipse 76% 38% at 104% 4%, rgba(116, 43, 69, 0.16), transparent 70%),
-    radial-gradient(ellipse 60% 44% at -12% 34%, rgba(211, 228, 215, 0.6), transparent 70%),
-    radial-gradient(ellipse 76% 42% at 104% 78%, rgba(226, 210, 222, 0.68), transparent 72%),
+    radial-gradient(ellipse 66% 31% at 104% 4%, rgba(116, 43, 69, 0.2), transparent 72%),
+    radial-gradient(ellipse 66% 38% at -10% 28%, rgba(196, 221, 202, 0.72), transparent 72%),
+    radial-gradient(ellipse 78% 38% at 108% 72%, rgba(218, 193, 212, 0.76), transparent 72%),
+    radial-gradient(ellipse 68% 34% at 8% 96%, rgba(240, 219, 195, 0.58), transparent 72%),
+    radial-gradient(ellipse 54% 28% at 52% 48%, rgba(255, 255, 255, 0.38), transparent 76%),
     linear-gradient(155deg, #f6f2ec 0%, #f1e9eb 58%, #f7f1ec 100%);
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
   font-optical-sizing: auto;
@@ -75,10 +77,12 @@
   z-index: -1;
   inset: 0;
   pointer-events: none;
-  opacity: 0.38;
+  opacity: 0.52;
   background:
-    radial-gradient(ellipse at 72% 29%, rgba(255, 255, 255, 0.3), transparent 40%),
-    radial-gradient(ellipse at 22% 76%, rgba(220, 231, 220, 0.16), transparent 42%);
+    radial-gradient(ellipse 42% 22% at 78% 18%, rgba(255, 255, 255, 0.46), transparent 72%),
+    radial-gradient(ellipse 48% 28% at 16% 38%, rgba(177, 213, 185, 0.3), transparent 72%),
+    radial-gradient(ellipse 46% 24% at 92% 62%, rgba(205, 174, 201, 0.29), transparent 74%),
+    radial-gradient(ellipse 48% 26% at 26% 88%, rgba(234, 204, 176, 0.24), transparent 74%);
 }
 
 .appFrame {
@@ -104,10 +108,17 @@
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--ink);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.055em;
+  text-align: left;
+  cursor: pointer;
 }
 
 .dateChip {
@@ -156,24 +167,27 @@
 }
 
 .glassSurface {
+  --surface-caustic: var(--module-soft, rgba(116, 43, 69, 0.055));
   --light-x: 16%;
   --light-y: 0%;
   position: relative;
   isolation: isolate;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.68);
   border-radius: var(--surface-radius);
   background:
-    radial-gradient(ellipse at var(--light-x) var(--light-y), rgba(255, 255, 255, 0.24), transparent 44%),
-    linear-gradient(142deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.025) 48%, rgba(255, 255, 255, 0.1)),
+    radial-gradient(ellipse at var(--light-x) var(--light-y), rgba(255, 255, 255, 0.2), transparent 42%),
+    radial-gradient(ellipse at 96% 88%, var(--surface-caustic), transparent 54%),
+    linear-gradient(142deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.02) 48%, rgba(255, 255, 255, 0.075)),
     rgba(255, 255, 255, var(--glass-alpha));
-  -webkit-backdrop-filter: blur(7px) saturate(1.12);
-  backdrop-filter: blur(7px) saturate(1.12);
+  -webkit-backdrop-filter: blur(9px) saturate(1.3);
+  backdrop-filter: blur(9px) saturate(1.3);
   box-shadow:
-    0 18px 42px rgba(66, 31, 46, 0.095),
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    inset 0 -1px 0 rgba(87, 37, 55, 0.06);
+    0 20px 48px rgba(66, 31, 46, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(87, 37, 55, 0.07);
 }
 
 .glassSurface::after {
@@ -181,28 +195,31 @@
   z-index: -1;
   inset: 1px;
   border: 1px solid transparent;
-  border-top-color: rgba(255, 255, 255, 0.78);
-  border-left-color: rgba(255, 255, 255, 0.34);
-  border-right-color: rgba(116, 43, 69, 0.07);
-  border-bottom-color: rgba(255, 255, 255, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.9);
+  border-left-color: rgba(255, 255, 255, 0.52);
+  border-right-color: rgba(255, 255, 255, 0.34);
+  border-bottom-color: rgba(255, 255, 255, 0.36);
   border-radius: calc(var(--surface-radius) - 1px);
-  box-shadow: inset 0 -1px 0 rgba(116, 43, 69, 0.075);
+  box-shadow: inset 0 -1px 0 rgba(116, 43, 69, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.18);
   content: "";
   pointer-events: none;
 }
 
 .todaySurface {
   --surface-radius: 31px;
+  --surface-caustic: rgba(116, 43, 69, 0.065);
   padding: 0 27px;
-  border-color: rgba(255, 255, 255, 0.58);
+  border-color: rgba(255, 255, 255, 0.72);
   background:
-    radial-gradient(ellipse at 14% 0%, rgba(255, 255, 255, 0.24), transparent 44%),
-    linear-gradient(142deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.025) 48%, rgba(255, 255, 255, 0.1)),
-    rgba(255, 255, 255, 0.12);
+    radial-gradient(ellipse at 14% 0%, rgba(255, 255, 255, 0.22), transparent 44%),
+    radial-gradient(ellipse at 96% 90%, var(--surface-caustic), transparent 54%),
+    linear-gradient(142deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 48%, rgba(255, 255, 255, 0.08)),
+    rgba(255, 255, 255, var(--glass-alpha));
   box-shadow:
-    0 18px 42px rgba(66, 31, 46, 0.095),
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    inset 0 -1px 0 rgba(87, 37, 55, 0.06);
+    0 20px 48px rgba(66, 31, 46, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(87, 37, 55, 0.07);
 }
 
 .todaySection {
@@ -1585,8 +1602,8 @@
     backdrop-filter: none;
   }
 
-  .glassSurface { --glass-alpha: 0.78; }
-  .todaySurface { background: rgba(250, 247, 246, 0.88); }
+  .glassSurface { --glass-alpha: 0.82; }
+  .todaySurface { background: rgba(250, 247, 246, 0.9); }
   .dock { background: rgba(250, 247, 246, 0.92); }
   .dockLens { background: rgba(255, 255, 255, 0.88); }
   .actionSheet { background: rgba(248, 244, 244, 0.98); }
@@ -1618,7 +1635,7 @@
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  .glassSurface { --glass-alpha: 0.44; }
+  .glassSurface { --glass-alpha: 0.5; }
   .dock { background: rgba(250, 246, 246, 0.82); }
   .actionSheet { background: rgba(249, 245, 245, 0.97); }
 }
