@@ -470,6 +470,18 @@
   transform: scale(0.98);
 }
 
+.financeActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 12px;
+}
+
+.financeActions .inlineEntry {
+  margin: 0;
+}
+
 .financeSummary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -493,6 +505,14 @@
   color: var(--muted);
   font-size: 11px;
   line-height: 1.3;
+}
+
+.statDetail {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .statValue {
@@ -524,16 +544,6 @@
 
 .sage .statValue { color: #52705c; }
 .plum .statValue { color: #5f5c79; }
-
-.summaryFoot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 12px;
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 11px;
-}
 
 .workoutPreview,
 .nextWorkoutHeading {
