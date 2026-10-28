@@ -1,8 +1,12 @@
-import type { ClarificationMessage } from "./types";
+import type { AnalysisMoney, ClarificationMessage } from "./types";
 
 export const CLARIFICATION_TTL_MS = 30 * 60 * 1_000;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_HISTORY_MESSAGE_LENGTH = 1_200;
+
+export type MoneyClarificationResolution =
+  | { type: "category_required"; kind: "income" | "expense" }
+  | { type: "resolved"; money: AnalysisMoney };
 
 /** Return a clean, owner-scoped clarification history only while its TTL is valid. */
 export function activeClarificationHistory(
@@ -53,6 +57,169 @@ export function nextClarificationHistory(
 ): ClarificationMessage[] | null {
   if (hasDrafts || !assistantQuestion) return null;
   return appendClarificationTurn(history, userText, assistantQuestion);
+}
+
+/**
+ * Resolve the narrow balance-vs-transaction clarification flow without sending
+ * already-known amounts back to the model. The source amount is trusted only
+ * when it appears in the user message immediately preceding an assistant
+ * balance/operation question and that message itself refers to an account.
+ */
+export function resolveMoneyClarification(
+  text: string,
+  history: ClarificationMessage[] | undefined,
+): MoneyClarificationResolution | null {
+  if (!history?.length) return null;
+
+  const source = findBalanceQuestion(history);
+  if (!source) return null;
+
+  if (source.questionIndex === history.length - 1) {
+    const kind = parseOperationKind(text);
+    return kind ? { type: "category_required", kind } : null;
+  }
+
+  const kindAnswer = history[source.questionIndex + 1];
+  const categoryQuestion = history[source.questionIndex + 2];
+  if (
+    kindAnswer?.role !== "user" ||
+    categoryQuestion?.role !== "assistant"
+  ) {
+    return null;
+  }
+
+  const kind = parseOperationKind(kindAnswer.text);
+  if (!kind) return null;
+
+  const categoryQuestionText = categoryQuestion.text.toLocaleLowerCase("ru-RU");
+  if (categoryQuestion === history.at(-1) && categoryQuestionText.includes("категори")) {
+    const category = parseCategoryAnswer(text);
+    return category ? resolvedMoney(source, kind, category) : null;
+  }
+
+  // Recover a legacy chain where the category was already sent, but the model
+  // then asked for an amount that was present in the original balance message.
+  const categoryAnswer = history[source.questionIndex + 3];
+  const amountQuestion = history[source.questionIndex + 4];
+  if (
+    amountQuestion?.role !== "assistant" ||
+    amountQuestion !== history.at(-1) ||
+    !categoryQuestionText.includes("категори") ||
+    !amountQuestion.text.toLocaleLowerCase("ru-RU").includes("сумм") ||
+    amountQuestion.text.toLocaleLowerCase("ru-RU").includes("категори") ||
+    categoryAnswer?.role !== "user"
+  ) {
+    return null;
+  }
+
+  const previousCategory = parseCategoryAnswer(categoryAnswer.text);
+  if (!previousCategory || normalizeShortAnswer(previousCategory) !== normalizeShortAnswer(text)) {
+    return null;
+  }
+  return resolvedMoney(source, kind, previousCategory);
+}
+
+type BalanceQuestionContext = {
+  questionIndex: number;
+  amountMinor: number;
+  currency: "PRB" | "USD";
+};
+
+function findBalanceQuestion(history: ClarificationMessage[]): BalanceQuestionContext | null {
+  for (let questionIndex = history.length - 1; questionIndex > 0; questionIndex -= 1) {
+    const question = history[questionIndex];
+    const source = history[questionIndex - 1];
+    if (source?.role !== "user" || question?.role !== "assistant") continue;
+
+    const assistantText = question.text.toLocaleLowerCase("ru-RU");
+    const asksBalanceVsOperation =
+      /(баланс|остаток)/iu.test(assistantText) && /(доход|расход)/iu.test(assistantText);
+    const sourceMentionsAccount = /(?:на\s+(?:мо[её]м\s+)?сч[её]т(?:у|е)?|баланс|остат)/iu.test(source.text);
+    const amount = parseExplicitMoneyAmount(source.text);
+    if (asksBalanceVsOperation && sourceMentionsAccount && amount) {
+      return { questionIndex, ...amount };
+    }
+  }
+  return null;
+}
+
+function resolvedMoney(
+  source: BalanceQuestionContext,
+  kind: "income" | "expense",
+  category: string,
+): MoneyClarificationResolution {
+  return {
+    type: "resolved",
+    money: {
+      label: capitalizeCategory(category),
+      amountMinor: source.amountMinor,
+      currency: source.currency,
+      kind,
+      category,
+    },
+  };
+}
+
+function parseOperationKind(value: string): "income" | "expense" | null {
+  const normalized = normalizeShortAnswer(value);
+  if (["доход", "доходы", "поступление", "зачисление"].includes(normalized)) return "income";
+  if (["расход", "расходы", "трата", "траты", "списание"].includes(normalized)) return "expense";
+  return null;
+}
+
+function parseCategoryAnswer(value: string): string | null {
+  const answer = value.trim().replace(/^[\s.,!?;:]+|[\s.,!?;:]+$/gu, "");
+  if (answer.length === 0 || answer.length > 80 || /\d|[$€₽]/u.test(answer)) return null;
+  if (parseOperationKind(answer)) return null;
+  if (/(?:USD|доллар|долл\.?|руб(?:ль|ля|лей)?|(?<![\p{L}])PRB(?![\p{L}]))/iu.test(answer)) return null;
+  if (/(?:съел|съела|съели|потратил|потратила|купил|купила|получил|получила|на счет|на счёт|баланс|остаток)/iu.test(answer)) return null;
+  const words = answer.split(/\s+/u);
+  if (words.length > 4) return null;
+  return answer;
+}
+
+function parseExplicitMoneyAmount(
+  value: string,
+): { amountMinor: number; currency: "PRB" | "USD" } | null {
+  const number = String.raw`(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[.,]\d{1,2})?`;
+  const beforeCurrency = String.raw`(?:\$|USD|доллар(?:а|ов)?|долл\.?)`;
+  const afterCurrency = String.raw`(?:USD|доллар(?:а|ов)?|долл\.?|руб(?:ль|ля|лей)?\.?|р\.?)`;
+  const pattern = new RegExp(
+    `(?:(${beforeCurrency})\\s*(${number})|(?<![\\p{L}\\d])(${number})\\s*(${afterCurrency})(?![\\p{L}]))`,
+    "giu",
+  );
+  const matches = [...value.matchAll(pattern)];
+  if (matches.length !== 1) return null;
+
+  const match = matches[0]!;
+  const rawCurrency = match[1] ?? match[4];
+  const rawAmount = match[2] ?? match[3];
+  if (!rawCurrency || !rawAmount) return null;
+
+  const normalizedAmount = rawAmount.replace(/[ \u00a0\u202f]/gu, "").replace(",", ".");
+  const [wholePart, fractionPart = ""] = normalizedAmount.split(".");
+  try {
+    const minor = BigInt(wholePart!) * 100n + BigInt((fractionPart + "00").slice(0, 2));
+    if (minor <= 0n || minor > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+    const currency = /(?:\$|USD|доллар|долл)/iu.test(rawCurrency) ? "USD" : "PRB";
+    return { amountMinor: Number(minor), currency };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeShortAnswer(value: string): string {
+  return value
+    .trim()
+    .toLocaleLowerCase("ru-RU")
+    .replace(/ё/gu, "е")
+    .replace(/\s+/gu, " ")
+    .replace(/^[\s.,!?;:]+|[\s.,!?;:]+$/gu, "");
+}
+
+function capitalizeCategory(value: string): string {
+  const first = value.slice(0, 1).toLocaleUpperCase("ru-RU");
+  return `${first}${value.slice(1)}`;
 }
 
 function normalizeMessage(role: ClarificationMessage["role"], value: string): ClarificationMessage | null {

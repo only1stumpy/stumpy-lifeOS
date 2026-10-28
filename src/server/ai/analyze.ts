@@ -6,7 +6,7 @@ import {
   type AnalysisResult,
   type AnalyzeMessageInput,
 } from "./types";
-import { normalizeClarificationHistory } from "./clarification";
+import { normalizeClarificationHistory, resolveMoneyClarification } from "./clarification";
 
 const MAX_TEXT_LENGTH = 8_000;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -94,6 +94,29 @@ export async function analyzeMessage(
   input: AnalyzeMessageInput,
 ): Promise<AnalysisResult> {
   const validatedInput = validateInput(input);
+
+  const moneyClarification = resolveMoneyClarification(
+    validatedInput.text,
+    validatedInput.clarificationHistory,
+  );
+  if (moneyClarification?.type === "category_required") {
+    const categoryName = moneyClarification.kind === "income" ? "дохода" : "расхода";
+    return {
+      entries: [],
+      clarification: `Уточните категорию ${categoryName}.`,
+      provider: "local",
+      model: null,
+    };
+  }
+  if (moneyClarification?.type === "resolved") {
+    return {
+      entries: [{ food: null, money: moneyClarification.money, occurredAt: new Date(validatedInput.now).toISOString() }],
+      clarification: null,
+      provider: "local",
+      model: null,
+    };
+  }
+
   const context = makeUserContext(validatedInput);
   const providers = getProviderConfigs();
 

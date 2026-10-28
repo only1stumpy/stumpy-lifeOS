@@ -115,11 +115,14 @@
 }
 
 .main {
-  padding: 16px 22px calc(126px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 16px 22px calc(150px + env(safe-area-inset-bottom, 0px));
 }
 
 .pageHeading {
-  margin: 0 2px 18px;
+  margin: 0 2px;
 }
 
 .eyebrow {
@@ -143,7 +146,7 @@
 
 .screenStack {
   display: grid;
-  gap: 18px;
+  gap: 24px;
   min-width: 0;
 }
 
@@ -1453,7 +1456,7 @@
   }
 
   .appHeader { padding-inline: 28px; }
-  .main { padding: 20px 28px 128px; }
+  .main { padding: 20px 28px calc(152px + env(safe-area-inset-bottom, 0px)); }
   .todaySurface { padding-inline: 27px; }
   .todaySection { padding-block: 24px 22px; }
   .moduleSurface,

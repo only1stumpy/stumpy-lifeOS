@@ -28,8 +28,8 @@ export type AnalysisEntry = {
 export type AnalysisResult = {
   entries: AnalysisEntry[];
   clarification: string | null;
-  provider: AnalysisProvider;
-  model: string;
+  provider: AnalysisProvider | "local";
+  model: string | null;
 };
 
 export type AnalyzeMessageInput = {
