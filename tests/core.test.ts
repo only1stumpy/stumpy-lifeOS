@@ -243,7 +243,7 @@ test("ИИ пробует выбранные бесплатные модели G
   }
 });
 
-test("ИИ разбивает несколько блюд и напитков, но прикрепляет общий чек только один раз", async () => {
+test("ИИ разделяет блюда и общий чек на три независимых черновика", async () => {
   const keys = ["GEMINI_API_KEY", "GEMINI_MODEL", "GROQ_API_KEY", "GROQ_MODEL"] as const;
   const oldEnvironment = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   const oldFetch = globalThis.fetch;
@@ -262,13 +262,7 @@ test("ИИ разбивает несколько блюд и напитков, �
           carbsGrams: 85,
           estimated: true,
         },
-        money: {
-          label: "Обед в кафе",
-          amountMinor: 18_000,
-          currency: "PRB",
-          kind: "expense",
-          category: "Кафе и рестораны",
-        },
+        money: null,
         occurredAt: "2026-10-28T12:15:00.000Z",
       },
       {
@@ -282,6 +276,17 @@ test("ИИ разбивает несколько блюд и напитков, �
           estimated: true,
         },
         money: null,
+        occurredAt: "2026-10-28T12:15:00.000Z",
+      },
+      {
+        food: null,
+        money: {
+          label: "Обед в кафе",
+          amountMinor: 18_000,
+          currency: "PRB",
+          kind: "expense",
+          category: "Кафе и рестораны",
+        },
         occurredAt: "2026-10-28T12:15:00.000Z",
       },
     ],
@@ -308,16 +313,17 @@ test("ИИ разбивает несколько блюд и напитков, �
     assert.match(systemPrompt, /кажд.{0,60}самостоятельн.{0,40}блюд.{0,30}напит.{0,100}отдельн/isu);
     assert.match(systemPrompt, /Не склеивай разные позиции в общий label и не суммируй их КБЖУ/iu);
     assert.match(systemPrompt, /«паста четыре сыра и сок» — две записи питания/iu);
-    assert.match(systemPrompt, /общую финансовую операцию добавь ровно один раз к первой записи/iu);
-    assert.match(systemPrompt, /money должен быть null/iu);
+    assert.match(systemPrompt, /отдельный entry только с money для общего чека \(food=null\)/iu);
+    assert.match(systemPrompt, /Не прикрепляй общий чек к какой-либо еде и не дублируй сумму/iu);
     assert.match(systemPrompt, /Самостоятельные операции или приёмы пищи из того же сообщения сохраняй отдельными entries/iu);
 
-    assert.equal(result.entries.length, 2);
-    assert.deepEqual(result.entries.map((entry) => entry.food?.label), ["Паста четыре сыра", "Апельсиновый сок"]);
-    assert.deepEqual(result.entries.map((entry) => entry.food?.calories), [650, 90]);
-    assert.equal(result.entries[0]?.money?.label, "Обед в кафе");
-    assert.equal(result.entries[0]?.money?.amountMinor, 18_000);
-    assert.equal(result.entries[1]?.money, null);
+    assert.equal(result.entries.length, 3);
+    assert.deepEqual(result.entries.map((entry) => entry.food?.label ?? null), ["Паста четыре сыра", "Апельсиновый сок", null]);
+    assert.deepEqual(result.entries.map((entry) => entry.food?.calories ?? null), [650, 90, null]);
+    assert.deepEqual(result.entries.slice(0, 2).map((entry) => entry.money), [null, null]);
+    assert.equal(result.entries[2]?.money?.label, "Обед в кафе");
+    assert.equal(result.entries[2]?.money?.amountMinor, 18_000);
+    assert.equal(result.entries[2]?.food, null);
     assert.equal(result.entries.filter((entry) => entry.money !== null).length, 1);
   } finally {
     globalThis.fetch = oldFetch;
