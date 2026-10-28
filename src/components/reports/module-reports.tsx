@@ -35,6 +35,34 @@ function dateRangeLabel(first: string | undefined, last: string | undefined): st
   return first === last ? dayLabel(last, { day: "numeric", month: "long", year: "numeric" }) : `${dayLabel(first)} — ${dayLabel(last)}`;
 }
 
+function monthLabel(value: string): string {
+  return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric", timeZone: "UTC" }).format(dateValue(value));
+}
+
+function monthDates(value: string): { dates: string[]; leadingDays: number } {
+  const [year, month] = value.slice(0, 7).split("-").map(Number);
+  const first = new Date(Date.UTC(year, month - 1, 1, 12));
+  const count = new Date(Date.UTC(year, month, 0, 12)).getUTCDate();
+  return {
+    leadingDays: (first.getUTCDay() + 6) % 7,
+    dates: Array.from({ length: count }, (_, index) => new Date(Date.UTC(year, month - 1, index + 1, 12)).toISOString().slice(0, 10)),
+  };
+}
+
+function shiftMonth(value: string, amount: number): string {
+  const [year, month] = value.slice(0, 7).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + amount, 1, 12)).toISOString().slice(0, 7);
+}
+
+function datesEndingAt(value: string, length: number): string[] {
+  const end = dateValue(value);
+  return Array.from({ length }, (_, index) => {
+    const date = new Date(end);
+    date.setUTCDate(date.getUTCDate() - length + index + 1);
+    return date.toISOString().slice(0, 10);
+  });
+}
+
 function prbLabel(minor: number): string {
   return `${moneyFormat.format(Math.abs(minor) / 100)} р. ПМР`;
 }
@@ -125,27 +153,92 @@ function LineChart({ title, points, formatValue, accent }: { title: string; poin
 function NutritionReports({ reports }: { reports: AppReports }) {
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<NutritionMetric>("calories");
-  const points = period === "week" ? reports.nutritionDays.slice(-7) : reports.nutritionDays.slice(-31);
+  const days = [...reports.nutritionDays].sort((left, right) => left.date.localeCompare(right.date));
+  const latestDate = days.at(-1)?.date ?? new Date().toISOString().slice(0, 10);
+  const earliestDate = days.find((day) => day.entryCount > 0)?.date ?? latestDate;
+  const earliestMonth = earliestDate.slice(0, 7);
+  const latestMonth = latestDate.slice(0, 7);
+  const [selectedDate, setSelectedDate] = useState(latestDate);
+  const [displayedMonth, setDisplayedMonth] = useState(`${latestDate.slice(0, 7)}-01`);
+  const dayByDate = new Map(days.map((day) => [day.date, day]));
+  const selectedDay = dayByDate.get(selectedDate);
+  const calendar = monthDates(displayedMonth);
+  const periodDates = datesEndingAt(selectedDate, period === "week" ? 7 : 31);
   const metricInfo = metricLabels[metric];
-  const chartPoints = points.map((day) => ({
-    date: day.date,
-    value: day.entryCount > 0 ? day[metric] : null,
-    detail: day.entryCount > 0 ? `${day.entryCount} ${plural(day.entryCount, "запись", "записи", "записей")}` : "нет записей",
-  }));
+  const chartPoints = periodDates.map((date) => {
+    const day = dayByDate.get(date);
+    return {
+    date,
+    value: day && day.entryCount > 0 ? day[metric] : null,
+    detail: day && day.entryCount > 0 ? `${day.entryCount} ${plural(day.entryCount, "запись", "записи", "записей")}` : "нет записей",
+  };
+  });
   const formatValue = (value: number) => numberFormat.format(value);
-  const lastDate = points.at(-1)?.date;
+  const monthBefore = shiftMonth(displayedMonth, -1);
+  const monthAfter = shiftMonth(displayedMonth, 1);
+  const canGoBack = monthBefore >= earliestMonth;
+  const canGoForward = monthAfter <= latestMonth;
+  const changeMonth = (month: string) => {
+    setDisplayedMonth(`${month}-01`);
+    const recordedDate = days.find((day) => day.date.startsWith(month) && day.entryCount > 0)?.date;
+    setSelectedDate(recordedDate ?? `${month}-01`);
+  };
+  const metricValues: { key: NutritionMetric; label: string; unit: string }[] = [
+    { key: "calories", label: "Калории", unit: "ккал" },
+    { key: "proteinGrams", label: "Белки", unit: "г" },
+    { key: "fatGrams", label: "Жиры", unit: "г" },
+    { key: "carbsGrams", label: "Углеводы", unit: "г" },
+  ];
   return (
     <section className={`${styles.reportSurface} ${styles.nutrition}`} data-lg-role="rail" aria-labelledby="lifeos-nutrition-reports-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>ИСТОРИЯ ПИТАНИЯ</p><h2 id="lifeos-nutrition-reports-title">Динамика КБЖУ</h2></div>
-        {lastDate && <span className={styles.periodLabel}>{dateRangeLabel(points[0]?.date, lastDate)}</span>}
+        <span className={styles.periodLabel}>История записей</span>
+      </div>
+      <div className={styles.calendar}>
+        <div className={styles.calendarHeader}>
+          <button type="button" aria-label="Предыдущий месяц" disabled={!canGoBack} onClick={() => changeMonth(monthBefore)}>‹</button>
+          <h3>{monthLabel(displayedMonth)}</h3>
+          <button type="button" aria-label="Следующий месяц" disabled={!canGoForward} onClick={() => changeMonth(monthAfter)}>›</button>
+        </div>
+        <div className={styles.calendarWeekdays} aria-hidden="true">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div>
+        <div className={styles.calendarGrid} role="group" aria-label={`Календарь питания за ${monthLabel(displayedMonth)}`}>
+          {Array.from({ length: calendar.leadingDays }, (_, index) => <span key={`empty-${index}`} aria-hidden="true" />)}
+          {calendar.dates.map((date) => {
+            const day = dayByDate.get(date);
+            const hasEntries = Boolean(day && day.entryCount > 0);
+            const isFuture = date > latestDate;
+            const accessibleLabel = `${dayLabel(date, { day: "numeric", month: "long", year: "numeric" })}: ${hasEntries ? `${formatValue(day!.calories)} ккал, ${day!.entryCount} ${plural(day!.entryCount, "запись", "записи", "записей")}` : "нет записей"}`;
+            return <button
+              key={date}
+              type="button"
+              className={`${styles.calendarDay} ${hasEntries ? styles.calendarDayRecorded : ""}`}
+              aria-label={accessibleLabel}
+              aria-pressed={date === selectedDate}
+              disabled={isFuture}
+              onClick={() => setSelectedDate(date)}
+            >
+              <span>{Number(date.slice(-2))}</span>
+              {hasEntries && <small>{formatValue(day!.calories)}</small>}
+            </button>;
+          })}
+        </div>
+        <section className={styles.selectedDay} aria-live="polite" aria-labelledby="lifeos-nutrition-selected-day">
+          <div className={styles.selectedDayHeading}>
+            <div><p className={styles.eyebrow}>ДНЕВНИК</p><h3 id="lifeos-nutrition-selected-day">{dayLabel(selectedDate, { day: "numeric", month: "long", year: "numeric" })}</h3></div>
+            {selectedDay && selectedDay.entryCount > 0 && <span>{selectedDay.entryCount} {plural(selectedDay.entryCount, "запись", "записи", "записей")}</span>}
+          </div>
+          {selectedDay && selectedDay.entryCount > 0 ? <dl className={styles.macroValues}>
+            {metricValues.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{formatValue(selectedDay[item.key])} {item.unit}</dd></div>)}
+          </dl> : <p className={styles.emptyText}>За этот день записей нет. Это не нулевое потребление.</p>}
+        </section>
       </div>
       <div className={styles.controlRow} role="group" aria-label="Период графика">
         <div className={styles.segmented}>
           <button type="button" aria-pressed={period === "week"} onClick={() => setPeriod("week")}>Неделя</button>
           <button type="button" aria-pressed={period === "month"} onClick={() => setPeriod("month")}>Месяц</button>
         </div>
-        <span className={styles.periodHint}>{period === "week" ? "7 дней" : "31 день"}</span>
+        <span className={styles.periodHint}>{dateRangeLabel(periodDates[0], periodDates.at(-1))}</span>
       </div>
       <div className={styles.metricRow} role="group" aria-label="Показатель КБЖУ">
         {(Object.keys(metricLabels) as NutritionMetric[]).map((key) => (
@@ -155,7 +248,6 @@ function NutritionReports({ reports }: { reports: AppReports }) {
       <p className={styles.chartTitle}>{metricInfo.label}, {metricInfo.unit}</p>
       <LineChart title={`${metricInfo.label} по дням`} points={chartPoints} formatValue={formatValue} accent="var(--report-accent)" />
       <p className={styles.dataNote}>Разрыв линии означает, что в этот день не было записей. Это не нулевое потребление.</p>
-      <ChartTable label={`${metricInfo.label}, ${metricInfo.unit} за выбранный период`} points={chartPoints} formatValue={formatValue} />
     </section>
   );
 }
