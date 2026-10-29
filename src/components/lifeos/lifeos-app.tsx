@@ -28,6 +28,9 @@ type LifeOSAppProps = {
   snapshot: AppSnapshot | null;
   onAction(action: LifeOSAction): void;
   onOpenAiProviders(): void;
+  onCloseAiProviders(): void;
+  aiSettingsActive: boolean;
+  aiSettingsContent: ReactNode;
   onHaptic?(kind: "selection" | "success" | "error"): void;
   onRegisterTelegramBackHandler?(handler: (() => void) | null): void;
   initialSection?: ModuleKey;
@@ -38,6 +41,7 @@ type LifeOSAppProps = {
 };
 
 type IconName = "today" | "nutrition" | "finance" | "gym" | "settings" | "arrow" | "plus" | "edit" | "trash" | "close" | "back" | "check" | "clock" | "weight" | "list";
+type AppTab = ModuleKey | "ai-settings";
 type SheetKey = "nutrition" | "finance" | "gym";
 type RestTimerPhase = "ready" | "running" | "paused" | "finished";
 type RestTimerState = {
@@ -50,11 +54,12 @@ type RestTimerState = {
   phase: RestTimerPhase;
 };
 
-const NAV_ITEMS: { key: ModuleKey; label: string; icon: IconName }[] = [
+const NAV_ITEMS: { key: AppTab; label: string; icon: IconName }[] = [
   { key: "today", label: "Сегодня", icon: "today" },
   { key: "nutrition", label: "Питание", icon: "nutrition" },
   { key: "finance", label: "Финансы", icon: "finance" },
   { key: "gym", label: "Зал", icon: "gym" },
+  { key: "ai-settings", label: "Настройки ИИ", icon: "settings" },
 ];
 
 const numberFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
@@ -299,7 +304,7 @@ function ExerciseMetrics({ set }: { set: ExerciseSet }) {
   return <span className={styles.setMetrics}>{metrics.length ? metrics.join(" · ") : "Данные подхода не заданы"}</span>;
 }
 
-function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegisterTelegramBackHandler, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
+function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, aiSettingsActive, aiSettingsContent, onHaptic, onRegisterTelegramBackHandler, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
   const motionVariants = useMotionVariants();
   const [section, setSection] = useState<ModuleKey>(initialSection);
   const [financeView, setFinanceView] = useState<"overview" | "entries" | "plans" | "debts">("overview");
@@ -506,11 +511,22 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
 
   const navigate = (key: ModuleKey) => {
     if (key !== section) onHaptic?.("selection");
+    if (aiSettingsActive) onCloseAiProviders();
     setSection(key);
     if (key !== "gym") {
       setSelectedExerciseId(null);
       setSelectedWorkoutId(null);
     }
+  };
+
+  const activateTab = (key: AppTab) => {
+    if (key === "ai-settings") {
+      if (aiSettingsActive) return;
+      onHaptic?.("selection");
+      onOpenAiProviders();
+      return;
+    }
+    navigate(key);
   };
 
   const openExercise = (workout: WorkoutDay, exercise: WorkoutExercise) => {
@@ -804,26 +820,26 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
         </motion.header>
         <main className={styles.main}>
           <AnimatePresence mode="wait">
-            <motion.div key={`${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
-              <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
-              <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
-              {snapshot && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} /></motion.div>}
+            <motion.div key={aiSettingsActive ? "ai-settings" : `${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
+              {aiSettingsActive
+                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}</motion.div>
+                : <>
+                  <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
+                  <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
+                  {snapshot && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} /></motion.div>}
+                </>}
             </motion.div>
           </AnimatePresence>
         </main>
         <motion.nav ref={dockRef} className={styles.dock} data-lg-role="dock" aria-label="Разделы LifeOS" initial={{ opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
           <GlassRefraction surfaceRef={dockRef} filterId={dockFilterId} profile="thin" shape="pill" />
-          {NAV_ITEMS.map((item) => section === item.key ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={{ type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
+          {NAV_ITEMS.map((item) => (item.key === "ai-settings" ? aiSettingsActive : section === item.key) ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={{ type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
           {NAV_ITEMS.map((item) => (
-            <button key={item.key} type="button" className={styles.dockButton} aria-label={item.label} aria-current={section === item.key ? "page" : undefined} onClick={() => navigate(item.key)}>
+            <button key={item.key} type="button" className={styles.dockButton} aria-label={item.label} title={item.label} aria-current={(item.key === "ai-settings" ? aiSettingsActive : section === item.key) ? "page" : undefined} onClick={() => activateTab(item.key)}>
               <Icon name={item.icon} />
               <span className={styles.srOnly}>{item.label}</span>
             </button>
           ))}
-          <button type="button" className={styles.dockButton} aria-label="Настройки ИИ" title="Настройки ИИ" aria-haspopup="dialog" onClick={() => { onHaptic?.("selection"); onOpenAiProviders(); }}>
-            <Icon name="settings" />
-            <span className={styles.srOnly}>Настройки ИИ</span>
-          </button>
         </motion.nav>
         <AnimatePresence>
           {sheet && <ActionSheet key={sheet} sheet={sheet} snapshot={snapshot} onClose={() => setSheet(null)} onAction={(action) => { setSheet(null); onAction(action); }} panelRef={sheetRef} closeRef={closeSheetRef} />}

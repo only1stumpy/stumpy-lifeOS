@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from "react";
 import { motion } from "motion/react";
-import { GlassRefraction } from "@/components/glass/glass-refraction";
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
 import { useMotionVariants } from "@/components/motion/motion-system";
 import { ProviderBrandMark } from "./provider-brand-mark";
@@ -237,12 +236,8 @@ function providerStatus(provider: AiProvider): string {
 
 export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboarding = false }: AiProvidersPanelProps) {
   const motionVariants = useMotionVariants();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
   const connectRef = useRef<HTMLFormElement>(null);
-  const surfaceRef = useRef<HTMLElement>(null);
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const filterId = `lifeos-provider-glass-${id}`;
   const [providers, setProviders] = useState<AiProvider[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [legacyProfileCount, setLegacyProfileCount] = useState(0);
@@ -302,16 +297,6 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return false;
     }
   }, [authorization, setLegacyProfileCount, setLoadError, setLoadState, setOnboardingCompleted, setProviders, setQueue]);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal();
-    closeRef.current?.focus();
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -695,30 +680,18 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
+    <section
+      className={styles.sheet}
       aria-labelledby={`${id}-title`}
       data-lg-role="stage"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
     >
-      <section ref={surfaceRef} className={styles.sheet} data-lg-role="focus">
-        <GlassRefraction surfaceRef={surfaceRef} filterId={filterId} profile="soft" />
+      <div className={styles.panelContent}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
             {screen !== "providers" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
             <p className={styles.eyebrow}>{screen === "providers" ? "ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ ИИ" : screen === "queue" ? "ОБЩИЙ ПОРЯДОК ИСПОЛЬЗОВАНИЯ" : "НАСТРОЙКА ПРОВАЙДЕРА"}</p>
-            <h2 id={`${id}-title`}>{screenTitle}</h2>
+            <h1 id={`${id}-title`}>{screenTitle}</h1>
           </div>
-          <button ref={closeRef} className={styles.close} type="button" aria-label="Закрыть настройки провайдеров" onClick={onClose}>
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
-          </button>
         </header>
 
         <div className={styles.scrollArea} aria-busy={loadState === "loading"}>
@@ -947,7 +920,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
             <button className={styles.primaryAction} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Готово"}</button>
           </footer>
         )}
-      </section>
-    </dialog>
+      </div>
+    </section>
   );
 }

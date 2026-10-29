@@ -1,75 +1,28 @@
-.dialog {
-  position: fixed;
-  inset: 0;
+.sheet {
+  position: relative;
   width: 100%;
-  max-width: none;
-  height: 100%;
-  max-height: none;
+  min-width: 0;
   margin: 0;
   padding: 0;
-  overflow: hidden;
-  border: 0;
-  background: transparent;
+  overflow: visible;
   color: #35272c;
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
 }
 
-.dialog::backdrop {
-  background: rgba(47, 30, 39, 0.34);
-  -webkit-backdrop-filter: blur(6px) saturate(1.12);
-  backdrop-filter: blur(6px) saturate(1.12);
-}
-
-.sheet {
-  --surface-radius: 32px;
-  position: absolute;
-  inset: auto 0 0;
-  isolation: isolate;
+.panelContent {
   display: flex;
-  width: min(100%, 720px);
-  max-height: min(94vh, 1120px);
-  max-height: min(94svh, 1120px);
   flex-direction: column;
   gap: 24px;
-  margin-inline: auto;
-  padding: 20px 28px max(28px, env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.84);
-  border-bottom: 0;
-  border-radius: var(--surface-radius) var(--surface-radius) 0 0;
-  background:
-    radial-gradient(ellipse 84% 50% at 4% 0%, rgba(255, 255, 255, 0.88), transparent 72%),
-    radial-gradient(ellipse 65% 48% at 100% 9%, rgba(220, 194, 207, 0.36), transparent 77%),
-    linear-gradient(150deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.69) 53%, rgba(246, 237, 239, 0.74)),
-    rgba(250, 246, 245, 0.78);
-  -webkit-backdrop-filter: blur(24px) saturate(1.42);
-  backdrop-filter: blur(24px) saturate(1.42);
-  box-shadow:
-    0 -22px 64px rgba(61, 37, 48, 0.17),
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    inset 0 -1px 0 rgba(116, 43, 69, 0.07);
-}
-
-.sheet::after {
-  position: absolute;
-  z-index: -1;
-  inset: 1px 1px 0;
-  border: 1px solid transparent;
-  border-top-color: rgba(255, 255, 255, 0.94);
-  border-inline-color: rgba(255, 255, 255, 0.38);
-  border-bottom: 0;
-  border-radius: calc(var(--surface-radius) - 1px) calc(var(--surface-radius) - 1px) 0 0;
-  content: "";
-  pointer-events: none;
+  min-width: 0;
 }
 
 .header {
   display: flex;
   flex: 0 0 auto;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 20px;
-  padding-top: 14px;
+  padding-top: 0;
 }
 
 .eyebrow {
@@ -81,7 +34,7 @@
   line-height: 1.4;
 }
 
-.header h2 {
+.header h1 {
   max-width: 15ch;
   margin: 0;
   color: #35272c;
@@ -91,38 +44,9 @@
   line-height: 1.08;
 }
 
-.close {
-  display: grid;
-  flex: 0 0 50px;
-  width: 50px;
-  height: 50px;
-  place-items: center;
-  border: 1px solid rgba(116, 43, 69, 0.18);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.48);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  color: #742b45;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.close svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-width: 1.8;
-}
-
 .scrollArea {
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 1px 3px 14px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(116, 43, 69, 0.34) transparent;
+  min-width: 0;
+  padding: 1px 0 14px;
 }
 
 .introRow {
@@ -1026,7 +950,6 @@
   outline-offset: 3px;
 }
 
-.close:focus-visible,
 .quotasLink:focus-visible,
 .primaryAction:focus-visible,
 .secondaryAction:focus-visible,
@@ -1045,18 +968,19 @@
 
 @media (max-width: 560px) {
   .sheet {
+    padding: 0;
+  }
+
+  .panelContent {
     gap: 19px;
-    max-height: min(96vh, 1120px);
-    max-height: min(96svh, 1120px);
-    padding: 15px 17px max(22px, env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
   }
 
   .header {
     gap: 13px;
-    padding-top: 12px;
+    padding-top: 0;
   }
 
-  .header h2 {
+  .header h1 {
     font-size: clamp(27px, 8vw, 33px);
   }
 
@@ -1196,11 +1120,6 @@
 }
 
 @media (max-width: 360px) {
-  .sheet {
-    padding-right: 13px;
-    padding-left: 13px;
-  }
-
   .providerCard {
     padding: 15px;
   }
@@ -1242,18 +1161,6 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .dialog::backdrop {
-    background: rgba(47, 30, 39, 0.48);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .sheet {
-    background: linear-gradient(145deg, rgba(250, 246, 245, 0.98), rgba(246, 237, 239, 0.98));
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
   .providerCard,
   .connectForm,
   .customCard {
@@ -1294,14 +1201,6 @@
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  .dialog::backdrop {
-    background: rgba(47, 30, 39, 0.44);
-  }
-
-  .sheet {
-    background: rgba(249, 245, 245, 0.98);
-  }
-
   .providerCard,
   .connectForm,
   .customCard {

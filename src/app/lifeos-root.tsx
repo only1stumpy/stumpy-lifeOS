@@ -547,7 +547,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         <LifeOSApp
           snapshot={snapshot}
           onAction={handleAction}
-          onOpenAiProviders={() => { setGuidedAiOnboarding(false); setShowAiProviders(true); }}
+          onOpenAiProviders={() => { setGuidedAiOnboarding(!snapshot?.settings.aiOnboardingCompleted); setShowAiProviders(true); }}
+          onCloseAiProviders={closeAiProviders}
+          aiSettingsActive={showAiProviders}
+          aiSettingsContent={showAiProviders && initData ? <AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding={guidedAiOnboarding} onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setGuidedAiOnboarding(false); setShowAiQuotas(true); }} /> : null}
           onDateChange={(date) => void changeDate(date)}
           onHaptic={triggerTelegramHaptic}
           onRegisterTelegramBackHandler={registerAppBackHandler}
@@ -555,9 +558,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           safeAreaTop={telegramSafeAreaTop}
           contentSafeAreaTop={telegramContentSafeAreaTop}
         />
-        <AnimatePresence initial={false}>
-          {showAiProviders && initData && <AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding={guidedAiOnboarding} onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setGuidedAiOnboarding(false); setShowAiQuotas(true); }} />}
-        </AnimatePresence>
         <AnimatePresence initial={false}>
           {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}
         </AnimatePresence>
