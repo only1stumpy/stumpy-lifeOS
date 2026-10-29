@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { motion } from "motion/react";
 import { GlassRefraction } from "@/components/glass/glass-refraction";
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
@@ -141,8 +141,8 @@ function requestError(response: Response, body: unknown): string {
   if (response.status === 401 || response.status === 403) {
     return "Не удалось подтвердить Telegram-сессию. Закрой Mini App и открой его снова из бота.";
   }
-  if (response.status === 429) return "Слишком много запросов подряд. Попробуй ещё раз чуть позже.";
-  if (response.status >= 500) return "Сервис провайдера или сервер LifeOS временно недоступен. Попробуй ещё раз позже.";
+  if (response.status === 429) return errorMessage(body, "Слишком много запросов подряд. Попробуй ещё раз чуть позже.");
+  if (response.status >= 500) return errorMessage(body, "Сервис провайдера или сервер LifeOS временно недоступен. Попробуй ещё раз позже.");
   return errorMessage(body, "Не удалось выполнить запрос. Проверь данные и попробуй ещё раз.");
 }
 
@@ -171,6 +171,22 @@ function safeHttpsUrl(value: string): string | null {
     return url.toString();
   } catch {
     return null;
+  }
+}
+
+function openProviderLink(event: MouseEvent<HTMLAnchorElement>, href: string): void {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+  const webApp = (window as Window & {
+    Telegram?: { WebApp?: { openLink?: (url: string) => void } };
+  }).Telegram?.WebApp;
+  if (!webApp?.openLink) return;
+
+  try {
+    webApp.openLink(href);
+    event.preventDefault();
+  } catch {
+    // Keep the anchor's normal navigation as a fallback if Telegram cannot open it.
   }
 }
 
@@ -570,6 +586,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                             href={apiKeysUrl}
                             target="_blank"
                             rel="noreferrer noopener"
+                            onClick={(event) => openProviderLink(event, apiKeysUrl)}
                             aria-label={provider.id === "cerebras" ? `Открыть сайт провайдера ${provider.name} в новой вкладке` : `Получить API-ключ ${provider.name} в новой вкладке`}
                           >
                             {provider.id === "cerebras" ? "Сайт провайдера" : "Получить API-ключ"}
@@ -727,7 +744,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                                       {model.supportsImages ? <span className={styles.capabilityAvailable}>Текст + фото</span> : <span className={styles.capabilityLimited}>Только текст</span>}
                                       {model.contextLength !== null && <span className={styles.contextLength}>{compactNumber(model.contextLength)} конт.</span>}
                                       {apiKeysUrl && (
-                                        <a className={styles.modelApiLink} href={apiKeysUrl} target="_blank" rel="noreferrer noopener" aria-label={`Открыть API-ключи ${provider.name} в новой вкладке`} title={`Страница API-ключей ${provider.name}`}>
+                                        <a className={styles.modelApiLink} href={apiKeysUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, apiKeysUrl)} aria-label={`Открыть API-ключи ${provider.name} в новой вкладке`} title={`Страница API-ключей ${provider.name}`}>
                                           API-ключи <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
                                         </a>
                                       )}

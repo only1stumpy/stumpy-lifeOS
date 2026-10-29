@@ -220,6 +220,11 @@ export type SafeHttpsPostOptions = {
   authHeaderName?: "authorization" | "x-goog-api-key";
 };
 
+export type SafeHttpsGetOptions = SafeHttpsPostOptions & {
+  /** Query parameters supplied by trusted provider adapters; endpoints themselves remain query-free. */
+  searchParams?: Readonly<Record<string, string>>;
+};
+
 export type SafeHttpsResponse = {
   status: number;
   body: string;
@@ -251,9 +256,9 @@ export async function safeHttpsPost(
 export async function safeHttpsGet(
   endpoint: string,
   apiKey: string,
-  options: SafeHttpsPostOptions = {},
+  options: SafeHttpsGetOptions = {},
 ): Promise<SafeHttpsResponse> {
-  return safeHttpsRequest("GET", endpoint, apiKey, undefined, options, false);
+  return safeHttpsRequest("GET", endpoint, apiKey, undefined, options, false, options.searchParams);
 }
 
 async function safeHttpsRequest(
@@ -263,6 +268,7 @@ async function safeHttpsRequest(
   requestBody: string | undefined,
   options: SafeHttpsPostOptions,
   appendCompletionPath: boolean,
+  searchParams?: Readonly<Record<string, string>>,
 ): Promise<SafeHttpsResponse> {
   const validated = await validateAiProviderEndpoint(endpoint);
   const url = new URL(validated.endpoint);
@@ -270,7 +276,9 @@ async function safeHttpsRequest(
   const timeoutMs = boundedInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS, 1_000, 60_000);
   const maxResponseBytes = boundedInteger(options.maxResponseBytes, DEFAULT_MAX_RESPONSE_BYTES, 1_024, 1_048_576);
   const path = url.pathname.replace(/\/$/, "");
-  const target = appendCompletionPath ? `${path}/chat/completions` : path || "/";
+  const targetPath = appendCompletionPath ? `${path}/chat/completions` : path || "/";
+  const query = searchParams ? new URLSearchParams(searchParams).toString() : "";
+  const target = query ? `${targetPath}?${query}` : targetPath;
   const hostname = url.hostname.startsWith("[") && url.hostname.endsWith("]")
     ? url.hostname.slice(1, -1)
     : url.hostname;

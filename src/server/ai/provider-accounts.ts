@@ -283,7 +283,9 @@ export async function loadConfiguredAiProviderConfigs(ownerId: string): Promise<
         endpoint: account.endpoint,
         model: model.id,
         apiKey: decryptProviderApiKey(account.encryptedApiKey),
-        authHeaderName: account.authHeaderName as "authorization" | "x-goog-api-key",
+        // Use the current adapter contract so accounts saved before the Gemini
+        // OpenAI-compatible endpoint switched to Bearer auth keep working.
+        authHeaderName: provider.authHeaderName,
         supportsImages: model.supportsImages,
         sortOrder: account.sortOrder * (MAX_MODELS_PER_PROVIDER + 1) + selection.sortOrder,
       });
