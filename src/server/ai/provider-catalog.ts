@@ -34,15 +34,6 @@ const freeTierModelIds: Record<Exclude<AiProviderId, "custom">, ReadonlySet<stri
   openrouter: new Set(),
 };
 
-const freeLimits: Partial<Record<Exclude<AiProviderId, "custom">, Record<string, Pick<AiProviderCatalogModel, "freeRequestsPerDay" | "freeRequestsPerMinute" | "freeTokensPerMinute">>>> = {
-  groq: {
-    "openai/gpt-oss-120b": { freeRequestsPerDay: 1_000, freeRequestsPerMinute: 30, freeTokensPerMinute: 8_000 },
-    "openai/gpt-oss-20b": { freeRequestsPerDay: 1_000, freeRequestsPerMinute: 30, freeTokensPerMinute: 8_000 },
-    "qwen/qwen3.8-27b": { freeRequestsPerDay: 1_000, freeRequestsPerMinute: 30, freeTokensPerMinute: 8_000 },
-  },
-  openrouter: {},
-};
-
 const definitions: AiProviderDefinition[] = [
   {
     id: "gemini",
@@ -219,9 +210,9 @@ export function normalizeProviderModel(providerId: AiProviderId, value: unknown)
     return [makeModel(id, textAt(model, "displayName") ?? id, supportsImages, integerAt(model, "inputTokenLimit"), null)];
   }
 
-  const limits = freeLimits[providerId]?.[id] ?? null;
   const contextLength = integerAt(model, "context_window") ?? integerAt(model, "context_length");
-  return [makeModel(id, textAt(model, "name") ?? id, false, contextLength, limits)];
+  // Groq's published figures are Developer-tier baselines, not guaranteed Free-tier quotas.
+  return [makeModel(id, textAt(model, "name") ?? id, false, contextLength, null)];
 }
 
 function makeModel(
