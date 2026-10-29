@@ -246,17 +246,15 @@ function getBot(): Bot<Context> {
       }
 
       if (!photo && /^\s*план(?=$|[\s:,-])/iu.test(text)) {
-        const plan = parseFinancePlanMessage(text, dateKey(new Date(), owner.timezone));
+        const plan = parseFinancePlanMessage(text);
         if (!plan) {
-          await ctx.reply("Формат: план шампунь 220. Новый план попадёт на следующий месяц; месяц можно указать, например: план шампунь 220 на ноябрь.");
+          await ctx.reply("Формат: план шампунь 220. План сохранится без даты и не повлияет на расходы, пока не отметишь покупку.");
           return;
         }
 
         const command = commandSchema.parse({ type: "finance-plan.save", ...plan });
         await executeCommand(command);
-        const month = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric", timeZone: "UTC" })
-          .format(new Date(`${plan.targetMonth}T12:00:00Z`));
-        await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, "PRB")}, ${month}. Это пока не расход.`);
+        await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, "PRB")}. Это пока не расход.`);
         return;
       }
 
