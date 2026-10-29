@@ -564,6 +564,18 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                       <div className={styles.providerTitle}>
                         <h3 id={`${id}-${provider.id}-heading`}>{provider.name}</h3>
                         <p>{providerUnavailable ? provider.connectionBlockReason || "Подключение этого провайдера сейчас недоступно." : copy.description}</p>
+                        {apiKeysUrl && (
+                          <a
+                            className={styles.providerApiLink}
+                            href={apiKeysUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            aria-label={provider.id === "cerebras" ? `Открыть сайт провайдера ${provider.name} в новой вкладке` : `Получить API-ключ ${provider.name} в новой вкладке`}
+                          >
+                            {provider.id === "cerebras" ? "Сайт провайдера" : "Получить API-ключ"}
+                            <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
+                          </a>
+                        )}
                       </div>
                       <div className={styles.providerMeta}>
                         <span className={provider.supportsImages ? styles.capabilityAvailable : styles.capabilityLimited}>
