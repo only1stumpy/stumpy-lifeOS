@@ -76,7 +76,7 @@ function isAppSnapshot(value: unknown): value is AppSnapshot {
     && isRecord(nutrition) && isRecord(nutrition.consumed) && Array.isArray(nutrition.entries) && Array.isArray(nutrition.weightHistory)
     && isRecord(finance) && Array.isArray(finance.accounts) && Array.isArray(finance.entries) && Array.isArray(finance.plans) && Array.isArray(finance.debts)
     && isRecord(gym) && Array.isArray(gym.program)
-    && isRecord(settings) && typeof settings.timeZone === "string"
+    && isRecord(settings) && typeof settings.timeZone === "string" && typeof settings.aiOnboardingCompleted === "boolean"
     && Array.isArray(value.recurring) && Array.isArray(value.drafts) && Array.isArray(value.templates);
 }
 
@@ -169,6 +169,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [showAiQuotas, setShowAiQuotas] = useState(false);
   const [showAiProviders, setShowAiProviders] = useState(false);
+  const [guidedAiOnboarding, setGuidedAiOnboarding] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
@@ -269,6 +270,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         setSnapshot(nextSnapshot);
         setSelectedDate(nextSnapshot.localDate);
         setError(null);
+        if (!nextSnapshot.settings.aiOnboardingCompleted) {
+          setGuidedAiOnboarding(true);
+          setShowAiProviders(true);
+        }
         setStatus("ready");
       } catch (cause: unknown) {
         if (!mounted) return;
@@ -416,7 +421,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   }, []);
 
   const closeAiQuotas = useCallback(() => setShowAiQuotas(false), []);
-  const closeAiProviders = useCallback(() => setShowAiProviders(false), []);
+  const closeAiProviders = useCallback(() => {
+    setShowAiProviders(false);
+    setGuidedAiOnboarding(false);
+  }, []);
   const registerAppBackHandler = useCallback((handler: (() => void) | null) => {
     appBackHandlerRef.current = handler;
     setHasAppBackState(Boolean(handler));
@@ -539,7 +547,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         <LifeOSApp
           snapshot={snapshot}
           onAction={handleAction}
-          onOpenAiProviders={() => setShowAiProviders(true)}
+          onOpenAiProviders={() => { setGuidedAiOnboarding(false); setShowAiProviders(true); }}
           onDateChange={(date) => void changeDate(date)}
           onHaptic={triggerTelegramHaptic}
           onRegisterTelegramBackHandler={registerAppBackHandler}
@@ -548,7 +556,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           contentSafeAreaTop={telegramContentSafeAreaTop}
         />
         <AnimatePresence initial={false}>
-          {showAiProviders && initData && <AiProvidersPanel key="ai-providers" initData={initData} onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setShowAiQuotas(true); }} />}
+          {showAiProviders && initData && <AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding={guidedAiOnboarding} onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setGuidedAiOnboarding(false); setShowAiQuotas(true); }} />}
         </AnimatePresence>
         <AnimatePresence initial={false}>
           {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}

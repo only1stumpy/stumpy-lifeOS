@@ -37,7 +37,7 @@ type LifeOSAppProps = {
   contentSafeAreaTop?: number;
 };
 
-type IconName = "today" | "nutrition" | "finance" | "gym" | "arrow" | "plus" | "edit" | "trash" | "close" | "back" | "check" | "clock" | "weight" | "list";
+type IconName = "today" | "nutrition" | "finance" | "gym" | "settings" | "arrow" | "plus" | "edit" | "trash" | "close" | "back" | "check" | "clock" | "weight" | "list";
 type SheetKey = "nutrition" | "finance" | "gym";
 type RestTimerPhase = "ready" | "running" | "paused" | "finished";
 type RestTimerState = {
@@ -74,6 +74,7 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
     nutrition: <><path d="M7 3v6M4.5 3v3.5a2.5 2.5 0 0 0 5 0V3M7 9v12" /><path d="M16.5 3c-1.8 2.1-2.5 4.3-2.5 7v2.5h5V10c0-2.7-.7-4.9-2.5-7Z" /><path d="M16.5 12.5V21" /></>,
     finance: <><rect x="3" y="5.5" width="18" height="14" rx="2.4" /><path d="M3.5 8.5h17M15.5 14h3" /><circle cx="15" cy="14" r=".7" fill="currentColor" stroke="none" /></>,
     gym: <><path d="M5 9v6M8 6.5v11M16 6.5v11M19 9v6M8 12h8" /><path d="M3.5 9v6M20.5 9v6" /></>,
+    settings: <><circle cx="12" cy="12" r="3.1" /><path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l1.4-1.1-1.4-2.5-1.7.6a7.8 7.8 0 0 0-2.6-1.5L14.8 4h-2.9l-.3 2a7.8 7.8 0 0 0-2.6 1.5l-1.7-.6-1.4 2.5 1.4 1.1a7.8 7.8 0 0 0 0 3l-1.4 1.1 1.4 2.5 1.7-.6a7.8 7.8 0 0 0 2.6 1.5l.3 2h2.9l.3-2a7.8 7.8 0 0 0 2.6-1.5l1.7.6 1.4-2.5-1.4-1.1Z" /></>,
     arrow: <><path d="M5 19 19 5M8 5h11v11" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
     edit: <><path d="m4 16.5-.7 4.2 4.2-.7L19.7 7.8a2.1 2.1 0 0 0-3-3L4 16.5Z" /><path d="m14.8 6.7 2.5 2.5" /></>,
@@ -798,7 +799,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
       </span>
       <div className={styles.appFrame}>
         <motion.header className={styles.appHeader} initial={{ opacity: 0, transform: "translateY(-8px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out }}>
-          <button type="button" className={styles.brand} aria-label="Открыть настройки ИИ" title="Настройки ИИ" onClick={() => { onHaptic?.("selection"); onOpenAiProviders(); }}>LifeOS</button>
+          <span className={styles.brand}>LifeOS</span>
           {snapshot && <label className={styles.dateChip} style={{ position: "relative" }}><time dateTime={snapshot.localDate}>{dateHeading(snapshot.localDate)}</time>{onDateChange && <input type="date" aria-label="Выбрать дату дневника" value={snapshot.localDate} onChange={(event) => onDateChange(event.target.value)} style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer" }} />}</label>}
         </motion.header>
         <main className={styles.main}>
@@ -819,6 +820,10 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
               <span className={styles.srOnly}>{item.label}</span>
             </button>
           ))}
+          <button type="button" className={styles.dockButton} aria-label="Настройки ИИ" title="Настройки ИИ" aria-haspopup="dialog" onClick={() => { onHaptic?.("selection"); onOpenAiProviders(); }}>
+            <Icon name="settings" />
+            <span className={styles.srOnly}>Настройки ИИ</span>
+          </button>
         </motion.nav>
         <AnimatePresence>
           {sheet && <ActionSheet key={sheet} sheet={sheet} snapshot={snapshot} onClose={() => setSheet(null)} onAction={(action) => { setSheet(null); onAction(action); }} panelRef={sheetRef} closeRef={closeSheetRef} />}

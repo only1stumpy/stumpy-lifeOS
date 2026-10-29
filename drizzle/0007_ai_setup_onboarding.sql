@@ -1,0 +1,2 @@
+ALTER TABLE "owner_settings" ADD COLUMN "ai_onboarding_completed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "owner_settings" ADD COLUMN "ai_model_queue_initialized" boolean DEFAULT false NOT NULL;

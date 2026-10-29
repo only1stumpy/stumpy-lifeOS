@@ -118,7 +118,6 @@
   font-weight: 600;
   letter-spacing: -0.055em;
   text-align: left;
-  cursor: pointer;
 }
 
 .dateChip {
@@ -725,7 +724,7 @@
 
 .financeTabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .financeTabs > button {

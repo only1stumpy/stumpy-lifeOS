@@ -2,12 +2,13 @@ import { z } from "zod";
 import { AI_PROVIDER_IDS } from "@/server/ai/provider-catalog";
 import {
   connectAiProviderAccount,
+  completeAiProviderOnboarding,
   deleteAiProviderAccount,
   listAiProviderCards,
   refreshAiProviderAccountModels,
   reorderAiProviderAccount,
   setAiProviderAccountEnabled,
-  setAiProviderModels,
+  setAiProviderModelQueue,
 } from "@/server/ai/provider-accounts";
 import { AppError, errorResponse, requireOwner } from "@/server/http";
 import { ensureOwner } from "@/server/lifeos";
@@ -28,10 +29,13 @@ const actionSchema = z.discriminatedUnion("action", [
     freeTierConfirmed: z.literal(true),
   }).strict(),
   z.object({
-    action: z.literal("set-models"),
-    providerId: z.enum(AI_PROVIDER_IDS),
-    modelIds: z.array(z.string().min(1).max(200)).max(100),
+    action: z.literal("set-model-queue"),
+    models: z.array(z.object({
+      providerId: z.enum(AI_PROVIDER_IDS),
+      modelId: z.string().trim().min(1).max(200),
+    }).strict()).max(500),
   }).strict(),
+  z.object({ action: z.literal("complete-onboarding") }).strict(),
   z.object({ action: z.literal("reorder-account"), accountId, position: z.number().int().min(0).max(19) }).strict(),
   z.object({ action: z.literal("toggle-account"), accountId, enabled: z.boolean() }).strict(),
   z.object({ action: z.literal("refresh-models"), accountId }).strict(),
@@ -55,9 +59,9 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const user = requireOwner(request);
-    if (Number(request.headers.get("content-length") ?? 0) > 16_384) throw new AppError(413, "Слишком большой запрос.");
+    if (Number(request.headers.get("content-length") ?? 0) > 128_000) throw new AppError(413, "Слишком большой запрос.");
     const raw = await request.text();
-    if (Buffer.byteLength(raw, "utf8") > 16_384) throw new AppError(413, "Слишком большой запрос.");
+    if (Buffer.byteLength(raw, "utf8") > 128_000) throw new AppError(413, "Слишком большой запрос.");
     let payload: unknown;
     try { payload = JSON.parse(raw); } catch { throw new AppError(400, "Некорректный запрос."); }
     const input = actionSchema.parse(payload);
@@ -76,8 +80,11 @@ export async function POST(request: Request): Promise<Response> {
           });
           return Response.json(result, { headers: { "Cache-Control": "no-store" } });
         }
-        case "set-models":
-          await setAiProviderModels(owner.id, input.providerId, input.modelIds);
+        case "set-model-queue":
+          await setAiProviderModelQueue(owner.id, input.models);
+          break;
+        case "complete-onboarding":
+          await completeAiProviderOnboarding(owner.id);
           break;
         case "reorder-account":
           await reorderAiProviderAccount(owner.id, input.accountId, input.position);

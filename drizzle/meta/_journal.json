@@ -50,6 +50,13 @@
       "when": 1793264211137,
       "tag": "0006_cooing_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793275817275,
+      "tag": "0007_ai_setup_onboarding",
+      "breakpoints": true
     }
   ]
 }
