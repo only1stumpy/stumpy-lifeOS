@@ -10,6 +10,7 @@ import {
 } from "./types";
 import { normalizeClarificationHistory, resolveMoneyClarification } from "./clarification";
 import { completeOpenAICompatible, AiProviderTransportError } from "./openai-compatible";
+import { recordAiProviderUsage } from "./provider-accounts";
 import type { AiProviderConfig } from "./provider-profiles";
 
 const MAX_TEXT_LENGTH = 8_000;
@@ -69,10 +70,14 @@ type ProviderConfig = {
   model: string;
   apiKey: string;
   endpoint?: string;
+  accountId?: string;
+  supportsImages?: boolean;
+  authHeaderName?: "authorization" | "x-goog-api-key";
 };
 
 export type ProviderSelection = {
   profiles: readonly AiProviderConfig[];
+  ownerId?: string;
   /** Deployment-wide legacy keys must only be exposed to the configured account. */
   allowLegacyProviders?: boolean;
 };
@@ -147,12 +152,23 @@ export async function analyzeMessage(
   }
 
   const context = makeUserContext(validatedInput);
-  const providers = getProviderConfigsForSelection(selection);
+  const configuredProviders = getProviderConfigsForSelection(selection);
 
-  if (providers.length === 0) {
+  if (configuredProviders.length === 0) {
     throw new AIAnalysisError(
       "not_configured",
       "ИИ пока не настроен. Можно внести данные вручную.",
+    );
+  }
+
+  const providers = validatedInput.image
+    ? configuredProviders.filter((provider) => provider.supportsImages === true)
+    : configuredProviders;
+  if (validatedInput.image && providers.length === 0) {
+    throw new AIAnalysisError(
+      "provider_configuration",
+      "Подключённые модели не поддерживают фото. Добавь или выбери модель с поддержкой изображений в настройках ИИ.",
+      configuredProviders.map((provider) => provider.provider),
     );
   }
 
@@ -167,6 +183,7 @@ export async function analyzeMessage(
           ? await callGroq(config, context, validatedInput.image)
           : await callOpenAICompatible(config, SYSTEM_PROMPT, context, validatedInput.image, "json_object");
       const payload = normalizeMoneyCategories(parseAnalysisPayload(text), validatedInput);
+      await recordProviderUsage(selection, config, "success");
 
       return {
         ...payload,
@@ -177,6 +194,7 @@ export async function analyzeMessage(
       // Provider errors are intentionally reduced to this safe failure path;
       // raw responses, prompt contents, API keys, and thrown messages are not exposed.
       failures.push(error instanceof ProviderFailure ? error.kind : "other");
+      await recordProviderUsage(selection, config, "failure");
     }
   }
 
@@ -215,10 +233,12 @@ export async function answerLifeOSQuestion(
           ? await callGroqReference(config, prompt)
           : await callOpenAICompatible(config, REFERENCE_SYSTEM_PROMPT, prompt, undefined, "text");
       const answer = validateReferenceAnswer(text);
+      await recordProviderUsage(selection, config, "success");
       return { answer, provider: config.provider, model: config.model };
     } catch (error) {
       // Keep provider details, prompts, raw responses, and API keys out of errors.
       failures.push(error instanceof ProviderFailure ? error.kind : "other");
+      await recordProviderUsage(selection, config, "failure");
     }
   }
 
@@ -508,6 +528,7 @@ function getProviderConfigs(): ProviderConfig[] {
       provider: "gemini",
       model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
       apiKey: geminiKey,
+      supportsImages: true,
     });
   }
 
@@ -517,6 +538,7 @@ function getProviderConfigs(): ProviderConfig[] {
       provider: "groq",
       model: process.env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL,
       apiKey: groqKey,
+      supportsImages: false,
     });
   }
   return configs;
@@ -529,6 +551,9 @@ function getProviderConfigsForSelection(selection?: ProviderSelection): Provider
     endpoint: profile.endpoint,
     model: profile.model,
     apiKey: profile.apiKey,
+    accountId: profile.accountId,
+    supportsImages: profile.supportsImages,
+    authHeaderName: profile.authHeaderName,
   }));
   return selection.allowLegacyProviders
     ? [...profiles, ...getProviderConfigs()]
@@ -544,7 +569,7 @@ async function callOpenAICompatible(
 ): Promise<string> {
   try {
     return await completeOpenAICompatible(
-      { endpoint: config.endpoint ?? "", model: config.model, apiKey: config.apiKey },
+      { endpoint: config.endpoint ?? "", model: config.model, apiKey: config.apiKey, authHeaderName: config.authHeaderName },
       {
         systemPrompt,
         userText,
@@ -556,6 +581,15 @@ async function callOpenAICompatible(
   } catch (error) {
     throw new ProviderFailure(error instanceof AiProviderTransportError ? error.kind : "other");
   }
+}
+
+async function recordProviderUsage(
+  selection: ProviderSelection | undefined,
+  config: ProviderConfig,
+  outcome: "success" | "failure",
+): Promise<void> {
+  if (!selection?.ownerId || !config.accountId) return;
+  await recordAiProviderUsage(selection.ownerId, config.accountId, config.model, outcome).catch(() => undefined);
 }
 
 async function callGemini(

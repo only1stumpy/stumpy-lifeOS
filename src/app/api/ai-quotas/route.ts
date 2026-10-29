@@ -1,14 +1,21 @@
+import { getAiProviderUsage } from "@/server/ai/provider-accounts";
 import { getGeminiQuotaSnapshot } from "@/server/ai/quotas";
-import { errorResponse, requireConfiguredOwner } from "@/server/http";
+import { errorResponse, requireOwner } from "@/server/http";
+import { ensureOwner } from "@/server/lifeos";
+import { withTelegramUser } from "@/server/owner-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    requireConfiguredOwner(request);
-    return Response.json(await getGeminiQuotaSnapshot(), {
-      headers: { "Cache-Control": "no-store" },
+    const user = requireOwner(request);
+    return await withTelegramUser(String(user.id), async () => {
+      const owner = await ensureOwner();
+      const providers = await getAiProviderUsage(owner.id);
+      const isLegacyOwner = Boolean(process.env.TELEGRAM_OWNER_ID && String(user.id) === process.env.TELEGRAM_OWNER_ID.trim());
+      const legacyGemini = isLegacyOwner ? await getGeminiQuotaSnapshot().catch(() => null) : null;
+      return Response.json({ providers, legacyGemini }, { headers: { "Cache-Control": "no-store" } });
     });
   } catch (error) {
     const response = errorResponse(error);

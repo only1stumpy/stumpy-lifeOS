@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { and, eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import {
+  BACKUP_VERSION,
   createBackup,
   restoreBackup,
   validateBackup,
@@ -389,7 +390,7 @@ test("backup round-trips all persistent tables and leaves ephemeral references c
     await seed(source);
 
     const backup = await createBackup(asBackupDatabase(source), OWNER_ID);
-    assert.equal(backup.version, 1);
+    assert.equal(backup.version, BACKUP_VERSION);
     assert.equal(backup.ownerTelegramId, OWNER_ID);
     assert.equal(backup.tables.ownerSettings[0].editingCaptureId, null);
     assert.equal(backup.tables.captureDrafts[0].telegramUpdateRowId, null);

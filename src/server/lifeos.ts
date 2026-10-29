@@ -12,7 +12,7 @@ import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
 import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
 import { resolveTelegramUserId } from "./owner-context";
-import { loadAiProviderConfigs } from "./ai/provider-profiles";
+import { loadConfiguredAiProviderConfigs } from "./ai/provider-accounts";
 
 const decimal = (minor: number) => {
   const n = BigInt(minor);
@@ -69,7 +69,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   if (selectedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) || !Number.isFinite(Date.parse(selectedDate + "T12:00:00Z")) || new Date(selectedDate + "T12:00:00Z").toISOString().slice(0, 10) !== selectedDate)) throw new AppError(400, "Некорректная дата дневника.");
   const localDate = selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : today;
   // ponytail: a personal journal is read as a whole; add paginated history when its size warrants it.
-  const [foods, targets, weights, accounts, categories, money, rates, recurring, days, dayItems, exercises, sessions, sessionItems, sets, captures, foodDrafts, moneyDrafts, templates] = await Promise.all([
+  const [foods, targets, weights, accounts, categories, money, rates, recurring, plans, days, dayItems, exercises, sessions, sessionItems, sets, captures, foodDrafts, moneyDrafts, templates] = await Promise.all([
     db.select().from(s.nutritionEntries).where(eq(s.nutritionEntries.ownerId, ownerId)).orderBy(desc(s.nutritionEntries.occurredAt)),
     db.select().from(s.nutritionTargets).where(and(eq(s.nutritionTargets.ownerId, ownerId), lte(s.nutritionTargets.effectiveFrom, localDate))).orderBy(desc(s.nutritionTargets.effectiveFrom)),
     db.select().from(s.weightEntries).where(eq(s.weightEntries.ownerId, ownerId)).orderBy(s.weightEntries.occurredAt),
@@ -78,6 +78,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     db.select().from(s.financeEntries).where(eq(s.financeEntries.ownerId, ownerId)).orderBy(desc(s.financeEntries.occurredAt)),
     db.select().from(s.exchangeRates).where(eq(s.exchangeRates.ownerId, ownerId)).orderBy(desc(s.exchangeRates.effectiveAt)),
     db.select().from(s.recurringPayments).where(and(eq(s.recurringPayments.ownerId, ownerId), eq(s.recurringPayments.isActive, true))),
+    db.select().from(s.financePlans).where(eq(s.financePlans.ownerId, ownerId)).orderBy(s.financePlans.targetMonth, s.financePlans.createdAt),
     db.select().from(s.workoutDays).where(and(eq(s.workoutDays.ownerId, ownerId), eq(s.workoutDays.isArchived, false))).orderBy(s.workoutDays.position),
     db.select().from(s.workoutDayExercises).where(eq(s.workoutDayExercises.ownerId, ownerId)).orderBy(s.workoutDayExercises.position),
     db.select().from(s.exercises).where(eq(s.exercises.ownerId, ownerId)),
@@ -169,6 +170,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       spentMonthPrbMinor: totalExpenses(monthlyExpenses),
       accounts: accounts.map((v) => ({ id: v.id, name: v.name, currency: asCurrency(v.currency), openingBalanceMinor: toMinor(v.openingBalance), isDefault: v.isDefault, balanceMinor: toMinor(v.openingBalance) + money.filter((e) => e.accountId === v.id).reduce((sum, e) => sum + (e.entryType === "income" ? 1 : -1) * toMinor(e.amount), 0) })),
       entries: money.map((v) => ({ id: v.id, accountId: v.accountId, label: v.name, occurredAt: v.occurredAt.toISOString(), amountMinor: toMinor(v.amount), currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "Без категории", kind: v.entryType as "expense" | "income" })),
+      plans: plans.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), targetMonth: v.targetMonth })),
     },
     gym: {
       trainingDay: Boolean(active || planned), nextWorkout: program.find((v) => v.id === (active?.workoutDayId ?? planned?.id)) ?? null,
@@ -269,9 +271,10 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
       .set({ aiClarificationHistory: null, aiClarificationUpdatedAt: null, updatedAt: analyzedAt })
       .where(eq(s.ownerSettings.id, owner.id));
   }
-  const providerProfiles = await loadAiProviderConfigs(owner.id);
+  const providerProfiles = await loadConfiguredAiProviderConfigs(owner.id);
   const analysis = await analyzeMessage({ ...input, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
     profiles: providerProfiles,
+    ownerId: owner.id,
     allowLegacyProviders: Boolean(owner.telegramUserId && owner.telegramUserId === process.env.TELEGRAM_OWNER_ID?.trim()),
   });
   if (!analysis.entries.length) {
@@ -349,6 +352,52 @@ export async function executeCommand(command: AppCommand) {
         break;
       }
       case "money.delete": await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id))); break;
+      case "finance-plan.save": {
+        const values = { ownerId: owner.id, name: command.name, amount: decimal(command.amountMinor), targetMonth: command.targetMonth };
+        if (command.id) {
+          const [existing] = await tx.select().from(s.financePlans)
+            .where(and(eq(s.financePlans.id, command.id), eq(s.financePlans.ownerId, owner.id)));
+          if (!existing) throw new AppError(404, "План покупки не найден.");
+          await tx.update(s.financePlans).set({ ...values, updatedAt: new Date() })
+            .where(and(eq(s.financePlans.id, existing.id), eq(s.financePlans.ownerId, owner.id)));
+        } else {
+          await tx.insert(s.financePlans).values(values);
+        }
+        break;
+      }
+      case "finance-plan.delete": {
+        const [existing] = await tx.select().from(s.financePlans)
+          .where(and(eq(s.financePlans.id, command.id), eq(s.financePlans.ownerId, owner.id)));
+        if (!existing) throw new AppError(404, "План покупки не найден.");
+        await tx.delete(s.financePlans)
+          .where(and(eq(s.financePlans.id, command.id), eq(s.financePlans.ownerId, owner.id)));
+        break;
+      }
+      case "finance-plan.purchase": {
+        const [plan] = await tx.select().from(s.financePlans)
+          .where(and(eq(s.financePlans.id, command.id), eq(s.financePlans.ownerId, owner.id)))
+          .for("update");
+        if (!plan) throw new AppError(404, "План покупки не найден.");
+
+        const chosen = await account(tx, owner.id, command.accountId);
+        if (chosen.currency !== "PRB") throw new AppError(400, "План покупки можно записать только со счёта в рублях ПМР.");
+        const group = await category(tx, owner.id, command.category, "expense");
+        await tx.insert(s.financeEntries).values({
+          ownerId: owner.id,
+          accountId: chosen.id,
+          categoryId: group.id,
+          name: command.label,
+          entryType: "expense",
+          amount: decimal(command.actualAmountMinor),
+          currency: "PRB",
+          usdToPrbRate: null,
+          occurredAt: new Date(command.occurredAt),
+          source: "mini_app",
+        });
+        await tx.delete(s.financePlans)
+          .where(and(eq(s.financePlans.id, plan.id), eq(s.financePlans.ownerId, owner.id)));
+        break;
+      }
       case "recurring.save": {
         const chosen = await account(tx, owner.id, command.accountId);
         const group = await category(tx, owner.id, command.category, "expense");

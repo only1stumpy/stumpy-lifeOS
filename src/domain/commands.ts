@@ -5,6 +5,7 @@ const text = z.string().trim().min(1).max(300);
 const timestamp = z.string().datetime({ offset: true });
 const nutrient = z.number().finite().min(0).max(100000);
 const minor = z.number().int().min(1).max(1_000_000_000_000);
+const planMonth = z.string().date().refine((value) => value.endsWith("-01"), { message: "Выберите месяц." });
 export const macrosSchema = z.object({ calories: nutrient, proteinGrams: nutrient, fatGrams: nutrient, carbsGrams: nutrient });
 export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("settings.save"), timeZone: z.string().min(1).max(100), target: macrosSchema.nullable() }),
@@ -15,6 +16,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rate.save"), usdToPrb: z.string().regex(/^\d{1,6}(\.\d{1,6})?$/).refine((v) => Number(v) > 0), effectiveAt: timestamp.optional() }),
   z.object({ type: z.literal("money.save"), id: id.optional(), label: text, occurredAt: timestamp, amountMinor: minor, accountId: id, category: text, kind: z.enum(["expense", "income"]) }),
   z.object({ type: z.literal("money.delete"), id }),
+  z.object({ type: z.literal("finance-plan.save"), id: id.optional(), name: text, amountMinor: minor, targetMonth: planMonth }),
+  z.object({ type: z.literal("finance-plan.delete"), id }),
+  z.object({ type: z.literal("finance-plan.purchase"), id, label: text, actualAmountMinor: minor, occurredAt: timestamp, accountId: id, category: text }),
   z.object({ type: z.literal("recurring.save"), id: id.optional(), name: text, amountMinor: minor, accountId: id, category: text, frequency: z.enum(["weekly", "monthly", "yearly"]), nextDueAt: timestamp }),
   z.object({ type: z.literal("recurring.confirm"), id }),
   z.object({ type: z.literal("day.save"), id: id.optional(), name: text, weekday: z.number().int().min(0).max(6).nullable().default(null) }),

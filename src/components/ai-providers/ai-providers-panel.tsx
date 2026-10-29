@@ -1,28 +1,53 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { motion } from "motion/react";
 import { GlassRefraction } from "@/components/glass/glass-refraction";
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
 import { motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import styles from "./ai-providers-panel.module.css";
 
-type ProviderProfile = {
+type ProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "custom";
+type StandardProviderId = Exclude<ProviderId, "custom">;
+
+type ProviderAccount = {
   id: string;
   name: string;
-  endpoint: string;
-  model: string;
   enabled: boolean;
   sortOrder: number;
   hasApiKey: boolean;
 };
 
-type ProviderForm = {
+type ProviderModel = {
+  id: string;
   name: string;
-  endpoint: string;
-  model: string;
-  apiKey: string;
+  selected: boolean;
+  supportsImages: boolean;
+  contextLength: number | null;
+  accountIds: string[];
 };
+
+type AiProvider = {
+  id: ProviderId;
+  name: string;
+  supportsImages: boolean;
+  connectable: boolean;
+  connectionBlockReason: string | null;
+  accounts: ProviderAccount[];
+  models: ProviderModel[];
+};
+
+type ConnectForm = { name: string; apiKey: string };
+type CustomForm = { name: string; endpoint: string; model: string; apiKey: string };
+type LoadState = "loading" | "ready" | "error";
+type ProviderActionPayload =
+  | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; freeTierConfirmed: true }
+  | { action: "connect"; providerId: "custom"; name: string; endpoint: string; model: string; apiKey: string; freeTierConfirmed: true }
+  | { action: "set-models"; providerId: ProviderId; modelIds: string[] }
+  | { action: "reorder-account"; accountId: string; position: number }
+  | { action: "toggle-account"; accountId: string; enabled: boolean }
+  | { action: "refresh-models"; accountId: string };
+type LocatedAccount = { account: ProviderAccount };
 
 type AiProvidersPanelProps = {
   initData: string;
@@ -30,26 +55,66 @@ type AiProvidersPanelProps = {
   onOpenQuotas?(): void;
 };
 
-type LoadState = "loading" | "ready" | "error";
+const providerOrder: ProviderId[] = ["gemini", "groq", "cerebras", "openrouter", "custom"];
+const providerCopy: Record<ProviderId, { mark: string; description: string }> = {
+  gemini: { mark: "G", description: "Google AI Studio · проверь, что ключ использует Free Tier." },
+  groq: { mark: "Gr", description: "Быстрые модели с бесплатной квотой." },
+  cerebras: { mark: "C", description: "Каталог моделей Cerebras." },
+  openrouter: { mark: "OR", description: "Каталог бесплатных моделей с суффиксом :free." },
+  custom: { mark: "API", description: "Свой OpenAI-compatible endpoint. Подключай только модель с нулевой стоимостью." },
+};
 
-const emptyForm: ProviderForm = { name: "", endpoint: "", model: "", apiKey: "" };
+const emptyConnect: ConnectForm = { name: "", apiKey: "" };
+const emptyCustom: CustomForm = { name: "", endpoint: "", model: "", apiKey: "" };
 
-function isProfile(value: unknown): value is ProviderProfile {
-  if (typeof value !== "object" || value === null) return false;
-  const profile = value as Partial<ProviderProfile>;
-  return typeof profile.id === "string"
-    && typeof profile.name === "string"
-    && typeof profile.endpoint === "string"
-    && typeof profile.model === "string"
-    && typeof profile.enabled === "boolean"
-    && typeof profile.sortOrder === "number"
-    && typeof profile.hasApiKey === "boolean";
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isProviderId(value: unknown): value is ProviderId {
+  return typeof value === "string" && providerOrder.includes(value as ProviderId);
+}
+
+function isAccount(value: unknown): value is ProviderAccount {
+  if (!isObject(value)) return false;
+  return typeof value.id === "string"
+    && typeof value.name === "string"
+    && typeof value.enabled === "boolean"
+    && typeof value.sortOrder === "number"
+    && typeof value.hasApiKey === "boolean";
+}
+
+function isModel(value: unknown): value is ProviderModel {
+  if (!isObject(value)) return false;
+  return typeof value.id === "string"
+    && typeof value.name === "string"
+    && typeof value.selected === "boolean"
+    && typeof value.supportsImages === "boolean"
+    && (typeof value.contextLength === "number" || value.contextLength === null)
+    && Array.isArray(value.accountIds)
+    && value.accountIds.every((accountId) => typeof accountId === "string");
+}
+
+function isProvider(value: unknown): value is AiProvider {
+  if (!isObject(value)) return false;
+  return isProviderId(value.id)
+    && typeof value.name === "string"
+    && typeof value.supportsImages === "boolean"
+    && typeof value.connectable === "boolean"
+    && (typeof value.connectionBlockReason === "string" || value.connectionBlockReason === null)
+    && Array.isArray(value.accounts)
+    && value.accounts.every(isAccount)
+    && Array.isArray(value.models)
+    && value.models.every(isModel);
+}
+
+function isStandardProvider(provider: AiProvider): provider is AiProvider & { id: StandardProviderId } {
+  return provider.id !== "custom";
 }
 
 function errorMessage(value: unknown, fallback: string): string {
-  if (typeof value === "object" && value !== null && "error" in value && typeof value.error === "string" && value.error.trim()) {
-    return value.error;
-  }
+  if (isObject(value) && typeof value.error === "string" && value.error.trim()) return value.error;
+  if (isObject(value) && typeof value.message === "string" && value.message.trim()) return value.message;
   return fallback;
 }
 
@@ -62,7 +127,7 @@ function requestError(response: Response, body: unknown): string {
     return "Не удалось подтвердить Telegram-сессию. Закрой Mini App и открой его снова из бота.";
   }
   if (response.status === 429) return "Слишком много запросов подряд. Попробуй ещё раз чуть позже.";
-  if (response.status >= 500) return "Сервер временно недоступен. Попробуй ещё раз.";
+  if (response.status >= 500) return "Сервис провайдера или сервер LifeOS временно недоступен. Попробуй ещё раз позже.";
   return errorMessage(body, "Не удалось выполнить запрос. Проверь данные и попробуй ещё раз.");
 }
 
@@ -71,28 +136,61 @@ function readableError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function accountCountLabel(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} аккаунтов`;
+  if (last === 1) return `${count} аккаунт`;
+  if (last >= 2 && last <= 4) return `${count} аккаунта`;
+  return `${count} аккаунтов`;
+}
+
+function compactNumber(value: number): string {
+  return new Intl.NumberFormat("ru-RU", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function availableAccountNames(provider: AiProvider, model: ProviderModel): string {
+  const names = model.accountIds
+    .map((accountId) => provider.accounts.find((account) => account.id === accountId)?.name)
+    .filter((name): name is string => typeof name === "string");
+  return names.length ? names.join(" · ") : "Нет доступного аккаунта";
+}
+
+function getGlobalAccountOrder(providers: AiProvider[]): LocatedAccount[] {
+  return providers
+    .filter((provider) => provider.connectable)
+    .flatMap((provider) => provider.accounts.map((account) => ({ account })))
+    .sort((left, right) => left.account.sortOrder - right.account.sortOrder);
+}
+
 export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvidersPanelProps) {
   const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const connectRef = useRef<HTMLFormElement>(null);
   const surfaceRef = useRef<HTMLElement>(null);
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const filterId = `lifeos-provider-glass-${id}`;
-  const [profiles, setProfiles] = useState<ProviderProfile[]>([]);
+  const [providers, setProviders] = useState<AiProvider[]>([]);
+  const [legacyProfileCount, setLegacyProfileCount] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState<ProviderForm>(emptyForm);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [connectProviderId, setConnectProviderId] = useState<StandardProviderId | null>(null);
+  const [connectForm, setConnectForm] = useState<ConnectForm>(emptyConnect);
+  const [customForm, setCustomForm] = useState<CustomForm>(emptyCustom);
+  const [providerFreeTierConfirmed, setProviderFreeTierConfirmed] = useState(false);
+  const [customFreeConfirmed, setCustomFreeConfirmed] = useState(false);
   const [formError, setFormError] = useState("");
+  const [customError, setCustomError] = useState("");
   const [notice, setNotice] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [legacyQuotaAvailable, setLegacyQuotaAvailable] = useState(false);
+  const [modelOpenProvider, setModelOpenProvider] = useState<ProviderId | null>(null);
+  const [modelQuery, setModelQuery] = useState<Record<string, string>>({});
+  const [confirmDelete, setConfirmDelete] = useState<{ providerId: ProviderId; account: ProviderAccount } | null>(null);
 
   const authorization = `tma ${initData}`;
 
-  const reloadProfiles = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
+  const reloadProviders = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
     setLoadState("loading");
     setLoadError("");
     try {
@@ -103,16 +201,17 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
       });
       const body = await responseBody(response);
       if (!response.ok) throw new Error(requestError(response, body));
-      if (typeof body !== "object" || body === null || !("profiles" in body) || !Array.isArray(body.profiles) || !body.profiles.every(isProfile)) {
+      if (!isObject(body) || !Array.isArray(body.providers) || !body.providers.every(isProvider) || typeof body.legacyProfileCount !== "number") {
         throw new Error("Сервер вернул список провайдеров в неожиданном формате.");
       }
-      setProfiles(body.profiles.slice().sort((left, right) => left.sortOrder - right.sortOrder));
-      setLegacyQuotaAvailable("legacyQuotaAvailable" in body && body.legacyQuotaAvailable === true);
+      const sorted = body.providers.slice().sort((left, right) => providerOrder.indexOf(left.id) - providerOrder.indexOf(right.id));
+      setProviders(sorted);
+      setLegacyProfileCount(body.legacyProfileCount);
       setLoadState("ready");
       return true;
     } catch (error) {
       if (signal?.aborted) return false;
-      setLoadError(readableError(error, "Не удалось загрузить провайдеры. Попробуй ещё раз."));
+      setLoadError(readableError(error, "Не удалось загрузить каталог ИИ. Попробуй ещё раз."));
       setLoadState("error");
       return false;
     }
@@ -130,140 +229,238 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
 
   useEffect(() => {
     const controller = new AbortController();
-    void Promise.resolve().then(() => reloadProfiles(controller.signal));
+    void Promise.resolve().then(() => reloadProviders(controller.signal));
     return () => controller.abort();
-  }, [reloadProfiles]);
+  }, [reloadProviders]);
 
-  const resetForm = () => {
-    setForm(emptyForm);
-    setEditingId(null);
-    setFormError("");
+  const postAction = async (payload: ProviderActionPayload) => {
+    const response = await fetch("/api/ai-providers", {
+      method: "POST",
+      headers: { Authorization: authorization, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await responseBody(response);
+    if (!response.ok) throw new Error(requestError(response, body));
+    return body;
   };
 
-  const editProfile = (profile: ProviderProfile) => {
-    setEditingId(profile.id);
-    setForm({ name: profile.name, endpoint: profile.endpoint, model: profile.model, apiKey: "" });
+  const beginConnect = (providerId: StandardProviderId) => {
+    setConnectProviderId(providerId);
+    setConnectForm(emptyConnect);
+    setProviderFreeTierConfirmed(false);
     setFormError("");
     setNotice("");
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" }));
+    requestAnimationFrame(() => connectRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" }));
   };
 
-  const submitForm = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitConnect = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (busyAction) return;
-    const name = form.name.trim();
-    const endpoint = form.endpoint.trim();
-    const model = form.model.trim();
-    const apiKey = form.apiKey.trim();
-    if (!name || !endpoint || !model) {
-      setFormError("Заполни название, endpoint и модель.");
+    if (!connectProviderId || busyAction) return;
+    const name = connectForm.name.trim();
+    const apiKey = connectForm.apiKey.trim();
+    if (!name || !apiKey) {
+      setFormError("Укажи название аккаунта и API-ключ.");
+      return;
+    }
+    if (!providerFreeTierConfirmed) {
+      setFormError("Подтверди условия бесплатного доступа и проверь настройки оплаты аккаунта.");
+      return;
+    }
+
+    setBusyAction(`connect:${connectProviderId}`);
+    setFormError("");
+    setNotice("");
+    try {
+      await postAction({
+        action: "connect",
+        providerId: connectProviderId,
+        name,
+        apiKey,
+        freeTierConfirmed: true,
+      });
+      setConnectForm(emptyConnect);
+      setConnectProviderId(null);
+      setProviderFreeTierConfirmed(false);
+      setNotice(`Аккаунт «${name}» проверен и подключён. Ключ сохранён и больше не отображается.`);
+      const refreshed = await reloadProviders();
+      if (!refreshed) setNotice(`Аккаунт «${name}» подключён, но список не обновился. Нажми «Повторить».`);
+    } catch (error) {
+      setFormError(readableError(error, "Не удалось проверить и подключить аккаунт."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const submitCustom = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busyAction || providers.some((provider) => provider.id === "custom" && !provider.connectable)) return;
+    const name = customForm.name.trim();
+    const endpoint = customForm.endpoint.trim();
+    const model = customForm.model.trim();
+    const apiKey = customForm.apiKey.trim();
+    if (!name || !endpoint || !model || !apiKey) {
+      setCustomError("Заполни название аккаунта, endpoint, модель и API-ключ.");
       return;
     }
     try {
       if (new URL(endpoint).protocol !== "https:") {
-        setFormError("Endpoint должен использовать HTTPS.");
+        setCustomError("Endpoint должен использовать HTTPS.");
         return;
       }
     } catch {
-      setFormError("Укажи корректный URL endpoint.");
+      setCustomError("Укажи корректный URL endpoint.");
       return;
     }
-    if (!editingId && !apiKey) {
-      setFormError("Для нового провайдера нужен API-ключ.");
+    if (!customFreeConfirmed) {
+      setCustomError("Подтверди нулевую стоимость endpoint/модели после проверки условий провайдера.");
       return;
     }
 
-    setBusyAction("save");
-    setFormError("");
+    setBusyAction("connect:custom");
+    setCustomError("");
     setNotice("");
     try {
-      const editingProfile = profiles.find((profile) => profile.id === editingId);
-      const response = await fetch("/api/ai-providers", {
-        method: "POST",
-        headers: { Authorization: authorization, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(editingId ? { id: editingId } : {}),
-          name,
-          endpoint,
-          model,
-          ...(apiKey ? { apiKey } : {}),
-          enabled: editingProfile?.enabled ?? true,
-          sortOrder: editingProfile?.sortOrder ?? profiles.length,
-        }),
+      await postAction({
+        action: "connect",
+        providerId: "custom",
+        name,
+        endpoint,
+        model,
+        apiKey,
+        freeTierConfirmed: true,
       });
-      const body = await responseBody(response);
-      if (!response.ok) throw new Error(requestError(response, body));
-      resetForm();
-      setNotice("Профиль сохранён.");
-      const refreshed = await reloadProfiles();
-      if (!refreshed) setNotice("Профиль сохранён, но список не обновился. Нажми «Повторить».");
+      setCustomForm(emptyCustom);
+      setCustomFreeConfirmed(false);
+      setNotice(`Аккаунт «${name}» проверен и подключён. Ключ сохранён и больше не отображается.`);
+      const refreshed = await reloadProviders();
+      if (!refreshed) setNotice(`Аккаунт «${name}» подключён, но список не обновился. Нажми «Повторить».`);
     } catch (error) {
-      setFormError(readableError(error, "Не удалось сохранить профиль. Попробуй ещё раз."));
+      setCustomError(readableError(error, "Не удалось проверить и подключить совместимый API."));
     } finally {
       setBusyAction(null);
     }
   };
 
-  const toggleProfile = async (profile: ProviderProfile) => {
+  const toggleAccount = async (providerId: ProviderId, account: ProviderAccount) => {
     if (busyAction) return;
-    const action = `toggle:${profile.id}`;
-    setBusyAction(action);
+    const enabled = !account.enabled;
+    setBusyAction(`toggle:${account.id}`);
     setLoadError("");
     setNotice("");
+    setProviders((current) => current.map((provider) => provider.id === providerId
+      ? { ...provider, accounts: provider.accounts.map((item) => item.id === account.id ? { ...item, enabled } : item) }
+      : provider));
     try {
-      const response = await fetch("/api/ai-providers", {
-        method: "POST",
-        headers: { Authorization: authorization, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: profile.id,
-          name: profile.name,
-          endpoint: profile.endpoint,
-          model: profile.model,
-          enabled: !profile.enabled,
-          sortOrder: profile.sortOrder,
-        }),
-      });
-      const body = await responseBody(response);
-      if (!response.ok) throw new Error(requestError(response, body));
-      setProfiles((current) => current.map((item) => item.id === profile.id ? { ...item, enabled: !item.enabled } : item));
-      setNotice(profile.enabled ? `${profile.name} выключен.` : `${profile.name} включён.`);
+      await postAction({ action: "toggle-account", accountId: account.id, enabled });
+      setNotice(`${account.name} ${enabled ? "включён" : "выключен"}.`);
     } catch (error) {
-      setLoadError(readableError(error, "Не удалось изменить состояние провайдера."));
+      await reloadProviders();
+      setLoadError(readableError(error, "Не удалось изменить состояние аккаунта."));
     } finally {
       setBusyAction(null);
     }
   };
 
-  const deleteProfile = async (profile: ProviderProfile) => {
+  const reorderAccount = async (account: ProviderAccount, direction: -1 | 1) => {
     if (busyAction) return;
-    const action = `delete:${profile.id}`;
-    setBusyAction(action);
+    const ordered = getGlobalAccountOrder(providers);
+    const currentIndex = ordered.findIndex((item) => item.account.id === account.id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= ordered.length) return;
+    const next = ordered.slice();
+    [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+
+    setBusyAction(`reorder:${account.id}`);
+    setNotice("");
+    setProviders((current) => current.map((provider) => ({
+      ...provider,
+      accounts: provider.accounts.map((entry) => ({
+        ...entry,
+        sortOrder: next.findIndex((candidate) => candidate.account.id === entry.id),
+      })),
+    })));
+    try {
+      await postAction({ action: "reorder-account", accountId: account.id, position: targetIndex });
+    } catch (error) {
+      await reloadProviders();
+      setLoadError(readableError(error, "Не удалось изменить приоритет аккаунтов."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const toggleModel = async (provider: AiProvider, model: ProviderModel) => {
+    if (busyAction || !provider.connectable) return;
+    const modelIds = provider.models.filter((item) => item.selected !== (item.id === model.id)).map((item) => item.id);
+    setBusyAction(`model:${provider.id}`);
+    setLoadError("");
+    setNotice("");
+    setProviders((current) => current.map((item) => item.id === provider.id
+      ? { ...item, models: item.models.map((entry) => entry.id === model.id ? { ...entry, selected: !entry.selected } : entry) }
+      : item));
+    try {
+      await postAction({ action: "set-models", providerId: provider.id, modelIds });
+      setNotice(`Список моделей ${provider.name} обновлён.`);
+    } catch (error) {
+      await reloadProviders();
+      setLoadError(readableError(error, "Не удалось сохранить список моделей."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const refreshModels = async (provider: AiProvider, account: ProviderAccount) => {
+    if (busyAction || !provider.connectable) return;
+    setBusyAction(`refresh:${account.id}`);
     setLoadError("");
     setNotice("");
     try {
-      const response = await fetch(`/api/ai-providers?id=${encodeURIComponent(profile.id)}`, {
+      await postAction({ action: "refresh-models", accountId: account.id });
+      const refreshed = await reloadProviders();
+      if (refreshed) setNotice(`Каталог ${provider.name} обновлён для аккаунта «${account.name}».`);
+      else setNotice(`Каталог обновлён для аккаунта «${account.name}», но список моделей не загрузился. Нажми «Повторить».`);
+    } catch (error) {
+      setLoadError(readableError(error, "Не удалось обновить каталог моделей."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const deleteAccount = async (providerId: ProviderId, account: ProviderAccount) => {
+    if (busyAction) return;
+    setBusyAction(`delete:${account.id}`);
+    setNotice("");
+    setLoadError("");
+    try {
+      const response = await fetch(`/api/ai-providers?id=${encodeURIComponent(account.id)}`, {
         method: "DELETE",
         headers: { Authorization: authorization },
       });
       const body = await responseBody(response);
       if (!response.ok) throw new Error(requestError(response, body));
-      setProfiles((current) => current.filter((item) => item.id !== profile.id));
-      if (editingId === profile.id) resetForm();
-      setConfirmDeleteId(null);
-      setNotice(`${profile.name} удалён.`);
+      setProviders((current) => current.map((provider) => provider.id === providerId
+        ? { ...provider, accounts: provider.accounts.filter((item) => item.id !== account.id), models: provider.models.map((model) => ({ ...model, accountIds: model.accountIds.filter((id) => id !== account.id) })) }
+        : provider));
+      setConfirmDelete(null);
+      setNotice(`Аккаунт «${account.name}» удалён.`);
     } catch (error) {
-      setLoadError(readableError(error, "Не удалось удалить профиль."));
+      setLoadError(readableError(error, "Не удалось удалить аккаунт."));
     } finally {
       setBusyAction(null);
     }
   };
+
+  const sortedProviders = providers.slice().sort((left, right) => providerOrder.indexOf(left.id) - providerOrder.indexOf(right.id));
+  const standardProviders = sortedProviders.filter(isStandardProvider);
+  const customProvider = sortedProviders.find((provider) => provider.id === "custom");
+  const globalAccounts = getGlobalAccountOrder(sortedProviders);
 
   return (
     <dialog
       ref={dialogRef}
       className={styles.dialog}
       aria-labelledby={`${id}-title`}
+      data-lg-role="stage"
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -277,7 +474,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
         <header className={styles.header}>
           <div>
             <p className={styles.eyebrow}>ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ ИИ</p>
-            <h2 id={`${id}-title`}>API-провайдеры</h2>
+            <h2 id={`${id}-title`}>Провайдеры и модели</h2>
           </div>
           <button ref={closeRef} className={styles.close} type="button" aria-label="Закрыть настройки провайдеров" onClick={onClose}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
@@ -285,114 +482,311 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
         </header>
 
         <div className={styles.scrollArea} aria-busy={loadState === "loading"}>
-          <p className={styles.intro}>Добавь любой endpoint, совместимый с OpenAI Chat Completions, и укажи модель из его каталога.</p>
-          {onOpenQuotas && legacyQuotaAvailable && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Квоты Gemini</button>}
+          <div className={styles.introRow}>
+            <p className={styles.intro}>Каталог показывает модели, которые провайдер подтверждает как бесплатные. Подключённый ключ проходит короткий тест до сохранения. LifeOS не видит настройки биллинга аккаунта; резервный порядок общий для всех провайдеров.</p>
+            {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
+          </div>
 
-          <form ref={formRef} className={styles.form} onSubmit={submitForm}>
-            <div className={styles.formHeading}>
-              <h3>{editingId ? "Изменить провайдера" : "Новый провайдер"}</h3>
-              {editingId && <button type="button" className={styles.textButton} onClick={resetForm}>Отмена</button>}
+          {loadState === "ready" && legacyProfileCount > 0 && (
+            <p className={styles.legacyWarning} role="status">
+              Есть {legacyProfileCount} сохранённых профилей старого формата. Они не участвуют в выборе моделей, пока не будут переподключены с подтверждением бесплатного режима.
+            </p>
+          )}
+
+          {loadState === "loading" && (
+            <div className={styles.loadingState}>
+              <span className="visually-hidden" role="status">Загружаю каталог провайдеров.</span>
+              <ProviderProfilesSkeleton />
             </div>
-            <label className={styles.field}>
-              <span>Название</span>
-              <input autoComplete="organization" name="name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, OpenRouter" maxLength={80} required />
-            </label>
-            <label className={styles.field}>
-              <span>Endpoint</span>
-              <input autoComplete="url" name="endpoint" type="url" value={form.endpoint} onChange={(event) => setForm((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://openrouter.ai/api/v1" required />
-              <small>Базовый URL совместимого провайдера; LifeOS добавит путь Chat Completions. Используй HTTPS.</small>
-            </label>
-            <label className={styles.field}>
-              <span>Модель</span>
-              <input autoComplete="off" name="model" value={form.model} onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} placeholder="Например, gpt-4o-mini" maxLength={160} required />
-            </label>
-            <label className={styles.field}>
-              <span>API-ключ</span>
-              <input autoComplete="new-password" name="apiKey" type="password" value={form.apiKey} onChange={(event) => setForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder={editingId ? "Оставь пустым, чтобы не менять ключ" : "Введи API-ключ"} required={!editingId} />
-            </label>
-            <p className={styles.securityNote}>Ключ хранится зашифрованно и никогда не отображается обратно. При редактировании оставь поле пустым, чтобы сохранить текущий ключ.</p>
-            {formError && <p className={styles.error} role="alert">{formError}</p>}
-            <button className={styles.primaryAction} type="submit" disabled={busyAction !== null}>
-              {busyAction === "save" ? "Сохраняю…" : editingId ? "Сохранить изменения" : "Добавить провайдера"}
-            </button>
-          </form>
-
-          <section className={styles.profilesSection} aria-labelledby={`${id}-saved-title`}>
-            <div className={styles.listHeading}>
-              <div>
-                <p className={styles.eyebrow}>ТВОЯ ЦЕПОЧКА ИИ</p>
-                <h3 id={`${id}-saved-title`}>Сохранённые профили</h3>
-              </div>
-              {loadState === "ready" && <span className={styles.count}>{profiles.length}</span>}
+          )}
+          {loadState === "error" && (
+            <div className={styles.state} role="alert">
+              <p>{loadError || "Не удалось загрузить каталог ИИ."}</p>
+              <button type="button" className={styles.secondaryAction} onClick={() => void reloadProviders()} disabled={busyAction !== null}>Повторить</button>
             </div>
+          )}
 
-            <AnimatePresence mode="wait" initial={false}>
-              {loadState === "loading" && (
-                <motion.div key="loading-profiles" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">
-                  <span className="visually-hidden" role="status">Загружаю сохранённые профили.</span>
-                  <ProviderProfilesSkeleton />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {loadState === "error" && (
-              <div className={styles.state} role="alert">
-                <p>{loadError || "Не удалось загрузить профили."}</p>
-                <button type="button" className={styles.secondaryAction} onClick={() => void reloadProfiles()} disabled={busyAction !== null}>Повторить</button>
-              </div>
-            )}
-            {loadState === "ready" && profiles.length === 0 && <p className={styles.empty}>Пока нет профилей. Добавь первый — после этого LifeOS сможет обращаться к ИИ от твоего имени.</p>}
-            {loadState === "ready" && profiles.length > 0 && (
-              <motion.ul className={styles.profileList} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
-                <AnimatePresence initial={false}>
-                {profiles.map((profile) => {
-                  const deleting = confirmDeleteId === profile.id;
-                  const toggling = busyAction === `toggle:${profile.id}`;
-                  const deletingNow = busyAction === `delete:${profile.id}`;
-                  return (
-                    <motion.li key={profile.id} layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} className={styles.profile}>
-                      <div className={styles.profileTop}>
-                        <div className={styles.profileIdentity}>
-                          <div className={styles.profileNameLine}>
-                            <h4>{profile.name}</h4>
-                            <span className={profile.enabled ? styles.statusEnabled : styles.statusDisabled}>{profile.enabled ? "Включён" : "Выключен"}</span>
-                          </div>
-                          <p className={styles.model}>{profile.model}</p>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={profile.enabled}
-                          aria-label={`${profile.enabled ? "Выключить" : "Включить"} ${profile.name}`}
-                          className={`${styles.switch} ${profile.enabled ? styles.switchOn : ""}`}
-                          onClick={() => void toggleProfile(profile)}
-                          disabled={busyAction !== null}
-                        >
-                          <span />
-                        </button>
+          {loadState === "ready" && (
+            <div className={styles.providerList}>
+              {standardProviders.map((provider) => {
+                const copy = providerCopy[provider.id];
+                const accounts = provider.accounts.slice().sort((left, right) => left.sortOrder - right.sortOrder);
+                const selectedCount = provider.models.filter((model) => model.selected).length;
+                const query = modelQuery[provider.id] ?? "";
+                const visibleModels = provider.models
+                  .filter((model) => `${model.name} ${model.id}`.toLocaleLowerCase("ru-RU").includes(query.toLocaleLowerCase("ru-RU")))
+                  .slice(0, query ? 100 : 40);
+                const modelSectionOpen = modelOpenProvider === provider.id;
+                const connecting = connectProviderId === provider.id;
+                const connectingNow = busyAction === `connect:${provider.id}`;
+                const providerUnavailable = !provider.connectable;
+
+                return (
+                  <motion.section
+                    key={provider.id}
+                    className={styles.providerCard}
+                    variants={motionVariants.listItem}
+                    initial="initial"
+                    animate="animate"
+                    transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }}
+                    aria-labelledby={`${id}-${provider.id}-heading`}
+                  >
+                    <div className={styles.providerHeader}>
+                      <div className={styles.providerMark} aria-hidden="true">{copy.mark}</div>
+                      <div className={styles.providerTitle}>
+                        <h3 id={`${id}-${provider.id}-heading`}>{provider.name}</h3>
+                        <p>{providerUnavailable ? provider.connectionBlockReason || "Подключение этого провайдера сейчас недоступно." : copy.description}</p>
                       </div>
-                      <p className={styles.endpoint}>{profile.endpoint}</p>
-                      <p className={styles.keyState}>{profile.hasApiKey ? "API-ключ сохранён" : "API-ключ не задан"}</p>
-                      {deleting ? (
-                        <div className={styles.deleteConfirm}>
-                          <p>Удалить профиль и его ключ?</p>
+                      <div className={styles.providerMeta}>
+                        <span className={provider.supportsImages ? styles.capabilityAvailable : styles.capabilityLimited}>
+                          {provider.supportsImages ? "Есть модели с фото" : "Только текст"}
+                        </span>
+                        {!provider.connectable && <span className={styles.capabilityLimited}>Подключение недоступно</span>}
+                        <span>{accountCountLabel(accounts.length)}</span>
+                      </div>
+                    </div>
+
+                    <div className={styles.cardDivider} />
+                    <div className={styles.sectionHeading}>
+                      <div>
+                        <p className={styles.eyebrow}>АККАУНТЫ</p>
+                        <h4>Подключения</h4>
+                      </div>
+                      <button className={styles.secondaryAction} type="button" onClick={() => beginConnect(provider.id)} disabled={busyAction !== null || providerUnavailable}>
+                        <span aria-hidden="true">+</span> Добавить
+                      </button>
+                    </div>
+
+                    {accounts.length === 0 ? (
+                      <p className={styles.empty}>{providerUnavailable ? "Подключение аккаунтов недоступно для этого провайдера." : "Пока нет подключённых аккаунтов. Добавь ключ, чтобы получить доступ к бесплатным моделям."}</p>
+                    ) : (
+                      <ul className={styles.accountList}>
+                        {accounts.map((account) => {
+                          const deleting = confirmDelete?.account.id === account.id;
+                          const accountBusy = busyAction === `toggle:${account.id}` || busyAction === `reorder:${account.id}` || busyAction === `delete:${account.id}` || busyAction === `refresh:${account.id}`;
+                          const globalIndex = globalAccounts.findIndex((item) => item.account.id === account.id);
+                          return (
+                            <li key={account.id} className={styles.account}>
+                              <div className={styles.accountIdentity}>
+                                <span className={styles.priority} aria-label={providerUnavailable ? "Аккаунт не используется LifeOS" : `Приоритет ${globalIndex + 1}`}>{providerUnavailable ? "—" : globalIndex + 1}</span>
+                                <div className={styles.accountCopy}>
+                                  <strong>{account.name}</strong>
+                                  <span className={providerUnavailable ? styles.keyMissing : account.hasApiKey ? styles.keyState : styles.keyMissing}>{providerUnavailable ? "Не используется LifeOS" : account.hasApiKey ? "API-ключ сохранён" : "Ключ не задан"}</span>
+                                </div>
+                              </div>
+                              <div className={styles.accountActions}>
+                                <button type="button" className={styles.iconAction} aria-label={`Поднять ${account.name} выше в общем списке резервов`} title="Поднять в общем списке" onClick={() => void reorderAccount(account, -1)} disabled={busyAction !== null || providerUnavailable || globalIndex <= 0}>
+                                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5" /></svg>
+                                </button>
+                                <button type="button" className={styles.iconAction} aria-label={`Опустить ${account.name} ниже в общем списке резервов`} title="Опустить в общем списке" onClick={() => void reorderAccount(account, 1)} disabled={busyAction !== null || providerUnavailable || globalIndex < 0 || globalIndex === globalAccounts.length - 1}>
+                                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+                                </button>
+                                <button type="button" className={styles.iconAction} aria-label={`Обновить список моделей для ${account.name}`} title="Обновить модели" onClick={() => void refreshModels(provider, account)} disabled={busyAction !== null || providerUnavailable}>
+                                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3" /></svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={account.enabled}
+                                  aria-label={`${account.enabled ? "Выключить" : "Включить"} аккаунт ${account.name}`}
+                                  className={`${styles.switch} ${account.enabled ? styles.switchOn : ""}`}
+                                  onClick={() => void toggleAccount(provider.id, account)}
+                                  disabled={busyAction !== null || providerUnavailable}
+                                ><span /></button>
+                                <button type="button" className={styles.iconAction} aria-label={`Удалить аккаунт ${account.name}`} title="Удалить аккаунт" onClick={() => setConfirmDelete(deleting ? null : { providerId: provider.id, account })} disabled={busyAction !== null}>
+                                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 3v6m4-6v6" /></svg>
+                                </button>
+                              </div>
+                              {deleting && (
+                                <div className={styles.deleteConfirm}>
+                                  <p>Удалить аккаунт и сохранённый ключ?</p>
+                                  <div>
+                                    <button type="button" className={styles.dangerAction} onClick={() => void deleteAccount(provider.id, account)} disabled={busyAction !== null}>Удалить</button>
+                                    <button type="button" className={styles.textButton} onClick={() => setConfirmDelete(null)} disabled={busyAction !== null}>Отмена</button>
+                                  </div>
+                                </div>
+                              )}
+                              {accountBusy && <span className="visually-hidden" role="status">Обновляю аккаунт {account.name}.</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    {connecting && !providerUnavailable && (
+                      <form ref={connectRef} className={styles.connectForm} onSubmit={submitConnect}>
+                        <div className={styles.formHeading}>
                           <div>
-                            <button type="button" className={styles.dangerAction} onClick={() => void deleteProfile(profile)} disabled={busyAction !== null}>{deletingNow ? "Удаляю…" : "Удалить"}</button>
-                            <button type="button" className={styles.textButton} onClick={() => setConfirmDeleteId(null)} disabled={busyAction !== null}>Отмена</button>
+                            <p className={styles.eyebrow}>НОВЫЙ АККАУНТ</p>
+                            <h4>Проверить и подключить</h4>
                           </div>
+                          <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setFormError(""); }} disabled={connectingNow}>Отмена</button>
                         </div>
-                      ) : (
-                        <div className={styles.profileActions}>
-                          <button type="button" className={styles.secondaryAction} onClick={() => editProfile(profile)} disabled={busyAction !== null || toggling}>Изменить</button>
-                          <button type="button" className={styles.textButton} onClick={() => { setConfirmDeleteId(profile.id); setNotice(""); }} disabled={busyAction !== null}>Удалить</button>
+                        <label className={styles.field}>
+                          <span>Название аккаунта</span>
+                          <input autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required />
+                        </label>
+                        <label className={styles.field}>
+                          <span>API-ключ</span>
+                          <input autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required />
+                        </label>
+                        {provider.id === "gemini" && (
+                          <label className={styles.confirmation}>
+                            <input type="checkbox" checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} />
+                            <span>Подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта.</span>
+                          </label>
+                        )}
+                        {provider.id !== "gemini" && (
+                          <label className={styles.confirmation}>
+                            <input type="checkbox" checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} />
+                            <span>Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта.</span>
+                          </label>
+                        )}
+                        <p className={styles.securityNote}>Перед сохранением LifeOS проверит ключ и выполнит короткий тестовый запрос. Он может использовать одну бесплатную квоту. Сам ключ после подключения не показывается.</p>
+                        {formError && <p className={styles.error} role="alert">{formError}</p>}
+                          <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !providerFreeTierConfirmed}>
+                          {connectingNow ? "Проверяю ключ…" : "Проверить и подключить"}
+                        </button>
+                      </form>
+                    )}
+
+                    {accounts.length > 0 && (
+                      <section className={styles.modelsSection} aria-labelledby={`${id}-${provider.id}-models-title`}>
+                        <button className={styles.modelsToggle} type="button" aria-expanded={modelSectionOpen} aria-controls={`${id}-${provider.id}-models`} onClick={() => setModelOpenProvider(modelSectionOpen ? null : provider.id)}>
+                          <span>
+                            <span className={styles.eyebrow}>ОБЩИЙ КАТАЛОГ</span>
+                            <strong id={`${id}-${provider.id}-models-title`}>Бесплатные модели</strong>
+                          </span>
+                          <span className={styles.modelsCount}>{providerUnavailable ? "Провайдер недоступен" : `${selectedCount} из ${provider.models.length} выбрано`}</span>
+                          <svg className={modelSectionOpen ? styles.chevronOpen : ""} aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+                        </button>
+                        {modelSectionOpen && (
+                          <div className={styles.modelsPanel} id={`${id}-${provider.id}-models`}>
+                            <p className={styles.modelsIntro}>{providerUnavailable ? "Каталог сохранён для справки. Этот провайдер сейчас не используется LifeOS." : "Отметь модели, которые LifeOS может использовать. Резервные аккаунты идут в указанном выше порядке."}</p>
+                            <label className={`${styles.field} ${styles.modelSearch}`}>
+                              <span className="visually-hidden">Поиск бесплатной модели провайдера {provider.name}</span>
+                              <input type="search" value={query} onChange={(event) => setModelQuery((current) => ({ ...current, [provider.id]: event.target.value }))} placeholder="Найти модель по названию" />
+                            </label>
+                            {provider.models.length === 0 ? (
+                              <p className={styles.empty}>Для этого провайдера пока нет доступных бесплатных моделей. Подключи аккаунт заново или обнови список.</p>
+                            ) : visibleModels.length === 0 ? (
+                              <p className={styles.empty}>Модели по этому запросу не найдены.</p>
+                            ) : (
+                              <ul className={styles.modelList} aria-label={`Модели ${provider.name}`}>
+                                {visibleModels.map((model) => (
+                                  <li key={model.id} className={styles.modelRow}>
+                                    <label className={styles.modelChoice}>
+                                      <input type="checkbox" checked={model.selected} onChange={() => void toggleModel(provider, model)} disabled={busyAction !== null || providerUnavailable} />
+                                      <span className={styles.modelCopy}>
+                                        <strong>{model.name}</strong>
+                                        <span className={styles.modelId}>{model.id}</span>
+                                        <span className={styles.modelAvailability}>{availableAccountNames(provider, model)}</span>
+                                      </span>
+                                    </label>
+                                    <span className={styles.modelBadges}>
+                                      {model.supportsImages ? <span className={styles.capabilityAvailable}>Текст + фото</span> : <span className={styles.capabilityLimited}>Только текст</span>}
+                                      {model.contextLength !== null && <span className={styles.contextLength}>{compactNumber(model.contextLength)} конт.</span>}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {provider.models.length > visibleModels.length && !query && <p className={styles.catalogHint}>Показано {visibleModels.length} моделей. Найди нужную через поиск выше.</p>}
+                          </div>
+                        )}
+                      </section>
+                    )}
+                  </motion.section>
+                );
+              })}
+
+              {standardProviders.length === 0 && <p className={styles.empty}>Каталог провайдеров пока не загрузился. Нажми «Повторить», чтобы обновить список.</p>}
+
+              <details className={`${styles.providerCard} ${styles.customCard}`}>
+                <summary className={styles.customSummary}>
+                  <span className={styles.providerMark} aria-hidden="true">{providerCopy.custom.mark}</span>
+                  <span className={styles.providerTitle}>
+                    <strong>Другой OpenAI-compatible API</strong>
+                    <span>Свой OpenAI-compatible endpoint. LifeOS не может проверить тариф модели или риск списаний.</span>
+                    {customProvider && <span className={customProvider.supportsImages ? styles.capabilityAvailable : styles.capabilityLimited}>{customProvider.supportsImages ? "Есть модели с фото" : "Только текст"}</span>}
+                    {customProvider && !customProvider.connectable && <span className={styles.capabilityLimited}>{customProvider.connectionBlockReason || "Подключение этого провайдера сейчас недоступно."}</span>}
+                  </span>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+                </summary>
+                <div className={styles.customContent}>
+                  {(() => {
+                    const customProvider = sortedProviders.find((provider) => provider.id === "custom");
+                    if (!customProvider) return <p className={styles.empty}>Пока нет подключённых совместимых API.</p>;
+                    const providerUnavailable = !customProvider.connectable;
+                    const accounts = customProvider.accounts.slice().sort((left, right) => left.sortOrder - right.sortOrder);
+                    return accounts.length ? (
+                      <ul className={styles.accountList}>
+                        {accounts.map((account) => {
+                          const globalIndex = globalAccounts.findIndex((item) => item.account.id === account.id);
+                          return <li key={account.id} className={styles.account}>
+                            <div className={styles.accountIdentity}>
+                              <span className={styles.priority} aria-label={providerUnavailable ? "Аккаунт не используется LifeOS" : `Приоритет ${globalIndex + 1}`}>{providerUnavailable ? "—" : globalIndex + 1}</span>
+                              <div className={styles.accountCopy}><strong>{account.name}</strong><span className={providerUnavailable ? styles.keyMissing : styles.keyState}>{providerUnavailable ? "Не используется LifeOS" : account.hasApiKey ? "API-ключ сохранён" : "Ключ не задан"}</span></div>
+                            </div>
+                            <div className={styles.accountActions}>
+                              <button type="button" className={styles.iconAction} aria-label={`Поднять ${account.name} выше в общем списке резервов`} onClick={() => void reorderAccount(account, -1)} disabled={busyAction !== null || providerUnavailable || globalIndex <= 0}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5" /></svg></button>
+                              <button type="button" className={styles.iconAction} aria-label={`Опустить ${account.name} ниже в общем списке резервов`} onClick={() => void reorderAccount(account, 1)} disabled={busyAction !== null || providerUnavailable || globalIndex < 0 || globalIndex === globalAccounts.length - 1}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg></button>
+                              <button type="button" className={styles.iconAction} aria-label={`Обновить список моделей для ${account.name}`} onClick={() => void refreshModels(customProvider, account)} disabled={busyAction !== null || providerUnavailable}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3" /></svg></button>
+                              <button type="button" role="switch" aria-checked={account.enabled} aria-label={`${account.enabled ? "Выключить" : "Включить"} аккаунт ${account.name}`} className={`${styles.switch} ${account.enabled ? styles.switchOn : ""}`} onClick={() => void toggleAccount("custom", account)} disabled={busyAction !== null || providerUnavailable}><span /></button>
+                              <button type="button" className={styles.iconAction} aria-label={`Удалить аккаунт ${account.name}`} onClick={() => setConfirmDelete({ providerId: "custom", account })} disabled={busyAction !== null}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 3v6m4-6v6" /></svg></button>
+                            </div>
+                            {confirmDelete?.account.id === account.id && <div className={styles.deleteConfirm}><p>Удалить аккаунт и сохранённый ключ?</p><div><button type="button" className={styles.dangerAction} onClick={() => void deleteAccount("custom", account)} disabled={busyAction !== null}>Удалить</button><button type="button" className={styles.textButton} onClick={() => setConfirmDelete(null)} disabled={busyAction !== null}>Отмена</button></div></div>}
+                          </li>;
+                        })}
+                      </ul>
+                    ) : <p className={styles.empty}>Пока нет подключённых совместимых API.</p>;
+                  })()}
+
+                  {(() => {
+                    const customProvider = sortedProviders.find((provider) => provider.id === "custom");
+                    if (!customProvider?.models.length) return null;
+                    return (
+                      <section className={styles.modelsSection} aria-labelledby={`${id}-custom-models-title`}>
+                        <div className={styles.customModelsHeading}>
+                          <div><p className={styles.eyebrow}>ОБЩИЙ КАТАЛОГ</p><h4 id={`${id}-custom-models-title`}>Подключённые модели</h4></div>
+                          <span className={styles.modelsCount}>{customProvider.connectable ? `${customProvider.models.filter((model) => model.selected).length} из ${customProvider.models.length} выбрано` : "Провайдер недоступен"}</span>
                         </div>
-                      )}
-                    </motion.li>
-                  );
-                })}
-                </AnimatePresence>
-              </motion.ul>
-            )}
-          </section>
+                        <ul className={styles.modelList} aria-label="Модели совместимого API">
+                          {customProvider.models.map((model) => (
+                            <li key={model.id} className={styles.modelRow}>
+                              <label className={styles.modelChoice}>
+                                <input type="checkbox" checked={model.selected} onChange={() => void toggleModel(customProvider, model)} disabled={busyAction !== null || !customProvider.connectable} />
+                                <span className={styles.modelCopy}><strong>{model.name}</strong><span className={styles.modelId}>{model.id}</span><span className={styles.modelAvailability}>{availableAccountNames(customProvider, model)}</span></span>
+                              </label>
+                              <span className={styles.modelBadges}>
+                                {model.supportsImages ? <span className={styles.capabilityAvailable}>Текст + фото</span> : <span className={styles.capabilityLimited}>Только текст</span>}
+                                {model.contextLength !== null && <span className={styles.contextLength}>{compactNumber(model.contextLength)} конт.</span>}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    );
+                  })()}
+
+                  {customProvider?.connectable !== false ? <form className={styles.connectForm} onSubmit={submitCustom}>
+                    <div className={styles.formHeading}>
+                      <div><p className={styles.eyebrow}>РАСШИРЕННОЕ ПОДКЛЮЧЕНИЕ</p><h4>Свой endpoint</h4></div>
+                    </div>
+                    <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный endpoint" maxLength={80} required /></label>
+                    <label className={styles.field}><span>Endpoint</span><input autoComplete="url" type="url" value={customForm.endpoint} onChange={(event) => setCustomForm((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://api.example.com/v1" required /><small>LifeOS использует OpenAI-compatible Chat Completions. Только HTTPS.</small></label>
+                    <label className={styles.field}><span>Модель</span><input autoComplete="off" value={customForm.model} onChange={(event) => setCustomForm((current) => ({ ...current, model: event.target.value }))} placeholder="Идентификатор модели" maxLength={160} required /></label>
+                    <label className={styles.field}><span>API-ключ</span><input autoComplete="new-password" type="password" value={customForm.apiKey} onChange={(event) => setCustomForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required /></label>
+                    <label className={styles.confirmation}><input type="checkbox" checked={customFreeConfirmed} onChange={(event) => setCustomFreeConfirmed(event.target.checked)} /><span>Подтверждаю нулевую стоимость endpoint/модели. LifeOS не может проверить тариф endpoint или риск списаний.</span></label>
+                    <p className={styles.securityNote}>Ключ и endpoint будут проверены коротким тестовым запросом до сохранения. Провайдер должен поддерживать OpenAI-compatible Chat Completions.</p>
+                    {customError && <p className={styles.error} role="alert">{customError}</p>}
+                    <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !customFreeConfirmed}>{busyAction === "connect:custom" ? "Проверяю endpoint…" : "Проверить и подключить"}</button>
+                  </form> : <p className={styles.empty}>{customProvider?.connectionBlockReason || "Подключение этого провайдера сейчас недоступно."}</p>}
+                </div>
+              </details>
+            </div>
+          )}
+
           {notice && <p className={styles.notice} role="status">{notice}</p>}
           {loadError && loadState === "ready" && <p className={styles.error} role="alert">{loadError}</p>}
         </div>

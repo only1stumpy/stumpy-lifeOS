@@ -217,6 +217,13 @@ function parseIpv6(address: string): number[] | null {
 export type SafeHttpsPostOptions = {
   timeoutMs?: number;
   maxResponseBytes?: number;
+  authHeaderName?: "authorization" | "x-goog-api-key";
+};
+
+export type SafeHttpsResponse = {
+  status: number;
+  body: string;
+  headers: Record<string, string>;
 };
 
 /** A cancelable wall-clock deadline used in addition to the socket idle timeout. */
@@ -231,17 +238,39 @@ export async function safeHttpsPost(
   apiKey: string,
   payload: unknown,
   options: SafeHttpsPostOptions = {},
-): Promise<{ status: number; body: string }> {
-  const validated = await validateAiProviderEndpoint(endpoint);
-  const url = new URL(validated.endpoint);
+): Promise<SafeHttpsResponse> {
   const requestBody = JSON.stringify(payload);
   if (Buffer.byteLength(requestBody, "utf8") > MAX_REQUEST_BYTES) {
     throw new SafeHttpsError("configuration");
   }
 
+  return safeHttpsRequest("POST", endpoint, apiKey, requestBody, options, true);
+}
+
+/** GET a provider catalog endpoint through the same pinned, public HTTPS guard. */
+export async function safeHttpsGet(
+  endpoint: string,
+  apiKey: string,
+  options: SafeHttpsPostOptions = {},
+): Promise<SafeHttpsResponse> {
+  return safeHttpsRequest("GET", endpoint, apiKey, undefined, options, false);
+}
+
+async function safeHttpsRequest(
+  method: "GET" | "POST",
+  endpoint: string,
+  apiKey: string,
+  requestBody: string | undefined,
+  options: SafeHttpsPostOptions,
+  appendCompletionPath: boolean,
+): Promise<SafeHttpsResponse> {
+  const validated = await validateAiProviderEndpoint(endpoint);
+  const url = new URL(validated.endpoint);
+
   const timeoutMs = boundedInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS, 1_000, 60_000);
   const maxResponseBytes = boundedInteger(options.maxResponseBytes, DEFAULT_MAX_RESPONSE_BYTES, 1_024, 1_048_576);
-  const target = `${url.pathname.replace(/\/$/, "")}/chat/completions`;
+  const path = url.pathname.replace(/\/$/, "");
+  const target = appendCompletionPath ? `${path}/chat/completions` : path || "/";
   const hostname = url.hostname.startsWith("[") && url.hostname.endsWith("]")
     ? url.hostname.slice(1, -1)
     : url.hostname;
@@ -276,14 +305,14 @@ export async function safeHttpsPost(
         hostname,
         port: url.port ? Number(url.port) : 443,
         path: target,
-        method: "POST",
+        method,
         lookup,
         headers: {
-          authorization: `Bearer ${apiKey}`,
+          [options.authHeaderName ?? "authorization"]: options.authHeaderName === "x-goog-api-key" ? apiKey : `Bearer ${apiKey}`,
           "content-type": "application/json",
           accept: "application/json",
           "accept-encoding": "identity",
-          "content-length": Buffer.byteLength(requestBody, "utf8"),
+          ...(requestBody ? { "content-length": Buffer.byteLength(requestBody, "utf8") } : {}),
         },
       },
       (response) => {
@@ -309,7 +338,13 @@ export async function safeHttpsPost(
           if (settled) return;
           settled = true;
           clearDeadline();
-          resolve({ status, body: Buffer.concat(chunks).toString("utf8") });
+          const headers = Object.fromEntries(
+            Object.entries(response.headers).flatMap(([name, value]) => {
+              if (value === undefined) return [];
+              return [[name.toLowerCase(), Array.isArray(value) ? value.join(", ") : String(value)]];
+            }),
+          );
+          resolve({ status, body: Buffer.concat(chunks).toString("utf8"), headers });
         });
       },
     );

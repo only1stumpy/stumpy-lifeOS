@@ -44,6 +44,12 @@ export type AiProviderConfig = {
   model: string;
   apiKey: string;
   sortOrder: number;
+  /** Present for managed provider accounts; absent on legacy profiles and env keys. */
+  accountId?: string;
+  providerId?: string;
+  providerName?: string;
+  authHeaderName?: "authorization" | "x-goog-api-key";
+  supportsImages?: boolean;
 };
 
 export { validateAiProviderEndpoint };

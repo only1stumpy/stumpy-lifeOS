@@ -74,7 +74,7 @@ function isAppSnapshot(value: unknown): value is AppSnapshot {
   const settings = value.settings;
   return typeof value.localDate === "string"
     && isRecord(nutrition) && isRecord(nutrition.consumed) && Array.isArray(nutrition.entries) && Array.isArray(nutrition.weightHistory)
-    && isRecord(finance) && Array.isArray(finance.accounts) && Array.isArray(finance.entries)
+    && isRecord(finance) && Array.isArray(finance.accounts) && Array.isArray(finance.entries) && Array.isArray(finance.plans)
     && isRecord(gym) && Array.isArray(gym.program)
     && isRecord(settings) && typeof settings.timeZone === "string"
     && Array.isArray(value.recurring) && Array.isArray(value.drafts) && Array.isArray(value.templates);
@@ -143,12 +143,15 @@ function editorIdentity(editor: EditorState): string {
   switch (editor.kind) {
     case "food": return `food:${editor.entry?.id ?? "new"}`;
     case "finance": return `finance:${editor.entry?.id ?? "new"}`;
+    case "finance-plan": return `finance-plan:${editor.plan?.id ?? "new"}`;
+    case "finance-plan-purchase": return `finance-plan-purchase:${editor.plan.id}`;
     case "accounts": return `accounts:${editor.account?.id ?? "new"}`;
     case "recurring": return `recurring:${editor.item?.id ?? "new"}`;
     case "exercise": return `exercise:${editor.dayId}`;
     case "set": return `set:${editor.dayId}:${editor.exerciseId}:${editor.set.id}`;
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
+    case "delete-finance-plan": return `delete-finance-plan:${editor.id}`;
     case "target":
     case "weight":
     case "program": return editor.kind;
@@ -450,6 +453,25 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         const entry = snapshot.finance.entries.find((item) => item.id === action.id);
         if (entry) openEditor({ kind: "delete-money", id: entry.id, label: entry.label });
         else setError("Операция уже изменилась. Обновите данные и попробуйте ещё раз.");
+        return;
+      }
+      case "finance.plan.add": openEditor({ kind: "finance-plan" }); return;
+      case "finance.plan.edit": {
+        const plan = snapshot.finance.plans.find((item) => item.id === action.id);
+        if (plan) openEditor({ kind: "finance-plan", plan });
+        else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
+        return;
+      }
+      case "finance.plan.delete": {
+        const plan = snapshot.finance.plans.find((item) => item.id === action.id);
+        if (plan) openEditor({ kind: "delete-finance-plan", id: plan.id, label: plan.name });
+        else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
+        return;
+      }
+      case "finance.plan.purchase": {
+        const plan = snapshot.finance.plans.find((item) => item.id === action.id);
+        if (plan) openEditor({ kind: "finance-plan-purchase", plan });
+        else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
         return;
       }
       case "finance.manage-accounts": openEditor({ kind: "accounts" }); return;

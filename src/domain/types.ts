@@ -36,6 +36,14 @@ export type MoneyEntry = {
   kind: "expense" | "income";
 };
 
+export type FinancePlan = {
+  id: string;
+  name: string;
+  amountMinor: number;
+  /** First day of the target month, formatted as YYYY-MM-01. */
+  targetMonth: string;
+};
+
 export type ExerciseSet = {
   id: string;
   index: number;
@@ -75,6 +83,7 @@ export type LifeOSSnapshot = {
     spentMonthPrbMinor: number;
     accounts: MoneyAccount[];
     entries: MoneyEntry[];
+    plans: FinancePlan[];
   };
   gym: {
     trainingDay: boolean;
@@ -93,6 +102,10 @@ export type LifeOSAction =
   | { type: "finance.add" }
   | { type: "finance.edit"; id: string }
   | { type: "finance.delete"; id: string }
+  | { type: "finance.plan.add" }
+  | { type: "finance.plan.edit"; id: string }
+  | { type: "finance.plan.delete"; id: string }
+  | { type: "finance.plan.purchase"; id: string }
   | { type: "finance.manage-accounts" }
   | { type: "finance.manage-recurring" }
   | { type: "gym.edit-program" }

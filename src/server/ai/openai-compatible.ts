@@ -9,6 +9,7 @@ export type OpenAICompatibleConfig = {
   endpoint: string;
   model: string;
   apiKey: string;
+  authHeaderName?: "authorization" | "x-goog-api-key";
 };
 
 export type OpenAICompatibleImage = {
@@ -81,6 +82,7 @@ export async function completeOpenAICompatible(
   try {
     response = await safeHttpsPost(config.endpoint, config.apiKey, payload, {
       timeoutMs: input.timeoutMs,
+      authHeaderName: config.authHeaderName,
     });
   } catch (error) {
     if (error instanceof SafeHttpsError) throw new AiProviderTransportError(error.kind);

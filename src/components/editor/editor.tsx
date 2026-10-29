@@ -9,12 +9,14 @@ import { exerciseCatalog } from "@/domain/exercise-catalog";
 import { parseMinor } from "@/domain/math";
 import { suggestTargets } from "@/domain/nutrition";
 import { ExerciseGuide } from "./exercise-guide";
-import type { ExerciseSet, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
+import type { ExerciseSet, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { useMotionVariants } from "@/components/motion/motion-system";
 
 export type EditorState =
   | { kind: "food"; entry?: FoodLogEntry }
   | { kind: "finance"; entry?: MoneyEntry }
+  | { kind: "finance-plan"; plan?: FinancePlan }
+  | { kind: "finance-plan-purchase"; plan: FinancePlan }
   | { kind: "target" }
   | { kind: "weight" }
   | { kind: "accounts"; account?: MoneyAccount }
@@ -23,7 +25,8 @@ export type EditorState =
   | { kind: "exercise"; dayId: string }
   | { kind: "set"; dayId: string; exerciseId: string; set: ExerciseSet }
   | { kind: "delete-food"; id: string; label: string }
-  | { kind: "delete-money"; id: string; label: string };
+  | { kind: "delete-money"; id: string; label: string }
+  | { kind: "delete-finance-plan"; id: string; label: string };
 
 type EditorDialogProps = {
   editor: EditorState;
@@ -93,6 +96,23 @@ function defaultDateTime(date: string): string {
     ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
     : "12:00";
   return `${date}T${time}:00`;
+}
+
+function nextMonthValue(localDate: string): string {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(localDate);
+  if (!match) throw new Error("Не удалось определить следующий месяц.");
+  const month = new Date(Date.UTC(Number(match[1]), Number(match[2]), 1));
+  return month.toISOString().slice(0, 7);
+}
+
+function monthInputValue(value: string): string {
+  return /^\d{4}-\d{2}-01$/.test(value) ? value.slice(0, 7) : "";
+}
+
+function positiveMinor(value: string, label: string): number {
+  const amount = parseMinor(value);
+  if (amount < 1) throw new Error(`Сумма в поле «${label}» должна быть больше нуля.`);
+  return amount;
 }
 
 function dateLabel(value: string): string {
@@ -292,6 +312,67 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           </form>
         )}
       </>
+    );
+  }
+
+  function renderFinancePlanForm(plan?: FinancePlan) {
+    return (
+      <form key={plan?.id ?? "new-finance-plan"} onSubmit={(event) => submitForm(event, (form) => {
+        const month = requiredText(form, "targetMonth", "Месяц покупки");
+        if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Выберите месяц покупки.");
+        return {
+          type: "finance-plan.save",
+          ...(plan ? { id: plan.id } : {}),
+          name: requiredText(form, "name", "Название покупки"),
+          amountMinor: positiveMinor(requiredText(form, "amount", "Сумма"), "Сумма"),
+          targetMonth: `${month}-01`,
+        };
+      })}>
+        <label>Покупка<input name="name" maxLength={300} required defaultValue={plan?.name ?? ""} placeholder="Например, шампунь" /></label>
+        <div className="fields-row">
+          <label>Сумма, рубли ПМР<input name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" /></label>
+          <label>Месяц покупки<input name="targetMonth" type="month" required defaultValue={plan ? monthInputValue(plan.targetMonth) : nextMonthValue(snapshot.localDate)} /></label>
+        </div>
+        <p>План не меняет баланс и расходы. Сумму можно поправить при фактической покупке.</p>
+        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{plan ? "Сохранить план" : "Добавить в план"}</button></div>
+      </form>
+    );
+  }
+
+  function renderFinancePlanPurchaseForm(plan: FinancePlan) {
+    const prbAccounts = snapshot.finance.accounts.filter((account) => account.currency === "PRB");
+    const defaultPrbAccount = prbAccounts.find((account) => account.id === snapshot.settings.defaultAccountId)
+      ?? prbAccounts.find((account) => account.isDefault)
+      ?? prbAccounts[0];
+
+    if (!prbAccounts.length) {
+      return (
+        <div>
+          <p role="alert">Для записи расхода нужен активный счёт в рублях ПМР.</p>
+          <div className="actions">
+            <button type="button" disabled={pending} onClick={onClose}>Закрыть</button>
+            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить PRB-счёт</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <form key={`purchase-${plan.id}`} onSubmit={(event) => submitForm(event, (form) => ({
+        type: "finance-plan.purchase",
+        id: plan.id,
+        label: plan.name,
+        actualAmountMinor: positiveMinor(requiredText(form, "actualAmount", "Фактическая сумма"), "Фактическая сумма"),
+        occurredAt: new Date().toISOString(),
+        accountId: requiredText(form, "accountId", "Счёт в рублях ПМР"),
+        category: "Плановая покупка",
+      }))}>
+        <p>Покупка: <strong>{plan.name}</strong></p>
+        <label>Фактическая сумма, рубли ПМР<input name="actualAmount" type="text" inputMode="decimal" required defaultValue={moneyDecimal.format(plan.amountMinor / 100)} placeholder="220" /></label>
+        <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+        <p>После подтверждения расход запишется сейчас, а план будет закрыт.</p>
+        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать расход и закрыть план</button></div>
+      </form>
     );
   }
 
@@ -593,6 +674,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     switch (editor.kind) {
       case "food": return renderFoodForm(editor.entry);
       case "finance": return renderFinanceForm(editor.entry);
+      case "finance-plan": return renderFinancePlanForm(editor.plan);
+      case "finance-plan-purchase": return renderFinancePlanPurchaseForm(editor.plan);
       case "target": return renderTargetForm();
       case "weight": return renderWeightForm();
       case "accounts": return renderAccountsForm(editor.account);
@@ -602,6 +685,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "set": return renderSetForm(editor.dayId, editor.exerciseId, editor.set);
       case "delete-food": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "food.delete", id: editor.id })} />;
       case "delete-money": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "money.delete", id: editor.id })} />;
+      case "delete-finance-plan": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "finance-plan.delete", id: editor.id })} />;
     }
   }
 
@@ -660,6 +744,8 @@ function editorTitle(editor: EditorState): string {
   switch (editor.kind) {
     case "food": return editor.entry ? "Исправить еду" : "Добавить еду";
     case "finance": return editor.entry ? "Исправить операцию" : "Добавить операцию";
+    case "finance-plan": return editor.plan ? "Изменить план" : "План покупки";
+    case "finance-plan-purchase": return "Записать покупку";
     case "target": return "Цель КБЖУ";
     case "weight": return "Масса тела";
     case "accounts": return "Счета и курс";
@@ -669,6 +755,7 @@ function editorTitle(editor: EditorState): string {
     case "set": return "Результат подхода";
     case "delete-food": return "Удалить запись еды";
     case "delete-money": return "Удалить операцию";
+    case "delete-finance-plan": return "Удалить план";
   }
 }
 

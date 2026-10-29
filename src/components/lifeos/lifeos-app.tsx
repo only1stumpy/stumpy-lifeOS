@@ -10,6 +10,7 @@ import type {
   LifeOSSnapshot,
   MacroValues,
   ModuleKey,
+  FinancePlan,
   MoneyEntry,
   WorkoutDay,
   WorkoutExercise,
@@ -18,6 +19,7 @@ import { GlassRefraction } from "@/components/glass/glass-refraction";
 import styles from "./lifeos-app.module.css";
 import type { AppSnapshot } from "@/domain/app";
 import { ModuleReports } from "@/components/reports/module-reports";
+import FinancePlansView from "./finance-plans-view";
 import { AnimatedNumber, motionDuration, motionEase, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 
 type LifeOSAppProps = {
@@ -297,6 +299,7 @@ function ExerciseMetrics({ set }: { set: ExerciseSet }) {
 function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegisterTelegramBackHandler, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
   const motionVariants = useMotionVariants();
   const [section, setSection] = useState<ModuleKey>(initialSection);
+  const [financeView, setFinanceView] = useState<"entries" | "plans">("entries");
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -625,6 +628,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
     const primaryAccount = snapshot.finance.accounts.find((account) => account.id === snapshot.settings.defaultAccountId)
       ?? snapshot.finance.accounts.find((account) => account.isDefault)
       ?? snapshot.finance.accounts[0];
+    const openPlan = (plan?: FinancePlan) => onAction(plan ? { type: "finance.plan.edit", id: plan.id } : { type: "finance.plan.add" });
     return (
       <motion.div className={`${styles.screenStack} ${styles.financeTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         <GlassSurface className={styles.moduleSurface} focus>
@@ -658,14 +662,32 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
             <button type="button" className={styles.primaryButton} onClick={(event) => openSheet("finance", event.currentTarget)}><Icon name="plus" /> Добавить операцию</button>
           </div>
         </GlassSurface>
-        <GlassSurface className={styles.listSurface}>
-          <div className={styles.listHeading}><div><span className={styles.eyebrow}>СЧЕТА</span><h2>Мои счета</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
-          <AnimatePresence mode="wait">{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{account.currency === "USD" ? "Доллары США" : "Рубли ПМР"}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
-        </GlassSurface>
-        <GlassSurface className={styles.listSurface}>
-          <div className={styles.listHeading}><div><span className={styles.eyebrow}>ДВИЖЕНИЕ ДЕНЕГ</span><h2>Операции</h2></div><button type="button" className={styles.textLink} onClick={() => openSheet("finance")}><Icon name="plus" />Добавить</button></div>
-          <AnimatePresence mode="wait">{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FinanceEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
-        </GlassSurface>
+        <div className={styles.actionRow} role="group" aria-label="Раздел финансов">
+          <button type="button" className={financeView === "entries" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "entries"} onClick={() => setFinanceView("entries")}>Операции</button>
+          <button type="button" className={financeView === "plans" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "plans"} onClick={() => setFinanceView("plans")}>Планы</button>
+        </div>
+        {financeView === "entries" ? (
+          <>
+            <GlassSurface className={styles.listSurface}>
+              <div className={styles.listHeading}><div><span className={styles.eyebrow}>СЧЕТА</span><h2>Мои счета</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
+              <AnimatePresence mode="wait">{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{account.currency === "USD" ? "Доллары США" : "Рубли ПМР"}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
+            </GlassSurface>
+            <GlassSurface className={styles.listSurface}>
+              <div className={styles.listHeading}><div><span className={styles.eyebrow}>ДВИЖЕНИЕ ДЕНЕГ</span><h2>Операции</h2></div><button type="button" className={styles.textLink} onClick={() => openSheet("finance")}><Icon name="plus" />Добавить</button></div>
+              <AnimatePresence mode="wait">{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FinanceEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
+            </GlassSurface>
+          </>
+        ) : (
+          <GlassSurface className={styles.listSurface}>
+            <FinancePlansView
+              plans={snapshot.finance.plans}
+              onAdd={() => openPlan()}
+              onEdit={(plan) => openPlan(plan)}
+              onDelete={(id) => onAction({ type: "finance.plan.delete", id })}
+              onPurchase={(plan) => onAction({ type: "finance.plan.purchase", id: plan.id })}
+            />
+          </GlassSurface>
+        )}
       </motion.div>
     );
   };
