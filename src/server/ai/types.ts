@@ -72,6 +72,11 @@ export type AIAnalysisErrorCode =
   | "invalid_input"
   | "not_configured"
   | "provider_failed"
+  | "provider_mixed"
+  | "provider_unavailable"
+  | "provider_configuration"
+  | "quota_exceeded"
+  | "credits_exhausted"
   | "invalid_response";
 
 export class AIAnalysisError extends Error {
