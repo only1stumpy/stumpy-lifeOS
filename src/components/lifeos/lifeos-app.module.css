@@ -143,6 +143,14 @@
   min-width: 0;
 }
 
+.screenContentMotion {
+  min-width: 0;
+}
+
+.motionContents {
+  display: contents;
+}
+
 .pageHeading {
   margin: 0 2px;
 }

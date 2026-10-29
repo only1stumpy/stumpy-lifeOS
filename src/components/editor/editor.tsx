@@ -10,7 +10,7 @@ import { parseMinor } from "@/domain/math";
 import { suggestTargets } from "@/domain/nutrition";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
-import { motionSpring, useMotionVariants } from "@/components/motion/motion-system";
+import { useMotionVariants } from "@/components/motion/motion-system";
 
 export type EditorState =
   | { kind: "food"; entry?: FoodLogEntry }
@@ -615,7 +615,6 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={motionSpring.gentle}
       onCancel={(event) => { event.preventDefault(); if (!pending) onClose(); }}
       onClick={(event) => { if (event.target === dialogRef.current && !pending) onClose(); }}
       onInput={() => setSaved(false)}

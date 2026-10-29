@@ -4,7 +4,8 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AiQuotaMetric, AiQuotaSnapshot } from "@/domain/ai-quotas";
 import { GlassRefraction } from "@/components/glass/glass-refraction";
-import { motionSpring, useMotionVariants } from "@/components/motion/motion-system";
+import { AiQuotasSkeleton } from "@/components/loading/loading-skeletons";
+import { motionDuration, motionEase, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 import styles from "./ai-quotas-panel.module.css";
 
 type AiQuotasPanelProps = {
@@ -64,7 +65,7 @@ function MetricRow({ metric }: { metric: AiQuotaMetric }) {
   const headingId = `ai-quota-${metric.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   return (
-    <motion.section layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={motionSpring.gentle} className={styles.metric} aria-labelledby={headingId}>
+    <motion.section layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} className={styles.metric} aria-labelledby={headingId}>
       <div className={styles.metricHeading}>
         <h3 id={headingId}>{metric.label}</h3>
         {metric.window && <span>{windows[metric.window]}</span>}
@@ -170,7 +171,6 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={motionSpring.gentle}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -189,7 +189,7 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
 
         <div className={styles.scrollArea} aria-live="polite" aria-busy={loadState === "loading"}>
           <AnimatePresence mode="wait" initial={false}>
-            {loadState === "loading" && <motion.div key="loading" variants={motionVariants.state} initial="initial" animate="animate" exit="exit"><p className={styles.message} role="status">Загружаю данные квот Gemini…</p>{!snapshot && <div className={styles.skeleton} aria-hidden="true"><span /><span /><span /></div>}</motion.div>}
+            {loadState === "loading" && <motion.div key="loading" variants={motionVariants.state} initial="initial" animate="animate" exit="exit"><span className="visually-hidden" role="status">Загружаю данные квот Gemini.</span>{!snapshot && <AiQuotasSkeleton />}</motion.div>}
           </AnimatePresence>
           <AnimatePresence mode="wait" initial={false}>
           {loadState === "error" && (
@@ -207,7 +207,7 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
                 <strong>{snapshot.model}</strong>
               </div>
               <p className={styles.message}>{snapshot.message}</p>
-              {snapshot.metrics.length > 0 && <div className={styles.metrics}><AnimatePresence initial={false}>{snapshot.metrics.map((metric) => <MetricRow key={metric.id} metric={metric} />)}</AnimatePresence></div>}
+              {snapshot.metrics.length > 0 && <motion.div className={styles.metrics} variants={motionVariants.staggerGroup} initial="initial" animate="animate"><AnimatePresence initial={false}>{snapshot.metrics.map((metric) => <MetricRow key={metric.id} metric={metric} />)}</AnimatePresence></motion.div>}
               {snapshot.status === "ready" && snapshot.metrics.length === 0 && <p className={styles.empty}>Google пока не опубликовал метрики для выбранной модели.</p>}
               <div className={styles.footer}>
                 {observedAt && <span>Срез данных · {observedAt}</span>}

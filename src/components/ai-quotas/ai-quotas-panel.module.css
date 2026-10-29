@@ -147,23 +147,6 @@
   line-height: 1.55;
 }
 
-.skeleton {
-  display: grid;
-  gap: 12px;
-  padding: 8px 0 18px;
-}
-
-.skeleton span {
-  display: block;
-  height: 54px;
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  border-radius: 17px;
-  background: rgba(116, 43, 69, 0.055);
-}
-
-.skeleton span:nth-child(2) { width: 91%; }
-.skeleton span:nth-child(3) { width: 76%; }
-
 .metrics {
   display: grid;
   gap: 0;
