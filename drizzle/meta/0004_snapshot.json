@@ -1079,12 +1079,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "target_month": {
-          "name": "target_month",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1101,17 +1095,11 @@
         }
       },
       "indexes": {
-        "finance_plans_owner_month_idx": {
-          "name": "finance_plans_owner_month_idx",
+        "finance_plans_owner_created_idx": {
+          "name": "finance_plans_owner_created_idx",
           "columns": [
             {
               "expression": "owner_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_month",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1160,10 +1148,6 @@
         "finance_plans_amount_positive": {
           "name": "finance_plans_amount_positive",
           "value": "\"finance_plans\".\"amount\" > 0"
-        },
-        "finance_plans_target_month_first_day": {
-          "name": "finance_plans_target_month_first_day",
-          "value": "extract(day from \"finance_plans\".\"target_month\") = 1"
         }
       },
       "isRLSEnabled": false
