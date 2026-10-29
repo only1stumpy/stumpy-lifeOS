@@ -15,6 +15,14 @@
 }
 
 :root {
+  --motion-duration-micro: 140ms;
+  --motion-duration-state: 180ms;
+  --motion-duration-transition: 240ms;
+  --motion-duration-press: 150ms;
+  --motion-duration-release: 110ms;
+  --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --motion-ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   color-scheme: light;
   font-family: "Medeo Sans", sans-serif;
   color: #35272c;
@@ -64,6 +72,23 @@ button:disabled {
   font-size: 0.85rem;
   line-height: 1.5;
 }
+
+.loading-skeleton {
+  display: grid;
+  width: min(100%, 280px);
+  gap: 9px;
+  margin: 18px auto 0;
+}
+
+.loading-skeleton span {
+  display: block;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(116, 43, 69, 0.1);
+}
+
+.loading-skeleton span:nth-child(2) { width: 78%; }
+.loading-skeleton span:nth-child(3) { width: 56%; }
 
 .editor {
   position: fixed;
@@ -189,9 +214,12 @@ button:disabled {
   color: #742b45;
   line-height: 1.25;
   overflow-wrap: anywhere;
+  transition: transform var(--motion-duration-release) var(--motion-ease-out), background-color var(--motion-duration-micro) var(--motion-ease-out), opacity var(--motion-duration-state) var(--motion-ease-out);
 }
 
-.editor button:active {
+.editor button:active:not(:disabled) {
+  transition-duration: var(--motion-duration-press), var(--motion-duration-micro), var(--motion-duration-state);
+  transform: scale(0.985);
   background: #742b4512;
 }
 
@@ -381,6 +409,10 @@ button:disabled {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .editor button:active:not(:disabled) {
+    transform: none;
   }
 }
 

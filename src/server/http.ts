@@ -4,13 +4,20 @@ export class AppError extends Error {
 }
 export function requireOwner(request: Request) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const ownerId = process.env.TELEGRAM_OWNER_ID;
-  if (!botToken || !ownerId) throw new AppError(503, "Telegram ещё не настроен.");
+  if (!botToken) throw new AppError(503, "Telegram ещё не настроен.");
   const auth = request.headers.get("authorization") ?? "";
   if (!auth.startsWith("tma ")) throw new AppError(401, "Откройте приложение через Telegram.");
-  const result = verifyTelegramInitData(auth.slice(4), { botToken, ownerId });
+  const result = verifyTelegramInitData(auth.slice(4), { botToken });
   if (!result.ok) throw new AppError(401, "Сессия Telegram недействительна. Откройте приложение заново.");
   return result.user;
+}
+
+/** Allows access to deployment-level quota metrics only for the legacy configured owner. */
+export function requireConfiguredOwner(request: Request) {
+  const user = requireOwner(request);
+  const ownerId = process.env.TELEGRAM_OWNER_ID?.trim();
+  if (!ownerId || String(user.id) !== ownerId) throw new AppError(403, "Эти метрики доступны владельцу конфигурации.");
+  return user;
 }
 export function errorResponse(error: unknown) {
   if (error instanceof AppError) return Response.json({ error: error.message }, { status: error.status });
@@ -18,4 +25,3 @@ export function errorResponse(error: unknown) {
   console.error("LifeOS request failed", error instanceof Error ? error.name : "unknown");
   return Response.json({ error: "Не удалось выполнить действие. Данные не подтверждены." }, { status: 500 });
 }
-

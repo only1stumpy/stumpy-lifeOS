@@ -1,12 +1,12 @@
 import { getGeminiQuotaSnapshot } from "@/server/ai/quotas";
-import { errorResponse, requireOwner } from "@/server/http";
+import { errorResponse, requireConfiguredOwner } from "@/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    requireOwner(request);
+    requireConfiguredOwner(request);
     return Response.json(await getGeminiQuotaSnapshot(), {
       headers: { "Cache-Control": "no-store" },
     });

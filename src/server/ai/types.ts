@@ -1,4 +1,4 @@
-export type AnalysisProvider = "gemini" | "groq";
+export type AnalysisProvider = "gemini" | "groq" | "openai-compatible";
 
 /**
  * Read-only reference question with a compact JSON snapshot assembled by the caller.
