@@ -3,7 +3,6 @@
   --plans-muted: var(--muted, #6f6067);
   --plans-line: var(--line, rgba(96, 45, 62, 0.15));
   --plans-wine: var(--wine, #742b45);
-  --plans-finance: var(--finance, #a96743);
   display: grid;
   min-width: 0;
   gap: 24px;
@@ -82,52 +81,31 @@
   box-shadow: 0 5px 16px rgba(70, 45, 63, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-.monthList {
+.planCollection {
   min-width: 0;
 }
 
-.monthGroup + .monthGroup {
-  margin-top: 20px;
-  padding-top: 19px;
-  border-top: 1px solid var(--plans-line);
-}
-
-.monthHeading {
+.totalLine {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 7px 14px;
-  margin-bottom: 6px;
-}
-
-.monthHeading h3 {
-  min-width: 0;
-  margin: 0;
-  color: var(--plans-ink);
-  font-size: 17px;
-  font-weight: 540;
-  letter-spacing: -0.035em;
-  line-height: 1.25;
-  text-transform: capitalize;
-  overflow-wrap: anywhere;
-}
-
-.subtotal {
-  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--plans-line);
   color: var(--plans-muted);
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
-.subtotal strong {
+.totalLine strong {
   margin-left: 3px;
   color: #754a38;
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
-  font-weight: 540;
+  font-size: 13px;
+  font-weight: 560;
   font-variant-numeric: tabular-nums;
 }
 
@@ -304,8 +282,7 @@
     color: #55454d;
   }
 
-  .monthGroup + .monthGroup,
-  .planRow {
+.planRow {
     border-color: rgba(69, 42, 54, 0.36);
   }
 
