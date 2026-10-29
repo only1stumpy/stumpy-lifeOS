@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
 import { commandSchema } from "@/domain/commands";
 import type { AppCommand } from "@/domain/commands";
@@ -10,30 +9,17 @@ import { EditorDialog } from "@/components/editor/editor";
 import type { EditorState } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
 import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
-import { MotionProvider, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 
 type LifeOSRootProps = { configured: boolean };
 type RootStatus = "checking" | "outside" | "setup" | "loading" | "ready" | "error";
 type TelegramWebAppEvent = "fullscreenChanged" | "fullscreenFailed" | "safeAreaChanged" | "contentSafeAreaChanged";
 type TelegramInset = { top?: number };
-type TelegramBackButton = {
-  show?(): void;
-  hide?(): void;
-  onClick?(handler: () => void): void;
-  offClick?(handler: () => void): void;
-};
-type TelegramHapticFeedback = {
-  selectionChanged?(): void;
-  notificationOccurred?(type: "error" | "success" | "warning"): void;
-};
 type TelegramMiniApp = {
   initData?: string;
   isFullscreen?: boolean;
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
-  BackButton?: TelegramBackButton;
-  HapticFeedback?: TelegramHapticFeedback;
   isVersionAtLeast?(version: string): boolean;
   ready(): void;
   expand(): void;
@@ -110,16 +96,6 @@ function getTelegramWebApp(): TelegramMiniApp | null {
   return telegram?.WebApp ?? null;
 }
 
-function triggerTelegramHaptic(kind: "selection" | "success" | "error"): void {
-  try {
-    const feedback = getTelegramWebApp()?.HapticFeedback;
-    if (kind === "selection") feedback?.selectionChanged?.();
-    else feedback?.notificationOccurred?.(kind);
-  } catch {
-    // Haptic feedback is optional and must never block a LifeOS action.
-  }
-}
-
 async function fetchSnapshot(initData: string, date?: string): Promise<AppSnapshot> {
   const query = date ? `?date=${encodeURIComponent(date)}` : "";
   const response = await fetch(`/api/snapshot${query}`, {
@@ -154,7 +130,6 @@ function editorIdentity(editor: EditorState): string {
 }
 
 function LifeOSRoot({ configured }: LifeOSRootProps) {
-  const motionVariants = useMotionVariants();
   const [status, setStatus] = useState<RootStatus>("checking");
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [initData, setInitData] = useState<string | null>(null);
@@ -166,11 +141,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
   const [telegramSafeAreaTop, setTelegramSafeAreaTop] = useState(0);
   const [telegramContentSafeAreaTop, setTelegramContentSafeAreaTop] = useState(0);
-  const [hasAppBackState, setHasAppBackState] = useState(false);
   const pendingRef = useRef(false);
-  const telegramBackHandlerRef = useRef<() => void>(() => undefined);
-  const appBackHandlerRef = useRef<(() => void) | null>(null);
-  const editorBackHandlerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -276,50 +247,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     };
   }, [configured]);
 
-  const handleTelegramBack = useCallback(() => {
-    if (pendingRef.current) return;
-    if (showAiQuotas) {
-      setShowAiQuotas(false);
-      return;
-    }
-    if (editor) {
-      if (editorBackHandlerRef.current) editorBackHandlerRef.current();
-      else setEditor(null);
-      return;
-    }
-    appBackHandlerRef.current?.();
-  }, [editor, showAiQuotas]);
-
-  useEffect(() => {
-    telegramBackHandlerRef.current = handleTelegramBack;
-  }, [handleTelegramBack]);
-
-  useEffect(() => {
-    const backButton = getTelegramWebApp()?.BackButton;
-    if (!backButton?.onClick || !backButton.offClick) return;
-    const onClick = () => telegramBackHandlerRef.current();
-    backButton.onClick(onClick);
-    return () => {
-      backButton.offClick?.(onClick);
-      try {
-        backButton.hide?.();
-      } catch {
-        // BackButton teardown is best-effort on Telegram clients.
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const backButton = getTelegramWebApp()?.BackButton;
-    if (!backButton) return;
-    try {
-      if (status === "ready" && (showAiQuotas || editor || hasAppBackState)) backButton.show?.();
-      else backButton.hide?.();
-    } catch {
-      // Telegram BackButton support varies by client version.
-    }
-  }, [editor, hasAppBackState, showAiQuotas, status]);
-
   const retryLoad = useCallback(async () => {
     if (!initData || !configured) return;
     setStatus("loading");
@@ -378,7 +305,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       });
       const payload = await responseBody(response);
       if (!response.ok || isErrorPayload(payload)) throw new Error(responseError(payload, response.status));
-      triggerTelegramHaptic("success");
 
       if (!keepOpen) setEditor(null);
       try {
@@ -388,7 +314,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       }
       return true;
     } catch (cause) {
-      triggerTelegramHaptic("error");
       setError(cause instanceof Error ? cause.message : "Не удалось выполнить действие.");
       return false;
     } finally {
@@ -398,19 +323,11 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   }, [configured, initData, selectedDate, snapshot]);
 
   const openEditor = useCallback((nextEditor: EditorState) => {
-    triggerTelegramHaptic("selection");
     setError(null);
     setEditor(nextEditor);
   }, []);
 
   const closeAiQuotas = useCallback(() => setShowAiQuotas(false), []);
-  const registerAppBackHandler = useCallback((handler: (() => void) | null) => {
-    appBackHandlerRef.current = handler;
-    setHasAppBackState(Boolean(handler));
-  }, []);
-  const registerEditorBackHandler = useCallback((handler: (() => void) | null) => {
-    editorBackHandlerRef.current = handler;
-  }, []);
 
   const handleAction = useCallback((action: LifeOSAction) => {
     if (!snapshot || !configured || !initData) return;
@@ -472,60 +389,34 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
             ? "Подключаюсь к Telegram и загружаю данные…"
             : "Проверяю доступ к LifeOS…";
     return (
-      <MotionProvider>
-        <main className="setup-notice" role={status === "error" ? "alert" : "status"} aria-live="polite" aria-busy={status === "loading"}>
-          <p>{message}</p>
-          {status === "loading" && (
-            <motion.div
-              className="loading-skeleton"
-              aria-hidden="true"
-              variants={motionVariants.screen}
-              initial="initial"
-              animate="animate"
-              transition={motionSpring.gentle}
-            >
-              <span /><span /><span />
-            </motion.div>
-          )}
-          {status === "error" && initData && <button type="button" onClick={() => void retryLoad()}>Повторить загрузку</button>}
-        </main>
-      </MotionProvider>
+      <main className="setup-notice" role={status === "error" ? "alert" : "status"} aria-live="polite">
+        <p>{message}</p>
+        {status === "error" && initData && <button type="button" onClick={() => void retryLoad()}>Повторить загрузку</button>}
+      </main>
     );
   }
 
   const showGlobalError = error && !editor;
   return (
-    <MotionProvider>
-      <>
-        <AnimatePresence initial={false}>
-          {showGlobalError && <motion.p key="lifeos-error" className="app-notice" role="alert" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">{error}</motion.p>}
-        </AnimatePresence>
-        <LifeOSApp
-          snapshot={snapshot}
-          onAction={handleAction}
-          onOpenAiQuotas={() => setShowAiQuotas(true)}
-          onDateChange={(date) => void changeDate(date)}
-          onHaptic={triggerTelegramHaptic}
-          onRegisterTelegramBackHandler={registerAppBackHandler}
-          fullscreen={telegramFullscreen}
-          safeAreaTop={telegramSafeAreaTop}
-          contentSafeAreaTop={telegramContentSafeAreaTop}
-        />
-        <AnimatePresence initial={false}>
-          {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}
-        </AnimatePresence>
-        <AnimatePresence initial={false}>
-          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => setEditor(null)} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {snapshot.activeSession && (
-            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={motionSpring.snappy}>
-              {pending ? "Сохраняю…" : "Завершить тренировку"}
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </>
-    </MotionProvider>
+    <>
+      {showGlobalError && <p className="app-notice" role="alert">{error}</p>}
+      <LifeOSApp
+        snapshot={snapshot}
+        onAction={handleAction}
+        onOpenAiQuotas={() => setShowAiQuotas(true)}
+        onDateChange={(date) => void changeDate(date)}
+        fullscreen={telegramFullscreen}
+        safeAreaTop={telegramSafeAreaTop}
+        contentSafeAreaTop={telegramContentSafeAreaTop}
+      />
+      {showAiQuotas && initData && <AiQuotasPanel initData={initData} onClose={closeAiQuotas} />}
+      {snapshot.activeSession && (
+        <button type="button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })}>
+          {pending ? "Сохраняю…" : "Завершить тренировку"}
+        </button>
+      )}
+      {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => setEditor(null)} onChange={openEditor} onCommand={sendCommand} />}
+    </>
   );
 }
 
