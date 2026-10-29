@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { GlassRefraction } from "@/components/glass/glass-refraction";
+import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
+import { motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import styles from "./ai-providers-panel.module.css";
 
 type ProviderProfile = {
@@ -69,6 +72,7 @@ function readableError(error: unknown, fallback: string): string {
 }
 
 export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvidersPanelProps) {
+  const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -322,7 +326,14 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
               {loadState === "ready" && <span className={styles.count}>{profiles.length}</span>}
             </div>
 
-            {loadState === "loading" && <p className={styles.message} role="status">Загружаю профили…</p>}
+            <AnimatePresence mode="wait" initial={false}>
+              {loadState === "loading" && (
+                <motion.div key="loading-profiles" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">
+                  <span className="visually-hidden" role="status">Загружаю сохранённые профили.</span>
+                  <ProviderProfilesSkeleton />
+                </motion.div>
+              )}
+            </AnimatePresence>
             {loadState === "error" && (
               <div className={styles.state} role="alert">
                 <p>{loadError || "Не удалось загрузить профили."}</p>
@@ -331,13 +342,14 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
             )}
             {loadState === "ready" && profiles.length === 0 && <p className={styles.empty}>Пока нет профилей. Добавь первый — после этого LifeOS сможет обращаться к ИИ от твоего имени.</p>}
             {loadState === "ready" && profiles.length > 0 && (
-              <ul className={styles.profileList}>
+              <motion.ul className={styles.profileList} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
+                <AnimatePresence initial={false}>
                 {profiles.map((profile) => {
                   const deleting = confirmDeleteId === profile.id;
                   const toggling = busyAction === `toggle:${profile.id}`;
                   const deletingNow = busyAction === `delete:${profile.id}`;
                   return (
-                    <li key={profile.id} className={styles.profile}>
+                    <motion.li key={profile.id} layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} className={styles.profile}>
                       <div className={styles.profileTop}>
                         <div className={styles.profileIdentity}>
                           <div className={styles.profileNameLine}>
@@ -374,10 +386,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                           <button type="button" className={styles.textButton} onClick={() => { setConfirmDeleteId(profile.id); setNotice(""); }} disabled={busyAction !== null}>Удалить</button>
                         </div>
                       )}
-                    </li>
+                    </motion.li>
                   );
                 })}
-              </ul>
+                </AnimatePresence>
+              </motion.ul>
             )}
           </section>
           {notice && <p className={styles.notice} role="status">{notice}</p>}

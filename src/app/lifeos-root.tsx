@@ -11,7 +11,8 @@ import type { EditorState } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
 import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
 import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
-import { MotionProvider, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
+import { LifeOSBootSkeleton } from "@/components/loading/loading-skeletons";
+import { MotionProvider, motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 
 type LifeOSRootProps = { configured: boolean };
@@ -469,31 +470,28 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   }, [configured, initData, openEditor, sendCommand, snapshot]);
 
   if (status !== "ready" || !snapshot) {
+    if (status === "checking" || status === "loading") {
+      return (
+        <MotionProvider>
+          <main className="lifeos-boot-loading" aria-busy="true">
+            <span className="visually-hidden" role="status" aria-live="polite">Загружаю LifeOS.</span>
+            <LifeOSBootSkeleton fullscreen={telegramFullscreen} safeAreaTop={telegramSafeAreaTop} contentSafeAreaTop={telegramContentSafeAreaTop} />
+          </main>
+        </MotionProvider>
+      );
+    }
+
     const message = status === "outside"
       ? "Откройте Mini App через Telegram, чтобы войти в LifeOS."
       : status === "setup"
         ? "LifeOS ещё не настроен на сервере. Проверьте подключение базы данных и Telegram-бота."
         : status === "error"
           ? error ?? "Не удалось загрузить данные."
-          : status === "loading"
-            ? "Подключаюсь к Telegram и загружаю данные…"
-            : "Проверяю доступ к LifeOS…";
+          : "LifeOS сейчас недоступен.";
     return (
       <MotionProvider>
-        <main className="setup-notice" role={status === "error" ? "alert" : "status"} aria-live="polite" aria-busy={status === "loading"}>
+        <main className="setup-notice" role={status === "error" ? "alert" : "status"} aria-live="polite">
           <p>{message}</p>
-          {status === "loading" && (
-            <motion.div
-              className="loading-skeleton"
-              aria-hidden="true"
-              variants={motionVariants.screen}
-              initial="initial"
-              animate="animate"
-              transition={motionSpring.gentle}
-            >
-              <span /><span /><span />
-            </motion.div>
-          )}
           {status === "error" && initData && <button type="button" onClick={() => void retryLoad()}>Повторить загрузку</button>}
         </main>
       </MotionProvider>
@@ -529,7 +527,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         </AnimatePresence>
         <AnimatePresence>
           {snapshot.activeSession && (
-            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={motionSpring.snappy}>
+            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
               {pending ? "Сохраняю…" : "Завершить тренировку"}
             </motion.button>
           )}

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import type { CSSProperties, HTMLAttributes, ReactNode, RefObject, SVGProps } from "react";
+import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import type { HTMLMotionProps } from "motion/react";
 import type {
   ExerciseSet,
   LifeOSAction,
@@ -17,7 +18,7 @@ import { GlassRefraction } from "@/components/glass/glass-refraction";
 import styles from "./lifeos-app.module.css";
 import type { AppSnapshot } from "@/domain/app";
 import { ModuleReports } from "@/components/reports/module-reports";
-import { AnimatedNumber, motionDuration, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
+import { AnimatedNumber, motionDuration, motionEase, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 
 type LifeOSAppProps = {
   snapshot: AppSnapshot | null;
@@ -128,24 +129,26 @@ function remainingText(consumed: number, target: number): string {
 }
 
 function Stat({ value, unit, label, detail, tone }: { value: ReactNode; unit?: string; label: string; detail?: string; tone?: "sage" | "amber" | "plum" }) {
+  const motionVariants = useMotionVariants();
   return (
-    <div className={`${styles.stat} ${tone ? styles[tone] : ""}`}>
+    <motion.div className={`${styles.stat} ${tone ? styles[tone] : ""}`} variants={motionVariants.staggerItem}>
       <span className={styles.statLabel}>{label}</span>
       {detail && <span className={styles.statDetail}>{detail}</span>}
       <span className={styles.statValue}>{value}{unit && <small>{unit}</small>}</span>
-    </div>
+    </motion.div>
   );
 }
 
-function GlassSurface({ children, className = "", focus = false, forceFallback = false, ...props }: { children: ReactNode; className?: string; focus?: boolean; forceFallback?: boolean } & HTMLAttributes<HTMLElement>) {
+function GlassSurface({ children, className = "", focus = false, forceFallback = false, ...props }: { children: ReactNode; className?: string; focus?: boolean; forceFallback?: boolean } & Omit<HTMLMotionProps<"section">, "children" | "className" | "ref">) {
+  const motionVariants = useMotionVariants();
   const surfaceRef = useRef<HTMLElement>(null);
   const filterId = `lifeos-glass-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   return (
-    <section ref={surfaceRef} data-lg-role={focus ? "focus" : undefined} className={`${styles.glassSurface} ${className}`} {...props}>
+    <motion.section ref={surfaceRef} data-lg-role={focus ? "focus" : undefined} className={`${styles.glassSurface} ${className}`} variants={motionVariants.staggerGroup} {...props}>
       <GlassRefraction surfaceRef={surfaceRef} filterId={filterId} profile="soft" forceFallback={forceFallback} />
       {children}
-    </section>
+    </motion.section>
   );
 }
 
@@ -158,41 +161,43 @@ function ModuleHeading({
   meta?: string;
   onOpen?: () => void;
 }) {
+  const motionVariants = useMotionVariants();
   return (
-    <div className={styles.moduleHeading}>
+    <motion.div className={styles.moduleHeading} variants={motionVariants.staggerItem}>
       <div>
         <h2>{title}</h2>
         {meta && <p className={styles.moduleMeta}>{meta}</p>}
       </div>
       {onOpen && <button type="button" className={styles.textLink} onClick={onOpen}>{title === "Питание" ? "Дневник" : title === "Финансы" ? "Операции" : "План"}<Icon name="arrow" /></button>}
-    </div>
+    </motion.div>
   );
 }
 
 function MacroRows({ consumed, target, compact = false }: { consumed: MacroValues; target: MacroValues | null; compact?: boolean }) {
   const prefersReducedMotion = useReducedMotion() !== false;
+  const motionVariants = useMotionVariants();
   const rows = [
     { key: "proteinGrams" as const, label: "Б", title: "Белки", tone: styles.protein },
     { key: "fatGrams" as const, label: "Ж", title: "Жиры", tone: styles.fat },
     { key: "carbsGrams" as const, label: "У", title: "Углеводы", tone: styles.carbs },
   ];
   return (
-    <div className={`${styles.macroRows} ${compact ? styles.compactMacros : ""}`}>
+    <motion.div className={`${styles.macroRows} ${compact ? styles.compactMacros : ""}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
       {rows.map((row) => {
         const value = consumed[row.key];
         const goal = target?.[row.key] ?? null;
         const progress = goal && goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
         return (
-          <div className={styles.macroRow} key={row.key}>
+          <motion.div className={styles.macroRow} key={row.key} variants={motionVariants.staggerItem}>
             <span className={`${styles.macroLetter} ${row.tone}`} aria-label={row.title}>{row.label}</span>
             <div className={styles.macroTrack} role="progressbar" aria-label={row.title} aria-valuemin={0} aria-valuemax={goal ?? undefined} aria-valuenow={value}>
-              {goal !== null && <motion.span className={row.tone} initial={false} animate={{ transform: `scaleX(${progress / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} />}
+              {goal !== null && <motion.span className={row.tone} animate={{ transform: `scaleX(${progress / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} />}
             </div>
             <span className={styles.macroValue}><AnimatedNumber value={value} format={macroValue} ariaLabel={`${row.title}: ${macroValue(value)} граммов`} />{goal !== null && <em> / {macroValue(goal)} г</em>}</span>
-          </div>
+          </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
 
@@ -207,7 +212,7 @@ function CalorieSummary({ nutrition, compact = false }: { nutrition: LifeOSSnaps
         <strong><AnimatedNumber value={consumed.calories} format={numberFormat.format} ariaLabel={`${numberFormat.format(consumed.calories)} килокалорий`} /></strong>
         <span>{calorieTarget === null ? "ккал · цель не задана" : `из ${numberFormat.format(calorieTarget)} ккал`}</span>
       </div>
-      {calorieTarget !== null && <div className={styles.calorieTrack} role="progressbar" aria-label="Калории от дневной цели" aria-valuemin={0} aria-valuemax={calorieTarget} aria-valuenow={consumed.calories}><motion.span initial={false} animate={{ transform: `scaleX(${progress / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} /></div>}
+      {calorieTarget !== null && <div className={styles.calorieTrack} role="progressbar" aria-label="Калории от дневной цели" aria-valuemin={0} aria-valuemax={calorieTarget} aria-valuenow={consumed.calories}><motion.span animate={{ transform: `scaleX(${progress / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} /></div>}
       <MacroRows consumed={consumed} target={target} compact={compact} />
       {calorieTarget !== null && <p className={styles.remainingLine}>{remainingText(consumed.calories, calorieTarget)} ккал <span>Цель на массу</span></p>}
     </>
@@ -217,7 +222,7 @@ function CalorieSummary({ nutrition, compact = false }: { nutrition: LifeOSSnaps
 function FoodEntry({ entry, timeZone, onEdit, onDelete }: { entry: LifeOSSnapshot["nutrition"]["entries"][number]; timeZone: string; onEdit(): void; onDelete(): void }) {
   const motionVariants = useMotionVariants();
   return (
-    <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={motionSpring.gentle} className={styles.entryRow}>
+    <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} className={styles.entryRow}>
       <div className={styles.entryTime}>{timeLabel(entry.occurredAt, timeZone)}</div>
       <div className={styles.entryBody}>
         <strong>{entry.label}</strong>
@@ -235,7 +240,7 @@ function FinanceEntry({ entry, timeZone, onEdit, onDelete }: { entry: MoneyEntry
   const motionVariants = useMotionVariants();
   const signedAmountMinor = (entry.kind === "expense" ? -1 : 1) * Math.abs(entry.amountMinor);
   return (
-    <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={motionSpring.gentle} className={styles.entryRow}>
+    <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} className={styles.entryRow}>
       <div className={styles.entryTime}>{timeLabel(entry.occurredAt, timeZone)}</div>
       <div className={styles.entryBody}>
         <strong>{entry.label}</strong>
@@ -543,15 +548,16 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
     const workout = snapshot.gym.trainingDay ? snapshot.gym.nextWorkout : null;
     return (
       <GlassSurface className={styles.todaySurface} focus>
-        <section className={`${styles.todaySection} ${styles.nutritionTone}`}>
+        <motion.div className={styles.motionContents} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
+        <motion.section className={`${styles.todaySection} ${styles.nutritionTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
           <ModuleHeading title="Питание" onOpen={() => navigate("nutrition")} />
           <CalorieSummary nutrition={snapshot.nutrition} compact />
           {snapshot.nutrition.target === null && <p className={styles.todayHint}>Добавьте параметры и настройте цель на массу.</p>}
           <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "food.add" })}><Icon name="plus" />Записать еду</button>
-        </section>
-        <section className={`${styles.todaySection} ${styles.financeTone}`}>
+        </motion.section>
+        <motion.section className={`${styles.todaySection} ${styles.financeTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
           <ModuleHeading title="Финансы" onOpen={() => navigate("finance")} />
-          <div className={styles.financeSummary}>
+          <motion.div className={styles.financeSummary} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
             <Stat
               value={primaryAccount ? <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor), primaryAccount.currency)} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} /> : "—"}
               unit={primaryAccount ? primaryAccount.currency === "USD" ? "$" : "р. ПМР" : undefined}
@@ -560,13 +566,13 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
               tone="amber"
             />
             <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB")} />} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
-          </div>
+          </motion.div>
           <div className={styles.financeActions}>
             {!primaryAccount && <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "finance.manage-accounts" })}><Icon name="plus" />Настроить счёт</button>}
             <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "finance.add" })}><Icon name="plus" />Записать операцию</button>
           </div>
-        </section>
-        <section className={`${styles.todaySection} ${styles.gymTone}`}>
+        </motion.section>
+        <motion.section className={`${styles.todaySection} ${styles.gymTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
           <ModuleHeading title="Зал" onOpen={() => navigate("gym")} />
           {workout ? (
             <div className={styles.workoutPreview}>
@@ -581,7 +587,8 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
           ) : (
             <div className={styles.workoutPreview}><div><strong>План пока не создан</strong><span>Соберите тренировочные дни и упражнения.</span></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "gym.edit-program" })}>План <Icon name="arrow" /></button></div>
           )}
-        </section>
+        </motion.section>
+        </motion.div>
       </GlassSurface>
     );
   };
@@ -590,7 +597,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
     if (!snapshot) return <SetupState onAction={onAction} />;
     const entries = [...snapshot.nutrition.entries].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
     return (
-      <div className={styles.screenStack}>
+      <motion.div className={styles.screenStack} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         <GlassSurface className={styles.moduleSurface} focus>
           <div className={styles.sectionTopline}><span className={styles.eyebrow}>ДНЕВНИК</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
           <CalorieSummary nutrition={snapshot.nutrition} />
@@ -601,14 +608,14 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
         </GlassSurface>
         <GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>ПО ВРЕМЕНИ</span><h2>Записи</h2></div><span className={styles.countPill}>{entries.length}</span></div>
-          <AnimatePresence mode="wait" initial={false}>{entries.length ? <motion.ul key="food-entries" layout className={styles.entryList} initial="initial" animate="animate" exit="exit" variants={motionVariants.state}>{entries.map((entry) => <FoodEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "food.edit", id: entry.id })} onDelete={() => onAction({ type: "food.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="food-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Записей за этот день пока нет.</motion.p>}</AnimatePresence>
+          <AnimatePresence mode="wait">{entries.length ? <motion.ul key="food-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FoodEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "food.edit", id: entry.id })} onDelete={() => onAction({ type: "food.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="food-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Записей за этот день пока нет.</motion.p>}</AnimatePresence>
         </GlassSurface>
         <GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>МАССА ТЕЛА</span><h2>Вес</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "weight.add" })}><Icon name="plus" />Добавить</button></div>
           {snapshot.nutrition.bodyWeightKg !== null && <p className={styles.currentWeight}>{decimalFormat.format(snapshot.nutrition.bodyWeightKg)} <small>кг сейчас</small></p>}
           <WeightChart history={snapshot.nutrition.weightHistory} />
         </GlassSurface>
-      </div>
+      </motion.div>
     );
   };
 
@@ -619,7 +626,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
       ?? snapshot.finance.accounts.find((account) => account.isDefault)
       ?? snapshot.finance.accounts[0];
     return (
-      <div className={`${styles.screenStack} ${styles.financeTone}`}>
+      <motion.div className={`${styles.screenStack} ${styles.financeTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         <GlassSurface className={styles.moduleSurface} focus>
           <div className={styles.sectionTopline}><span className={styles.eyebrow}>ОБЗОР</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
           <div className={styles.financeOverview}>
@@ -639,10 +646,10 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
                 <p>Добавьте счёт, чтобы видеть баланс здесь.</p>
               </div>
             )}
-            <div className={styles.financeSummary}>
+            <motion.div className={styles.financeSummary} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
               <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB")} />} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
               <Stat value={<AnimatedNumber value={snapshot.finance.spentMonthPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB")} />} unit="р. ПМР" label="За месяц" tone="amber" />
-            </div>
+            </motion.div>
           </div>
           {!primaryAccount && <div className={styles.financeOverviewActions}>
             <button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Настроить счёт <Icon name="plus" /></button>
@@ -653,13 +660,13 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
         </GlassSurface>
         <GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>СЧЕТА</span><h2>Мои счета</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
-          <AnimatePresence mode="wait" initial={false}>{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} initial="initial" animate="animate" exit="exit" variants={motionVariants.state}><AnimatePresence initial={false}>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={motionSpring.gentle} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{account.currency === "USD" ? "Доллары США" : "Рубли ПМР"}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
+          <AnimatePresence mode="wait">{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{account.currency === "USD" ? "Доллары США" : "Рубли ПМР"}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
         </GlassSurface>
         <GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>ДВИЖЕНИЕ ДЕНЕГ</span><h2>Операции</h2></div><button type="button" className={styles.textLink} onClick={() => openSheet("finance")}><Icon name="plus" />Добавить</button></div>
-          <AnimatePresence mode="wait" initial={false}>{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} initial="initial" animate="animate" exit="exit" variants={motionVariants.state}>{entries.map((entry) => <FinanceEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
+          <AnimatePresence mode="wait">{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FinanceEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
         </GlassSurface>
-      </div>
+      </motion.div>
     );
   };
 
@@ -712,7 +719,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
     if (currentWorkout) return renderWorkout(currentWorkout);
     const workouts = snapshot.gym.program.length ? snapshot.gym.program : snapshot.gym.nextWorkout ? [snapshot.gym.nextWorkout] : [];
     return (
-      <div className={`${styles.screenStack} ${styles.gymTone}`}>
+      <motion.div className={`${styles.screenStack} ${styles.gymTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         {snapshot.gym.trainingDay && snapshot.gym.nextWorkout && (
           <GlassSurface className={styles.moduleSurface} focus>
             <span className={styles.eyebrow}>СЕГОДНЯ</span>
@@ -728,10 +735,10 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
         )}
         <GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>МОЙ ПЛАН</span><h2>Тренировочные дни</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "gym.edit-program" })}><Icon name="edit" />Изменить</button></div>
-          <AnimatePresence mode="wait" initial={false}>{workouts.length ? <motion.ul key="program" layout className={styles.programList} initial="initial" animate="animate" exit="exit" variants={motionVariants.state}><AnimatePresence initial={false}>{workouts.map((workout) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={motionSpring.gentle} key={workout.id}><button type="button" className={styles.programButton} onClick={() => { setSelectedWorkoutId(workout.id); setSelectedExerciseId(null); }}><div><strong>{workout.name}</strong><span>{workout.exercises.length} {pluralize(workout.exercises.length, "упражнение", "упражнения", "упражнений")}</span></div><Icon name="arrow" /></button></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="program-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Тренировочный план пока пуст. Добавьте дни и упражнения.</motion.p>}</AnimatePresence>
+          <AnimatePresence mode="wait">{workouts.length ? <motion.ul key="program" layout className={styles.programList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{workouts.map((workout) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={workout.id}><button type="button" className={styles.programButton} onClick={() => { setSelectedWorkoutId(workout.id); setSelectedExerciseId(null); }}><div><strong>{workout.name}</strong><span>{workout.exercises.length} {pluralize(workout.exercises.length, "упражнение", "упражнения", "упражнений")}</span></div><Icon name="arrow" /></button></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="program-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Тренировочный план пока пуст. Добавьте дни и упражнения.</motion.p>}</AnimatePresence>
           <button type="button" className={styles.secondaryButton} onClick={() => onAction({ type: "gym.edit-program" })}><Icon name="plus" />Собрать программу</button>
         </GlassSurface>
-      </div>
+      </motion.div>
     );
   };
 
@@ -754,30 +761,30 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
         {restTimer?.phase === "running" ? "Таймер отдыха запущен." : restTimer?.phase === "paused" ? "Таймер отдыха на паузе." : restTimer?.phase === "finished" ? "Отдых завершён." : ""}
       </span>
       <div className={styles.appFrame}>
-        <header className={styles.appHeader}>
+        <motion.header className={styles.appHeader} initial={{ opacity: 0, transform: "translateY(-8px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out }}>
           <button type="button" className={styles.brand} aria-label="Открыть настройки ИИ" title="Настройки ИИ" onClick={() => { onHaptic?.("selection"); onOpenAiProviders(); }}>LifeOS</button>
           {snapshot && <label className={styles.dateChip} style={{ position: "relative" }}><time dateTime={snapshot.localDate}>{dateHeading(snapshot.localDate)}</time>{onDateChange && <input type="date" aria-label="Выбрать дату дневника" value={snapshot.localDate} onChange={(event) => onDateChange(event.target.value)} style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer" }} />}</label>}
-        </header>
+        </motion.header>
         <main className={styles.main}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={`${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit" transition={{ duration: motionDuration.transition }}>
-              <div className={styles.pageHeading}><h1>{titles[section]}</h1></div>
-              {sectionContent[section]}
-              {snapshot && <ModuleReports reports={snapshot.reports} section={section} />}
+          <AnimatePresence mode="wait">
+            <motion.div key={`${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
+              <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
+              <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
+              {snapshot && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} /></motion.div>}
             </motion.div>
           </AnimatePresence>
         </main>
-        <nav ref={dockRef} className={styles.dock} data-lg-role="dock" aria-label="Разделы LifeOS">
+        <motion.nav ref={dockRef} className={styles.dock} data-lg-role="dock" aria-label="Разделы LifeOS" initial={{ opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
           <GlassRefraction surfaceRef={dockRef} filterId={dockFilterId} profile="thin" shape="pill" />
-          {NAV_ITEMS.map((item) => section === item.key ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={motionSpring.snappy} /> : null)}
+          {NAV_ITEMS.map((item) => section === item.key ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={{ type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
           {NAV_ITEMS.map((item) => (
             <button key={item.key} type="button" className={styles.dockButton} aria-label={item.label} aria-current={section === item.key ? "page" : undefined} onClick={() => navigate(item.key)}>
               <Icon name={item.icon} />
               <span className={styles.srOnly}>{item.label}</span>
             </button>
           ))}
-        </nav>
-        <AnimatePresence initial={false}>
+        </motion.nav>
+        <AnimatePresence>
           {sheet && <ActionSheet key={sheet} sheet={sheet} snapshot={snapshot} onClose={() => setSheet(null)} onAction={(action) => { setSheet(null); onAction(action); }} panelRef={sheetRef} closeRef={closeSheetRef} />}
         </AnimatePresence>
       </div>
@@ -848,7 +855,7 @@ function ActionSheet({
 
   return (
     <motion.div className={styles.sheetBackdrop} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} variants={motionVariants.backdrop} initial="initial" animate="animate" exit="exit">
-      <motion.section ref={panelRef} className={styles.actionSheet} role="dialog" aria-modal="true" aria-labelledby="lifeos-sheet-title" aria-describedby="lifeos-sheet-description" tabIndex={-1} variants={motionVariants.bottomSheet} initial="initial" animate="animate" exit="exit" transition={motionSpring.gentle}>
+      <motion.section ref={panelRef} className={styles.actionSheet} role="dialog" aria-modal="true" aria-labelledby="lifeos-sheet-title" aria-describedby="lifeos-sheet-description" tabIndex={-1} variants={motionVariants.bottomSheet} initial="initial" animate="animate" exit="exit">
         <div className={styles.sheetGrip} aria-hidden="true" />
         <div className={styles.sheetHeader}>
           <div><span className={styles.eyebrow}>БЫСТРОЕ ДЕЙСТВИЕ</span><h2 id="lifeos-sheet-title">{config.title}</h2></div>

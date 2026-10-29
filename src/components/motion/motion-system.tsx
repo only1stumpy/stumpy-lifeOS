@@ -12,20 +12,26 @@ import { useEffect, useRef, useState } from "react";
 import type { PropsWithChildren } from "react";
 
 export const motionSpring = {
-  gentle: { type: "spring", stiffness: 260, damping: 29, mass: 1 },
-  snappy: { type: "spring", stiffness: 500, damping: 38, mass: 1 },
-  bouncy: { type: "spring", stiffness: 380, damping: 22, mass: 0.8 },
-  smooth: { type: "spring", stiffness: 190, damping: 30, mass: 1 },
+  gentle: { type: "spring", duration: 0.55, bounce: 0.2 },
+  snappy: { type: "spring", duration: 0.5, bounce: 0.1 },
+  bouncy: { type: "spring", duration: 0.62, bounce: 0.4 },
+  smooth: { type: "spring", duration: 0.6, bounce: 0.05 },
 } satisfies Record<"gentle" | "snappy" | "bouncy" | "smooth", Transition>;
 
 export const motionDuration = {
   press: 0.15,
   release: 0.11,
   micro: 0.14,
-  state: 0.18,
-  enter: 0.26,
-  transition: 0.3,
-  bottomSheet: 0.36,
+  state: 0.52,
+  enter: 0.55,
+  transition: 0.58,
+  bottomSheet: 0.58,
+} as const;
+
+export const motionStagger = {
+  screen: 0.075,
+  card: 0.07,
+  list: 0.055,
 } as const;
 
 export const motionEase = {
@@ -36,7 +42,7 @@ export const motionEase = {
 
 const motionDefaultTransition = {
   type: "tween" as const,
-  duration: motionDuration.micro,
+  duration: motionDuration.state,
   ease: motionEase.out,
 } satisfies Transition;
 
@@ -58,7 +64,13 @@ export const motionVariants = {
     animate: {
       opacity: 1,
       transform: "translateY(0px)",
-      transition: { type: "tween", duration: motionDuration.transition, ease: motionEase.out },
+      transition: {
+        type: "tween",
+        duration: motionDuration.transition,
+        ease: motionEase.out,
+        staggerChildren: motionStagger.screen,
+        delayChildren: 0.04,
+      },
     },
     exit: {
       opacity: 0,
@@ -80,7 +92,47 @@ export const motionVariants = {
     exit: {
       opacity: 0,
       transform: "translateY(2px)",
-      transition: { type: "tween", duration: motionDuration.micro, ease: motionEase.out },
+      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
+    },
+  },
+  staggerGroup: {
+    initial: {
+      opacity: 0,
+      transform: "translateY(8px)",
+      transition: { type: "tween", duration: motionDuration.enter, ease: motionEase.out },
+    },
+    animate: {
+      opacity: 1,
+      transform: "translateY(0px)",
+      transition: {
+        type: "tween",
+        duration: motionDuration.enter,
+        ease: motionEase.out,
+        staggerChildren: motionStagger.card,
+        delayChildren: 0.04,
+      },
+    },
+    exit: {
+      opacity: 1,
+      transform: "translateY(0px)",
+      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
+    },
+  },
+  staggerItem: {
+    initial: {
+      opacity: 0,
+      transform: "translateY(8px)",
+      transition: { type: "tween", duration: motionDuration.enter, ease: motionEase.out },
+    },
+    animate: {
+      opacity: 1,
+      transform: "translateY(0px)",
+      transition: { type: "tween", duration: motionDuration.enter, ease: motionEase.out },
+    },
+    exit: {
+      opacity: 0,
+      transform: "translateY(4px)",
+      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
     },
   },
   backdrop: {
@@ -94,7 +146,7 @@ export const motionVariants = {
     },
     exit: {
       opacity: 0,
-      transition: { type: "tween", duration: motionDuration.micro, ease: motionEase.out },
+      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
     },
   },
   bottomSheet: {
@@ -128,7 +180,7 @@ export const motionVariants = {
     exit: {
       opacity: 0,
       transform: "scale(0.96)",
-      transition: { type: "tween", duration: motionDuration.micro, ease: motionEase.out },
+      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
     },
   },
   listItem: {
@@ -145,10 +197,10 @@ export const motionVariants = {
     exit: {
       opacity: 0,
       transform: "translateY(4px)",
-      transition: { type: "tween", duration: motionDuration.micro, ease: motionEase.out },
+      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
     },
   },
-} satisfies Record<"screen" | "state" | "backdrop" | "bottomSheet" | "dialog" | "listItem", Variants>;
+} satisfies Record<"screen" | "state" | "staggerGroup" | "staggerItem" | "backdrop" | "bottomSheet" | "dialog" | "listItem", Variants>;
 
 function opacityOnlyVariants(duration: number, exitDuration: number): Variants {
   return {
@@ -161,6 +213,8 @@ function opacityOnlyVariants(duration: number, exitDuration: number): Variants {
 const reducedMotionVariants = {
   screen: opacityOnlyVariants(0.08, 0.06),
   state: opacityOnlyVariants(0.08, 0.06),
+  staggerGroup: opacityOnlyVariants(0.08, 0.06),
+  staggerItem: opacityOnlyVariants(0.08, 0.06),
   backdrop: opacityOnlyVariants(0.08, 0.06),
   bottomSheet: opacityOnlyVariants(0.1, 0.06),
   dialog: opacityOnlyVariants(0.08, 0.06),
