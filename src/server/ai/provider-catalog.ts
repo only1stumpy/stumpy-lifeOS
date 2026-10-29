@@ -20,6 +20,8 @@ export type AiProviderDefinition = {
   name: string;
   endpoint: string;
   modelsEndpoint: (endpoint?: string) => string;
+  modelsSearchParams?: Readonly<Record<string, string>>;
+  modelsAuthHeaderName?: "authorization" | "x-goog-api-key";
   authHeaderName: "authorization" | "x-goog-api-key";
   supportsImages: boolean;
   connectable: boolean;
@@ -40,7 +42,8 @@ const definitions: AiProviderDefinition[] = [
     name: "Gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/openai",
     modelsEndpoint: () => "https://generativelanguage.googleapis.com/v1beta/models",
-    authHeaderName: "x-goog-api-key",
+    modelsAuthHeaderName: "x-goog-api-key",
+    authHeaderName: "authorization",
     supportsImages: true,
     connectable: true,
     connectionBlockReason: null,
@@ -73,6 +76,7 @@ const definitions: AiProviderDefinition[] = [
     name: "OpenRouter",
     endpoint: "https://openrouter.ai/api/v1",
     modelsEndpoint: () => "https://openrouter.ai/api/v1/models",
+    modelsSearchParams: { max_price: "0" },
     authHeaderName: "authorization",
     supportsImages: true,
     connectable: true,
@@ -116,7 +120,8 @@ export async function discoverFreeModels(
     response = await safeHttpsGet(url, apiKey, {
       timeoutMs: 12_000,
       maxResponseBytes: 512 * 1024,
-      authHeaderName: provider.authHeaderName,
+      authHeaderName: provider.modelsAuthHeaderName ?? provider.authHeaderName,
+      ...(provider.modelsSearchParams ? { searchParams: provider.modelsSearchParams } : {}),
     });
   } catch (error) {
     if (error instanceof SafeHttpsError) {
@@ -127,7 +132,7 @@ export async function discoverFreeModels(
 
   if (response.status < 200 || response.status >= 300) {
     const failure = classifyOpenAICompatibleFailure(response.status, response.body);
-    throw new AppError(response.status === 401 || response.status === 403 ? 400 : 502, messageForTransportError(failure));
+    throw new AppError(statusForTransportFailure(failure), messageForTransportError(failure));
   }
 
   const payload = parsePayload(response.body);
@@ -166,7 +171,8 @@ export async function testProviderModel(
     const kind = typeof error === "object" && error !== null && "kind" in error && typeof error.kind === "string"
       ? error.kind
       : "other";
-    throw new AppError(400, `Ключ или тестовая модель не прошли проверку: ${messageForTransportError(kind as Parameters<typeof messageForTransportError>[0])}`);
+    const failure = kind as Parameters<typeof messageForTransportError>[0];
+    throw new AppError(statusForTransportFailure(failure), `Проверка ключа не прошла: ${messageForTransportError(failure)}.`);
   }
 }
 
@@ -271,4 +277,11 @@ function messageForTransportError(kind: string): string {
   if (kind === "unavailable") return "API провайдера временно недоступен";
   if (kind === "invalid_response") return "провайдер вернул непонятный ответ";
   return "API провайдера не ответил на проверку";
+}
+
+function statusForTransportFailure(kind: string): number {
+  if (kind === "configuration") return 400;
+  if (kind === "credits_exhausted") return 402;
+  if (kind === "quota_exceeded") return 429;
+  return 502;
 }

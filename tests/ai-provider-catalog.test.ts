@@ -65,3 +65,14 @@ test("Gemini models are admitted only when the API marks generateContent availab
     supportedGenerationMethods: ["embedContent"],
   }), []);
 });
+
+test("Gemini separates catalog key auth from OpenAI-compatible completion auth", () => {
+  const gemini = getAiProviderDefinition("gemini");
+  assert.equal(gemini.modelsAuthHeaderName, "x-goog-api-key");
+  assert.equal(gemini.authHeaderName, "authorization");
+});
+
+test("OpenRouter model discovery only requests zero-priced catalog entries", () => {
+  const openrouter = getAiProviderDefinition("openrouter");
+  assert.deepEqual(openrouter.modelsSearchParams, { max_price: "0" });
+});
