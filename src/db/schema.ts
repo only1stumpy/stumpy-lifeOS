@@ -519,15 +519,13 @@ export const financePlans = pgTable(
     ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
-    targetMonth: date("target_month", { mode: "string" }).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     unique("finance_plans_id_owner_unique").on(table.id, table.ownerId),
-    index("finance_plans_owner_month_idx").on(table.ownerId, table.targetMonth, table.createdAt),
+    index("finance_plans_owner_created_idx").on(table.ownerId, table.createdAt),
     check("finance_plans_amount_positive", sql`${table.amount} > 0`),
-    check("finance_plans_target_month_first_day", sql`extract(day from ${table.targetMonth}) = 1`),
   ],
 );
 
