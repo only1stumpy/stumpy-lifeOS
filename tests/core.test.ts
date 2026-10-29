@@ -10,6 +10,7 @@ import { advanceRecurrenceDate } from "../src/domain/recurrence";
 import { analyzeMessage } from "../src/server/ai/analyze";
 import { buildNutritionHistoryDays, missingMoneyCategoryMessage } from "../src/server/lifeos";
 import { verifyTelegramInitData } from "../src/server/telegram/auth";
+import { currentTelegramUserId, resolveTelegramUserId, withTelegramUser } from "../src/server/owner-context";
 
 const botToken = "test-bot-token";
 const now = 1_800_000_000;
@@ -88,6 +89,33 @@ test("Telegram initData не авторизует пользователя с ч
     ok: false,
     reason: "not_owner",
   });
+});
+
+test("Telegram initData принимает любого пользователя при включённом многопользовательском режиме", () => {
+  const signedForAnotherUser = signedInitData([
+    ["auth_date", String(now)],
+    ["user", JSON.stringify({ id: 987654321, first_name: "Other" })],
+  ]);
+
+  const result = verifyTelegramInitData(signedForAnotherUser, { botToken, now, maxAgeSeconds: 900 });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.user.id, 987654321);
+});
+
+test("Telegram user scope stays isolated across overlapping async work", async () => {
+  const [first, second] = await Promise.all([
+    withTelegramUser("111", async () => {
+      await new Promise((resolve) => setTimeout(resolve, 3));
+      return currentTelegramUserId();
+    }),
+    withTelegramUser("222", async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      return resolveTelegramUserId();
+    }),
+  ]);
+
+  assert.equal(first, "111");
+  assert.equal(second, "222");
 });
 
 test("Telegram initData отвергает повреждённый запрос, JSON, структуру и отсутствие user", () => {

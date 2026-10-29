@@ -9,6 +9,8 @@ import {
   type LifeOSQuestionResult,
 } from "./types";
 import { normalizeClarificationHistory, resolveMoneyClarification } from "./clarification";
+import { completeOpenAICompatible, AiProviderTransportError } from "./openai-compatible";
+import type { AiProviderConfig } from "./provider-profiles";
 
 const MAX_TEXT_LENGTH = 8_000;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -66,6 +68,13 @@ type ProviderConfig = {
   provider: AnalysisProvider;
   model: string;
   apiKey: string;
+  endpoint?: string;
+};
+
+export type ProviderSelection = {
+  profiles: readonly AiProviderConfig[];
+  /** Deployment-wide legacy keys must only be exposed to the configured account. */
+  allowLegacyProviders?: boolean;
 };
 
 type ProviderFailureKind =
@@ -120,6 +129,7 @@ const REFERENCE_SYSTEM_PROMPT = `Ты — личный справочник Life
 /** Uses configured cloud providers only; photos are sent inline and never stored. */
 export async function analyzeMessage(
   input: AnalyzeMessageInput,
+  selection?: ProviderSelection,
 ): Promise<AnalysisResult> {
   const validatedInput = validateInput(input);
 
@@ -137,7 +147,7 @@ export async function analyzeMessage(
   }
 
   const context = makeUserContext(validatedInput);
-  const providers = getProviderConfigs();
+  const providers = getProviderConfigsForSelection(selection);
 
   if (providers.length === 0) {
     throw new AIAnalysisError(
@@ -151,10 +161,11 @@ export async function analyzeMessage(
   for (const config of providers) {
     attemptedProviders.push(config.provider);
     try {
-      const text =
-        config.provider === "gemini"
-          ? await callGemini(config, context, validatedInput.image)
-          : await callGroq(config, context, validatedInput.image);
+      const text = config.provider === "gemini"
+        ? await callGemini(config, context, validatedInput.image)
+        : config.provider === "groq"
+          ? await callGroq(config, context, validatedInput.image)
+          : await callOpenAICompatible(config, SYSTEM_PROMPT, context, validatedInput.image, "json_object");
       const payload = normalizeMoneyCategories(parseAnalysisPayload(text), validatedInput);
 
       return {
@@ -179,9 +190,10 @@ export async function analyzeMessage(
  */
 export async function answerLifeOSQuestion(
   input: LifeOSQuestionInput,
+  selection?: ProviderSelection,
 ): Promise<LifeOSQuestionResult> {
   const { question, context } = validateReferenceQuestionInput(input);
-  const providers = getProviderConfigs();
+  const providers = getProviderConfigsForSelection(selection);
 
   if (providers.length === 0) {
     throw new AIAnalysisError(
@@ -197,10 +209,11 @@ export async function answerLifeOSQuestion(
   for (const config of providers) {
     attemptedProviders.push(config.provider);
     try {
-      const text =
-        config.provider === "gemini"
-          ? await callGeminiReference(config, prompt)
-          : await callGroqReference(config, prompt);
+      const text = config.provider === "gemini"
+        ? await callGeminiReference(config, prompt)
+        : config.provider === "groq"
+          ? await callGroqReference(config, prompt)
+          : await callOpenAICompatible(config, REFERENCE_SYSTEM_PROMPT, prompt, undefined, "text");
       const answer = validateReferenceAnswer(text);
       return { answer, provider: config.provider, model: config.model };
     } catch (error) {
@@ -275,7 +288,9 @@ function providerFailureError(
 }
 
 function providerLabel(provider: AnalysisProvider): string {
-  return provider === "gemini" ? "Gemini" : "Groq";
+  if (provider === "gemini") return "Gemini";
+  if (provider === "groq") return "Groq";
+  return "OpenAI-compatible";
 }
 
 function failureLabel(kind: ProviderFailureKind): string {
@@ -505,6 +520,42 @@ function getProviderConfigs(): ProviderConfig[] {
     });
   }
   return configs;
+}
+
+function getProviderConfigsForSelection(selection?: ProviderSelection): ProviderConfig[] {
+  if (!selection) return getProviderConfigs();
+  const profiles: ProviderConfig[] = selection.profiles.map((profile) => ({
+    provider: "openai-compatible",
+    endpoint: profile.endpoint,
+    model: profile.model,
+    apiKey: profile.apiKey,
+  }));
+  return selection.allowLegacyProviders
+    ? [...profiles, ...getProviderConfigs()]
+    : profiles;
+}
+
+async function callOpenAICompatible(
+  config: ProviderConfig,
+  systemPrompt: string,
+  userText: string,
+  image: AnalyzeMessageInput["image"],
+  responseFormat: "json_object" | "text",
+): Promise<string> {
+  try {
+    return await completeOpenAICompatible(
+      { endpoint: config.endpoint ?? "", model: config.model, apiKey: config.apiKey },
+      {
+        systemPrompt,
+        userText,
+        image,
+        responseFormat,
+        timeoutMs: PROVIDER_TIMEOUT_MS,
+      },
+    );
+  } catch (error) {
+    throw new ProviderFailure(error instanceof AiProviderTransportError ? error.kind : "other");
+  }
 }
 
 async function callGemini(

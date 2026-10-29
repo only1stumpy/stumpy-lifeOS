@@ -11,6 +11,8 @@ import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
 import { formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
+import { currentTelegramUserId, resolveTelegramUserId, withTelegramUser } from "@/server/owner-context";
+import { loadAiProviderConfigs } from "@/server/ai/provider-profiles";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const TELEGRAM_FILE_TIMEOUT_MS = 20_000;
@@ -229,7 +231,11 @@ function getBot(): Bot<Context> {
         if (!previousDraftId) {
           const status = await ctx.reply("Сверяюсь с твоими данными и подбираю ответ…");
           statusMessageId = status.message_id;
-          const result = await answerLifeOSQuestion({ question: text, context: makeReferenceContext(snapshot) });
+          const providerProfiles = await loadAiProviderConfigs(owner.id);
+          const result = await answerLifeOSQuestion({ question: text, context: makeReferenceContext(snapshot) }, {
+            profiles: providerProfiles,
+            allowLegacyProviders: Boolean(owner.telegramUserId && owner.telegramUserId === process.env.TELEGRAM_OWNER_ID?.trim()),
+          });
           await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
           statusMessageId = undefined;
           await ctx.reply(result.answer);
@@ -329,7 +335,10 @@ export async function sendOwnerMessage(
   text: string,
   replyMarkup?: InlineKeyboardMarkup,
 ): Promise<void> {
-  const ownerId = configuredOwnerId();
+  const resolvedId = currentTelegramUserId() ?? process.env.TELEGRAM_OWNER_ID?.trim();
+  if (!resolvedId || !/^[1-9]\d{0,19}$/.test(resolvedId)) throw new AppError(503, "Telegram ID получателя не настроен.");
+  const ownerId = Number(resolvedId);
+  if (!Number.isSafeInteger(ownerId)) throw new AppError(503, "Telegram ID получателя не настроен.");
   await getBot().api.sendMessage(ownerId, text, replyMarkup ? { reply_markup: replyMarkup } : {});
 }
 
@@ -460,9 +469,9 @@ function formatSigned(value: number): string {
 }
 
 async function isOwner(ctx: Context): Promise<boolean> {
-  const ownerId = process.env.TELEGRAM_OWNER_ID;
   const fromId = ctx.from?.id;
-  return Boolean(ownerId && fromId && String(fromId) === ownerId);
+  const scopedId = resolveTelegramUserId();
+  return Boolean(scopedId && fromId && String(fromId) === scopedId);
 }
 
 function getAppUrl(): string | null {
@@ -506,7 +515,12 @@ export async function processStoredTelegramUpdate(updateRowId: string): Promise<
   if (!claimed) return;
 
   try {
-    await handlePersistedUpdate(claimed.payload as unknown as Update, updateRowId);
+    const [owner] = await db.select({ telegramUserId: schema.ownerSettings.telegramUserId })
+      .from(schema.ownerSettings)
+      .where(eq(schema.ownerSettings.id, claimed.ownerId))
+      .limit(1);
+    if (!owner) throw new Error("owner_missing");
+    await withTelegramUser(owner.telegramUserId, () => handlePersistedUpdate(claimed.payload as unknown as Update, updateRowId));
     await db
       .update(schema.telegramUpdates)
       .set({ status: "processed", processingStartedAt: null, payload: {}, processedAt: new Date(), lastError: null })

@@ -11,6 +11,8 @@ import { AppError } from "./http";
 import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
 import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
+import { resolveTelegramUserId } from "./owner-context";
+import { loadAiProviderConfigs } from "./ai/provider-profiles";
 
 const decimal = (minor: number) => {
   const n = BigInt(minor);
@@ -49,9 +51,9 @@ export function buildNutritionHistoryDays(
     .map(([date, value]) => ({ date, entryCount: value.entryCount, ...value.macros }));
 }
 
-export async function ensureOwner() {
-  const telegramUserId = process.env.TELEGRAM_OWNER_ID;
-  if (!telegramUserId) throw new AppError(503, "Владелец ещё не настроен.");
+export async function ensureOwner(explicitTelegramUserId?: string) {
+  const telegramUserId = resolveTelegramUserId(explicitTelegramUserId);
+  if (!telegramUserId || !/^[1-9]\d{0,19}$/.test(telegramUserId)) throw new AppError(503, "Профиль Telegram не найден.");
   const db = getDb();
   await db.insert(s.ownerSettings).values({ telegramUserId }).onConflictDoNothing();
   const [owner] = await db.select().from(s.ownerSettings).where(eq(s.ownerSettings.telegramUserId, telegramUserId));
@@ -267,7 +269,11 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
       .set({ aiClarificationHistory: null, aiClarificationUpdatedAt: null, updatedAt: analyzedAt })
       .where(eq(s.ownerSettings.id, owner.id));
   }
-  const analysis = await analyzeMessage({ ...input, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) });
+  const providerProfiles = await loadAiProviderConfigs(owner.id);
+  const analysis = await analyzeMessage({ ...input, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
+    profiles: providerProfiles,
+    allowLegacyProviders: Boolean(owner.telegramUserId && owner.telegramUserId === process.env.TELEGRAM_OWNER_ID?.trim()),
+  });
   if (!analysis.entries.length) {
     const nextHistory = nextClarificationHistory(clarificationHistory, input.text, analysis.clarification, false);
     await getDb().update(s.ownerSettings)

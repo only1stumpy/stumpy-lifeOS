@@ -19,7 +19,8 @@ export type TelegramInitDataResult =
 
 export type VerifyTelegramInitDataOptions = {
   botToken: string;
-  ownerId: string | number;
+  /** Optional legacy single-user restriction. Omit to authenticate any Telegram user. */
+  ownerId?: string | number;
   /** Maximum accepted age in seconds. Defaults to 24 hours. */
   maxAgeSeconds?: number;
   /** Current Unix time in seconds, useful for deterministic callers. */
@@ -30,7 +31,7 @@ const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60;
 const MAX_SAFE_ID = BigInt(Number.MAX_SAFE_INTEGER);
 
 /**
- * Verifies Telegram Mini App `initData` and restricts it to the configured owner.
+ * Verifies Telegram Mini App `initData`; an optional ownerId preserves legacy single-user restriction.
  * The input must be Telegram's raw query string; client-side `initDataUnsafe`
  * must never be passed here as a substitute.
  */
@@ -48,8 +49,8 @@ export function verifyTelegramInitData(
       return { ok: false, reason: "invalid_options" };
     }
 
-    const expectedOwnerId = normalizeOwnerId(ownerId);
-    if (expectedOwnerId === null) {
+    const expectedOwnerId = ownerId === undefined ? undefined : normalizeOwnerId(ownerId);
+    if (ownerId !== undefined && expectedOwnerId === null) {
       return { ok: false, reason: "invalid_options" };
     }
 
@@ -133,7 +134,7 @@ export function verifyTelegramInitData(
     if (!isTelegramMiniAppUser(user)) {
       return { ok: false, reason: "invalid_user" };
     }
-    if (String(user.id) !== expectedOwnerId) {
+    if (expectedOwnerId !== undefined && String(user.id) !== expectedOwnerId) {
       return { ok: false, reason: "not_owner" };
     }
 

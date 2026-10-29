@@ -37,12 +37,12 @@ export async function POST(request: Request): Promise<Response> {
       throw new AppError(400, "Некорректный запрос Telegram.");
     }
 
-    const owner = await ensureOwner();
     const actorId = getActorId(payload);
-    if (actorId === null || String(actorId) !== owner.telegramUserId) {
-      // Telegram expects an acknowledgement for updates that are irrelevant to this private bot.
+    if (actorId === null || !isPrivateUpdate(payload)) {
+      // Telegram expects an acknowledgement for updates outside private chats.
       return Response.json({ ok: true });
     }
+    const owner = await ensureOwner(String(actorId));
 
     const db = getDb();
     const updateId = Number(payload.update_id);
@@ -90,6 +90,16 @@ function getActorId(update: Record<string, unknown>): number | null {
     return sender.id;
   }
   return null;
+}
+
+function isPrivateUpdate(update: Record<string, unknown>): boolean {
+  for (const key of ["message", "edited_message", "callback_query"]) {
+    const event = update[key];
+    if (!isRecord(event)) continue;
+    const chat = key === "callback_query" && isRecord(event.message) ? event.message.chat : event.chat;
+    return isRecord(chat) && chat.type === "private";
+  }
+  return false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

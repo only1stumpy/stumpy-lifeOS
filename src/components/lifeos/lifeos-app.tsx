@@ -20,7 +20,7 @@ import { ModuleReports } from "@/components/reports/module-reports";
 type LifeOSAppProps = {
   snapshot: AppSnapshot | null;
   onAction(action: LifeOSAction): void;
-  onOpenAiQuotas(): void;
+  onOpenAiProviders(): void;
   initialSection?: ModuleKey;
   onDateChange?(value: string): void;
   fullscreen?: boolean;
@@ -277,7 +277,7 @@ function ExerciseMetrics({ set }: { set: ExerciseSet }) {
   return <span className={styles.setMetrics}>{metrics.length ? metrics.join(" · ") : "Данные подхода не заданы"}</span>;
 }
 
-function LifeOSApp({ snapshot, onAction, onOpenAiQuotas, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
+function LifeOSApp({ snapshot, onAction, onOpenAiProviders, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
   const [section, setSection] = useState<ModuleKey>(initialSection);
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
@@ -721,7 +721,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiQuotas, initialSection = "today
       </span>
       <div className={styles.appFrame}>
         <header className={styles.appHeader}>
-          <button type="button" className={styles.brand} aria-label="Открыть панель квот ИИ" title="Квоты ИИ" onClick={onOpenAiQuotas}>LifeOS</button>
+          <button type="button" className={styles.brand} aria-label="Открыть настройки ИИ" title="Настройки ИИ" onClick={onOpenAiProviders}>LifeOS</button>
           {snapshot && <label className={styles.dateChip} style={{ position: "relative" }}><time dateTime={snapshot.localDate}>{dateHeading(snapshot.localDate)}</time>{onDateChange && <input type="date" aria-label="Выбрать дату дневника" value={snapshot.localDate} onChange={(event) => onDateChange(event.target.value)} style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer" }} />}</label>}
         </header>
         <main className={styles.main}>
