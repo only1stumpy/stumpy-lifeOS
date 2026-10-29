@@ -10,6 +10,7 @@ import type {
   LifeOSSnapshot,
   MacroValues,
   ModuleKey,
+  FinanceDebt,
   FinancePlan,
   MoneyEntry,
   WorkoutDay,
@@ -20,6 +21,7 @@ import styles from "./lifeos-app.module.css";
 import type { AppSnapshot } from "@/domain/app";
 import { ModuleReports } from "@/components/reports/module-reports";
 import FinancePlansView from "./finance-plans-view";
+import FinanceDebtsView from "./finance-debts-view";
 import { AnimatedNumber, motionDuration, motionEase, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 
 type LifeOSAppProps = {
@@ -299,7 +301,7 @@ function ExerciseMetrics({ set }: { set: ExerciseSet }) {
 function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegisterTelegramBackHandler, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
   const motionVariants = useMotionVariants();
   const [section, setSection] = useState<ModuleKey>(initialSection);
-  const [financeView, setFinanceView] = useState<"entries" | "plans">("entries");
+  const [financeView, setFinanceView] = useState<"overview" | "entries" | "plans" | "debts">("overview");
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -629,44 +631,48 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
       ?? snapshot.finance.accounts.find((account) => account.isDefault)
       ?? snapshot.finance.accounts[0];
     const openPlan = (plan?: FinancePlan) => onAction(plan ? { type: "finance.plan.edit", id: plan.id } : { type: "finance.plan.add" });
+    const openDebt = (debt?: FinanceDebt) => onAction(debt ? { type: "finance.debt.repay", id: debt.id } : { type: "finance.debt.add" });
     return (
       <motion.div className={`${styles.screenStack} ${styles.financeTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
-        <GlassSurface className={styles.moduleSurface} focus>
-          <div className={styles.sectionTopline}><span className={styles.eyebrow}>ОБЗОР</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
-          <div className={styles.financeOverview}>
-            {primaryAccount ? (
-              <div className={styles.financeBalance}>
-                <span className={styles.financeBalanceLabel}>Текущий баланс</span>
-                <strong className={styles.financeBalanceValue}>
-                  <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor), primaryAccount.currency)} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} />
-                  <small>{primaryAccount.currency === "USD" ? "$" : "р. ПМР"}</small>
-                </strong>
-                <span className={styles.financeBalanceAccount}>{primaryAccount.name.trim() || "Основной счёт"} · {primaryAccount.currency === "USD" ? "доллары США" : "рубли ПМР"}</span>
-              </div>
-            ) : (
-              <div className={styles.financeEmptyBalance}>
-                <span className={styles.financeBalanceLabel}>Текущий баланс</span>
-                <strong>Основной счёт не настроен</strong>
-                <p>Добавьте счёт, чтобы видеть баланс здесь.</p>
-              </div>
-            )}
-            <motion.div className={styles.financeSummary} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
-              <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB")} />} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
-              <Stat value={<AnimatedNumber value={snapshot.finance.spentMonthPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB")} />} unit="р. ПМР" label="За месяц" tone="amber" />
-            </motion.div>
-          </div>
-          {!primaryAccount && <div className={styles.financeOverviewActions}>
-            <button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Настроить счёт <Icon name="plus" /></button>
-          </div>}
-          <div className={styles.actionRow}>
-            <button type="button" className={styles.primaryButton} onClick={(event) => openSheet("finance", event.currentTarget)}><Icon name="plus" /> Добавить операцию</button>
-          </div>
-        </GlassSurface>
-        <div className={styles.actionRow} role="group" aria-label="Раздел финансов">
+        <div className={`${styles.actionRow} ${styles.financeTabs}`} role="group" aria-label="Раздел финансов">
+          <button type="button" className={financeView === "overview" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "overview"} onClick={() => setFinanceView("overview")}>Обзор</button>
           <button type="button" className={financeView === "entries" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "entries"} onClick={() => setFinanceView("entries")}>Операции</button>
           <button type="button" className={financeView === "plans" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "plans"} onClick={() => setFinanceView("plans")}>Планы</button>
+          <button type="button" className={financeView === "debts" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "debts"} onClick={() => setFinanceView("debts")}>Долги</button>
         </div>
-        {financeView === "entries" ? (
+        {financeView === "overview" ? (
+          <GlassSurface className={styles.moduleSurface} focus>
+            <div className={styles.sectionTopline}><span className={styles.eyebrow}>ОБЗОР</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
+            <div className={styles.financeOverview}>
+              {primaryAccount ? (
+                <div className={styles.financeBalance}>
+                  <span className={styles.financeBalanceLabel}>Текущий баланс</span>
+                  <strong className={styles.financeBalanceValue}>
+                    <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor), primaryAccount.currency)} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} />
+                    <small>{primaryAccount.currency === "USD" ? "$" : "р. ПМР"}</small>
+                  </strong>
+                  <span className={styles.financeBalanceAccount}>{primaryAccount.name.trim() || "Основной счёт"} · {primaryAccount.currency === "USD" ? "доллары США" : "рубли ПМР"}</span>
+                </div>
+              ) : (
+                <div className={styles.financeEmptyBalance}>
+                  <span className={styles.financeBalanceLabel}>Текущий баланс</span>
+                  <strong>Основной счёт не настроен</strong>
+                  <p>Добавьте счёт, чтобы видеть баланс здесь.</p>
+                </div>
+              )}
+              <motion.div className={styles.financeSummary} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
+                <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB")} />} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
+                <Stat value={<AnimatedNumber value={snapshot.finance.spentMonthPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB")} />} unit="р. ПМР" label="За месяц" tone="amber" />
+              </motion.div>
+            </div>
+            {!primaryAccount && <div className={styles.financeOverviewActions}>
+              <button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Настроить счёт <Icon name="plus" /></button>
+            </div>}
+            <div className={styles.actionRow}>
+              <button type="button" className={styles.primaryButton} onClick={(event) => openSheet("finance", event.currentTarget)}><Icon name="plus" /> Добавить операцию</button>
+            </div>
+          </GlassSurface>
+        ) : financeView === "entries" ? (
           <>
             <GlassSurface className={styles.listSurface}>
               <div className={styles.listHeading}><div><span className={styles.eyebrow}>СЧЕТА</span><h2>Мои счета</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
@@ -677,7 +683,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
               <AnimatePresence mode="wait">{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FinanceEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
             </GlassSurface>
           </>
-        ) : (
+        ) : financeView === "plans" ? (
           <GlassSurface className={styles.listSurface}>
             <FinancePlansView
               plans={snapshot.finance.plans}
@@ -685,6 +691,14 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onHaptic, onRegister
               onEdit={(plan) => openPlan(plan)}
               onDelete={(id) => onAction({ type: "finance.plan.delete", id })}
               onPurchase={(plan) => onAction({ type: "finance.plan.purchase", id: plan.id })}
+            />
+          </GlassSurface>
+        ) : (
+          <GlassSurface className={styles.listSurface}>
+            <FinanceDebtsView
+              debts={snapshot.finance.debts}
+              onAdd={() => openDebt()}
+              onRepay={(debt) => openDebt(debt)}
             />
           </GlassSurface>
         )}

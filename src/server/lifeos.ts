@@ -3,7 +3,7 @@ import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
-import type { MacroValues, FoodLogEntry, WorkoutDay } from "@/domain/types";
+import type { FinanceDebt, MacroValues, FoodLogEntry, WorkoutDay } from "@/domain/types";
 import { convertToLocalMinor, dateKey, sumMacros } from "@/domain/math";
 import { advanceRecurrenceDate } from "@/domain/recurrence";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
@@ -13,6 +13,7 @@ import type { AnalyzeMessageInput } from "./ai/types";
 import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
 import { resolveTelegramUserId } from "./owner-context";
 import { loadConfiguredAiProviderConfigs } from "./ai/provider-accounts";
+import type { DebtMessageIntent } from "@/domain/debt-message";
 
 const decimal = (minor: number) => {
   const n = BigInt(minor);
@@ -69,7 +70,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   if (selectedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) || !Number.isFinite(Date.parse(selectedDate + "T12:00:00Z")) || new Date(selectedDate + "T12:00:00Z").toISOString().slice(0, 10) !== selectedDate)) throw new AppError(400, "Некорректная дата дневника.");
   const localDate = selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : today;
   // ponytail: a personal journal is read as a whole; add paginated history when its size warrants it.
-  const [foods, targets, weights, accounts, categories, money, rates, recurring, plans, days, dayItems, exercises, sessions, sessionItems, sets, captures, foodDrafts, moneyDrafts, templates] = await Promise.all([
+  const [foods, targets, weights, accounts, categories, money, rates, recurring, plans, debts, repayments, days, dayItems, exercises, sessions, sessionItems, sets, captures, foodDrafts, moneyDrafts, debtDrafts, templates] = await Promise.all([
     db.select().from(s.nutritionEntries).where(eq(s.nutritionEntries.ownerId, ownerId)).orderBy(desc(s.nutritionEntries.occurredAt)),
     db.select().from(s.nutritionTargets).where(and(eq(s.nutritionTargets.ownerId, ownerId), lte(s.nutritionTargets.effectiveFrom, localDate))).orderBy(desc(s.nutritionTargets.effectiveFrom)),
     db.select().from(s.weightEntries).where(eq(s.weightEntries.ownerId, ownerId)).orderBy(s.weightEntries.occurredAt),
@@ -79,6 +80,8 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     db.select().from(s.exchangeRates).where(eq(s.exchangeRates.ownerId, ownerId)).orderBy(desc(s.exchangeRates.effectiveAt)),
     db.select().from(s.recurringPayments).where(and(eq(s.recurringPayments.ownerId, ownerId), eq(s.recurringPayments.isActive, true))),
     db.select().from(s.financePlans).where(eq(s.financePlans.ownerId, ownerId)).orderBy(s.financePlans.createdAt),
+    db.select().from(s.financeDebts).where(eq(s.financeDebts.ownerId, ownerId)).orderBy(s.financeDebts.createdAt),
+    db.select().from(s.financeDebtRepayments).where(eq(s.financeDebtRepayments.ownerId, ownerId)),
     db.select().from(s.workoutDays).where(and(eq(s.workoutDays.ownerId, ownerId), eq(s.workoutDays.isArchived, false))).orderBy(s.workoutDays.position),
     db.select().from(s.workoutDayExercises).where(eq(s.workoutDayExercises.ownerId, ownerId)).orderBy(s.workoutDayExercises.position),
     db.select().from(s.exercises).where(eq(s.exercises.ownerId, ownerId)),
@@ -88,6 +91,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     db.select().from(s.captureDrafts).where(and(eq(s.captureDrafts.ownerId, ownerId), eq(s.captureDrafts.status, "pending"))).orderBy(s.captureDrafts.createdAt),
     db.select().from(s.nutritionDrafts).where(eq(s.nutritionDrafts.ownerId, ownerId)),
     db.select().from(s.moneyDrafts).where(eq(s.moneyDrafts.ownerId, ownerId)),
+    db.select().from(s.financeDebtDrafts).where(eq(s.financeDebtDrafts.ownerId, ownerId)),
     db.select().from(s.foodTemplates).where(eq(s.foodTemplates.ownerId, ownerId)),
   ]);
   const active = sessions.find((v) => v.status === "active");
@@ -171,6 +175,22 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       accounts: accounts.map((v) => ({ id: v.id, name: v.name, currency: asCurrency(v.currency), openingBalanceMinor: toMinor(v.openingBalance), isDefault: v.isDefault, balanceMinor: toMinor(v.openingBalance) + money.filter((e) => e.accountId === v.id).reduce((sum, e) => sum + (e.entryType === "income" ? 1 : -1) * toMinor(e.amount), 0) })),
       entries: money.map((v) => ({ id: v.id, accountId: v.accountId, label: v.name, occurredAt: v.occurredAt.toISOString(), amountMinor: toMinor(v.amount), currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "Без категории", kind: v.entryType as "expense" | "income" })),
       plans: plans.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount) })),
+      debts: debts.map((v): FinanceDebt => {
+        const repaidMinor = repayments
+          .filter((repayment) => repayment.debtId === v.id)
+          .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0);
+        const originalAmountMinor = toMinor(v.originalAmount);
+        return {
+          id: v.id,
+          personName: v.personName,
+          direction: v.direction as FinanceDebt["direction"],
+          originalAmountMinor,
+          remainingAmountMinor: Math.max(0, originalAmountMinor - repaidMinor),
+          dueOn: v.dueOn,
+          note: v.note,
+          createdAt: v.createdAt.toISOString(),
+        };
+      }),
     },
     gym: {
       trainingDay: Boolean(active || planned), nextWorkout: program.find((v) => v.id === (active?.workoutDayId ?? planned?.id)) ?? null,
@@ -182,9 +202,25 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);
       const entry = moneyDrafts.find((m) => m.captureDraftId === v.id);
-      return { id: v.id, description: v.messageText ?? "", occurredAt: (food?.occurredAt ?? entry?.occurredAt ?? v.createdAt).toISOString(),
+      const debt = debtDrafts.find((d) => d.captureDraftId === v.id);
+      const linkedDebt = debt?.debtId ? debts.find((item) => item.id === debt.debtId) : null;
+      const repaidMinor = debt?.debtId ? repayments
+        .filter((repayment) => repayment.debtId === debt.debtId)
+        .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0) : 0;
+      return { id: v.id, description: v.messageText ?? "", occurredAt: (food?.occurredAt ?? entry?.occurredAt ?? debt?.occurredAt ?? v.createdAt).toISOString(),
         food: food ? { label: food.name, portionLabel: food.portionLabel, ...macroNumbers(food), estimated: food.estimated } : null,
-        money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: asCurrency(entry.currency), kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null };
+        money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: asCurrency(entry.currency), kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
+        debt: debt ? {
+          operation: debt.operation as "create" | "repayment",
+          personName: debt.personName,
+          direction: debt.direction as FinanceDebt["direction"],
+          amountMinor: toMinor(debt.amount),
+          openedAs: debt.openedAs as "transfer" | "opening_balance" | null,
+          debtId: debt.debtId,
+          dueOn: debt.dueOn,
+          note: debt.note,
+          remainingAmountMinor: linkedDebt ? Math.max(0, toMinor(linkedDebt.originalAmount) - repaidMinor) : null,
+        } : null };
     }),
     templates: templates.map((v) => ({ id: v.id, name: v.name })),
     activeSession: active?.workoutDayId ? { id: active.id, dayId: active.workoutDayId, startedAt: active.startedAt.toISOString() } : null,
@@ -195,6 +231,152 @@ async function category(tx: Transaction, ownerId: string, name: string, entryTyp
   await tx.insert(s.financeCategories).values({ ownerId, name, entryType }).onConflictDoNothing();
   const [row] = await tx.select().from(s.financeCategories).where(and(eq(s.financeCategories.ownerId, ownerId), eq(s.financeCategories.name, name), eq(s.financeCategories.entryType, entryType)));
   return row;
+}
+
+function debtAmountFromMinor(amountMinor: number): string {
+  return decimal(amountMinor);
+}
+
+async function saveDebtTransfer(
+  tx: Transaction,
+  ownerId: string,
+  input: { personName: string; direction: "i_owe" | "owed_to_me"; amountMinor: number; openedAs: "transfer" | "opening_balance"; accountId?: string; occurredAt: Date; dueOn: string | null; note: string | null; captureDraftId?: string },
+) {
+  const [debt] = await tx.insert(s.financeDebts).values({
+    ownerId,
+    personName: input.personName,
+    direction: input.direction,
+    originalAmount: debtAmountFromMinor(input.amountMinor),
+    openedAs: input.openedAs,
+    dueOn: input.dueOn,
+    note: input.note,
+  }).returning();
+
+  if (input.openedAs === "transfer") {
+    const chosen = await account(tx, ownerId, input.accountId, "PRB");
+    if (chosen.currency !== "PRB") throw new AppError(400, "Долги учитываются только в рублях ПМР.");
+    const isIncoming = input.direction === "i_owe";
+    const entryType = isIncoming ? "income" : "expense";
+    const group = await category(tx, ownerId, isIncoming ? "Получено в долг" : "Выдано в долг", entryType);
+    await tx.insert(s.financeEntries).values({
+      ownerId,
+      captureDraftId: input.captureDraftId,
+      accountId: chosen.id,
+      categoryId: group.id,
+      name: isIncoming ? `Занял у ${input.personName}` : `Одолжил ${input.personName}`,
+      entryType,
+      amount: debtAmountFromMinor(input.amountMinor),
+      currency: "PRB",
+      usdToPrbRate: null,
+      occurredAt: input.occurredAt,
+      source: input.captureDraftId ? "chat" : "mini_app",
+    });
+  }
+  return debt;
+}
+
+async function saveDebtRepayment(
+  tx: Transaction,
+  ownerId: string,
+  input: { debtId: string; amountMinor: number; accountId: string; occurredAt: Date; captureDraftId?: string },
+) {
+  const [debt] = await tx.select().from(s.financeDebts)
+    .where(and(eq(s.financeDebts.id, input.debtId), eq(s.financeDebts.ownerId, ownerId)));
+  if (!debt) throw new AppError(404, "Долг не найден.");
+
+  const repayments = await tx.select().from(s.financeDebtRepayments)
+    .where(and(eq(s.financeDebtRepayments.debtId, debt.id), eq(s.financeDebtRepayments.ownerId, ownerId)));
+  const remainingMinor = toMinor(debt.originalAmount) - repayments.reduce((sum, row) => sum + toMinor(row.amount), 0);
+  if (remainingMinor <= 0) throw new AppError(409, "Этот долг уже закрыт.");
+  if (input.amountMinor > remainingMinor) throw new AppError(400, "Сумма возврата больше остатка долга.");
+
+  const chosen = await account(tx, ownerId, input.accountId, "PRB");
+  if (chosen.currency !== "PRB") throw new AppError(400, "Долги учитываются только в рублях ПМР.");
+  const isOutgoing = debt.direction === "i_owe";
+  const entryType = isOutgoing ? "expense" : "income";
+  const group = await category(tx, ownerId, isOutgoing ? "Погашение долга" : "Возврат долга", entryType);
+  const [entry] = await tx.insert(s.financeEntries).values({
+    ownerId,
+    captureDraftId: input.captureDraftId,
+    accountId: chosen.id,
+    categoryId: group.id,
+    name: isOutgoing ? `Вернул ${debt.personName}` : `Получил возврат от ${debt.personName}`,
+    entryType,
+    amount: debtAmountFromMinor(input.amountMinor),
+    currency: "PRB",
+    usdToPrbRate: null,
+    occurredAt: input.occurredAt,
+    source: input.captureDraftId ? "chat" : "mini_app",
+  }).returning();
+  await tx.insert(s.financeDebtRepayments).values({
+    ownerId,
+    debtId: debt.id,
+    financeEntryId: entry.id,
+    amount: debtAmountFromMinor(input.amountMinor),
+    occurredAt: input.occurredAt,
+  });
+  return { debt, entry, remainingMinor: remainingMinor - input.amountMinor };
+}
+
+export async function createDebtCaptureDraft(input: {
+  intent: DebtMessageIntent;
+  messageText: string;
+  telegramUpdateRowId?: string;
+}): Promise<{ draftIds: string[]; clarification?: string }> {
+  const owner = await ensureOwner();
+  return getDb().transaction(async (tx) => {
+    let debt: typeof s.financeDebts.$inferSelect | undefined;
+    let accountId: string | null = null;
+    if (input.intent.kind === "repayment") {
+      const debts = await tx.select().from(s.financeDebts).where(eq(s.financeDebts.ownerId, owner.id));
+      const repayments = await tx.select().from(s.financeDebtRepayments).where(eq(s.financeDebtRepayments.ownerId, owner.id));
+      const personKey = input.intent.personName.trim().toLocaleLowerCase("ru");
+      const matching = debts.filter((item) => {
+        const samePerson = item.personName.trim().toLocaleLowerCase("ru") === personKey;
+        const sameDirection = input.intent.direction === null || item.direction === input.intent.direction;
+        const repaid = repayments.filter((row) => row.debtId === item.id).reduce((sum, row) => sum + toMinor(row.amount), 0);
+        return samePerson && sameDirection && toMinor(item.originalAmount) > repaid;
+      });
+      if (!matching.length) return { draftIds: [], clarification: `Не нашёл открытый долг для «${input.intent.personName}». Проверь имя или открой «Финансы → Долги».` };
+      if (matching.length > 1) return { draftIds: [], clarification: `У тебя несколько открытых долгов для «${input.intent.personName}». Выбери нужный в «Финансы → Долги», чтобы возврат попал куда надо.` };
+      debt = matching[0];
+      const alreadyRepaid = repayments
+        .filter((row) => row.debtId === debt!.id)
+        .reduce((sum, row) => sum + toMinor(row.amount), 0);
+      const remaining = toMinor(debt.originalAmount) - alreadyRepaid;
+      if (input.intent.amountMinor > remaining) {
+        return { draftIds: [], clarification: `Сумма возврата больше остатка долга (${decimal(remaining)} руб. ПМР). Проверь сумму и попробуй ещё раз.` };
+      }
+      const chosen = await account(tx, owner.id, undefined, "PRB");
+      accountId = chosen.id;
+    } else if (input.intent.openedAs === "transfer") {
+      const chosen = await account(tx, owner.id, undefined, "PRB");
+      accountId = chosen.id;
+    }
+
+    const [capture] = await tx.insert(s.captureDrafts).values({
+      ownerId: owner.id,
+      telegramUpdateRowId: input.telegramUpdateRowId,
+      kind: "debt",
+      messageText: input.messageText,
+    }).returning();
+    const intent = input.intent;
+    await tx.insert(s.financeDebtDrafts).values({
+      ownerId: owner.id,
+      captureDraftId: capture.id,
+      operation: intent.kind,
+      personName: intent.kind === "repayment" ? debt!.personName : intent.personName,
+      direction: intent.kind === "repayment" ? debt!.direction : intent.direction,
+      amount: debtAmountFromMinor(intent.amountMinor),
+      openedAs: intent.kind === "create" ? intent.openedAs : null,
+      debtId: intent.kind === "repayment" ? debt!.id : null,
+      accountId,
+      dueOn: intent.kind === "create" ? intent.dueOn : null,
+      note: intent.kind === "create" ? intent.note : null,
+      occurredAt: new Date(),
+    });
+    return { draftIds: [capture.id] };
+  });
 }
 
 export async function setPendingMoneyDraftCategory(
@@ -352,6 +534,28 @@ export async function executeCommand(command: AppCommand) {
         break;
       }
       case "money.delete": await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id))); break;
+      case "debt.create": {
+        await saveDebtTransfer(tx, owner.id, {
+          personName: command.personName,
+          direction: command.direction,
+          amountMinor: command.amountMinor,
+          openedAs: command.openedAs,
+          accountId: command.accountId,
+          occurredAt: command.occurredAt ? new Date(command.occurredAt) : new Date(),
+          dueOn: command.dueOn,
+          note: command.note,
+        });
+        break;
+      }
+      case "debt.repayment.create": {
+        await saveDebtRepayment(tx, owner.id, {
+          debtId: command.id,
+          amountMinor: command.amountMinor,
+          accountId: command.accountId,
+          occurredAt: new Date(command.occurredAt),
+        });
+        break;
+      }
       case "finance-plan.save": {
         const values = { ownerId: owner.id, name: command.name, amount: decimal(command.amountMinor) };
         if (command.id) {
@@ -498,6 +702,8 @@ export async function executeCommand(command: AppCommand) {
         if (draft.status !== "pending") throw new AppError(409, "Черновик уже отменён.");
         const [food] = await tx.select().from(s.nutritionDrafts).where(eq(s.nutritionDrafts.captureDraftId, draft.id));
         const [money] = await tx.select().from(s.moneyDrafts).where(eq(s.moneyDrafts.captureDraftId, draft.id));
+        const [debt] = await tx.select().from(s.financeDebtDrafts)
+          .where(and(eq(s.financeDebtDrafts.captureDraftId, draft.id), eq(s.financeDebtDrafts.ownerId, owner.id)));
         if (food) await tx.insert(s.nutritionEntries).values({ ownerId: owner.id, captureDraftId: draft.id, name: food.name, portionLabel: food.portionLabel, ...macroStrings(macroNumbers(food)), occurredAt: food.occurredAt, estimated: food.estimated });
         if (money) {
           if (!money.proposedCategory && !money.categoryId) throw new AppError(400, missingMoneyCategoryMessage(money.entryType === "income" ? "income" : "expense"));
@@ -505,6 +711,30 @@ export async function executeCommand(command: AppCommand) {
           const group = money.categoryId ? null : await category(tx, owner.id, money.proposedCategory!, money.entryType as "expense" | "income");
           const rate = await rateAt(tx, owner.id, chosen.currency, money.occurredAt);
           await tx.insert(s.financeEntries).values({ ownerId: owner.id, captureDraftId: draft.id, accountId: chosen.id, categoryId: money.categoryId ?? group!.id, entryType: money.entryType, name: money.name, amount: money.amount, currency: chosen.currency, usdToPrbRate: rate, occurredAt: money.occurredAt });
+        }
+        if (debt) {
+          if (debt.operation === "create") {
+            await saveDebtTransfer(tx, owner.id, {
+              personName: debt.personName,
+              direction: debt.direction as "i_owe" | "owed_to_me",
+              amountMinor: toMinor(debt.amount),
+              openedAs: debt.openedAs as "transfer" | "opening_balance",
+              accountId: debt.accountId ?? undefined,
+              occurredAt: debt.occurredAt,
+              dueOn: debt.dueOn,
+              note: debt.note,
+              captureDraftId: draft.id,
+            });
+          } else {
+            if (!debt.debtId || !debt.accountId) throw new AppError(400, "В черновике возврата не хватает долга или счёта.");
+            await saveDebtRepayment(tx, owner.id, {
+              debtId: debt.debtId,
+              amountMinor: toMinor(debt.amount),
+              accountId: debt.accountId,
+              occurredAt: debt.occurredAt,
+              captureDraftId: draft.id,
+            });
+          }
         }
         await tx.update(s.captureDrafts).set({ status: "confirmed", confirmedAt: new Date() }).where(eq(s.captureDrafts.id, draft.id));
         break;

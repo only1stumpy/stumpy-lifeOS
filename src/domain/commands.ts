@@ -18,6 +18,8 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("finance-plan.save"), id: id.optional(), name: text, amountMinor: minor }),
   z.object({ type: z.literal("finance-plan.delete"), id }),
   z.object({ type: z.literal("finance-plan.purchase"), id, label: text, actualAmountMinor: minor, occurredAt: timestamp, accountId: id, category: text }),
+  z.object({ type: z.literal("debt.create"), personName: text, direction: z.enum(["i_owe", "owed_to_me"]), amountMinor: minor, openedAs: z.enum(["transfer", "opening_balance"]), accountId: id.optional(), occurredAt: timestamp.optional(), dueOn: z.string().date().nullable(), note: z.string().trim().max(1000).nullable() }),
+  z.object({ type: z.literal("debt.repayment.create"), id, amountMinor: minor, accountId: id, occurredAt: timestamp }),
   z.object({ type: z.literal("recurring.save"), id: id.optional(), name: text, amountMinor: minor, accountId: id, category: text, frequency: z.enum(["weekly", "monthly", "yearly"]), nextDueAt: timestamp }),
   z.object({ type: z.literal("recurring.confirm"), id }),
   z.object({ type: z.literal("day.save"), id: id.optional(), name: text, weekday: z.number().int().min(0).max(6).nullable().default(null) }),

@@ -9,7 +9,7 @@ import { exerciseCatalog } from "@/domain/exercise-catalog";
 import { parseMinor } from "@/domain/math";
 import { suggestTargets } from "@/domain/nutrition";
 import { ExerciseGuide } from "./exercise-guide";
-import type { ExerciseSet, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
+import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { useMotionVariants } from "@/components/motion/motion-system";
 
 export type EditorState =
@@ -17,6 +17,8 @@ export type EditorState =
   | { kind: "finance"; entry?: MoneyEntry }
   | { kind: "finance-plan"; plan?: FinancePlan }
   | { kind: "finance-plan-purchase"; plan: FinancePlan }
+  | { kind: "debt-create"; openedAs?: "transfer" | "opening_balance" }
+  | { kind: "debt-repayment"; debt: FinanceDebt }
   | { kind: "target" }
   | { kind: "weight" }
   | { kind: "accounts"; account?: MoneyAccount }
@@ -154,6 +156,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [exerciseMode, setExerciseMode] = useState<"catalog" | "custom">("catalog");
   const [selectedCatalogId, setSelectedCatalogId] = useState(exerciseCatalog[0]?.id ?? "");
   const [selectedReplacementId, setSelectedReplacementId] = useState<string | null>(null);
+  const [debtOpenedAs, setDebtOpenedAs] = useState<"transfer" | "opening_balance">(editor.kind === "debt-create" ? editor.openedAs ?? "transfer" : "transfer");
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -353,6 +356,98 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
         <p>После подтверждения расход запишется сейчас, а план будет закрыт.</p>
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать расход и закрыть план</button></div>
+      </form>
+    );
+  }
+
+  function renderDebtCreateForm() {
+    const prbAccounts = snapshot.finance.accounts.filter((account) => account.currency === "PRB");
+    const defaultPrbAccount = prbAccounts.find((account) => account.id === snapshot.settings.defaultAccountId)
+      ?? prbAccounts.find((account) => account.isDefault)
+      ?? prbAccounts[0];
+    const hasTransferAccount = debtOpenedAs !== "transfer" || prbAccounts.length > 0;
+
+    return (
+      <form key="debt-create" onSubmit={(event) => submitForm(event, (form) => ({
+        type: "debt.create",
+        personName: requiredText(form, "personName", "Имя человека"),
+        direction: requiredText(form, "direction", "Кому должен") as "i_owe" | "owed_to_me",
+        amountMinor: positiveMinor(requiredText(form, "amount", "Сумма долга"), "Сумма долга"),
+        openedAs: debtOpenedAs,
+        ...(debtOpenedAs === "transfer" ? {
+          accountId: requiredText(form, "accountId", "Счёт в рублях ПМР"),
+          occurredAt: localTimestamp(recordValue(form, "occurredAt")),
+        } : {}),
+        dueOn: recordValue(form, "dueOn") || null,
+        note: recordValue(form, "note") || null,
+      }))}>
+        <label>Имя человека<input name="personName" maxLength={300} required placeholder="Например, Андрей" /></label>
+        <div className="fields-row">
+          <label>Направление<select name="direction" defaultValue="i_owe"><option value="i_owe">Я должен ему/ей</option><option value="owed_to_me">Он/она должен(на) мне</option></select></label>
+          <label>Сумма, рубли ПМР<input name="amount" type="text" inputMode="decimal" required placeholder="500" /></label>
+        </div>
+        <label>Как учитывать сумму<select value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
+          <option value="transfer">Новые переданные деньги</option>
+          <option value="opening_balance">Уже существующий остаток</option>
+        </select></label>
+        <p>{debtOpenedAs === "transfer" ? "Создаст финансовую операцию по выбранному PRB-счёту." : "Добавит только остаток долга — без операции задним числом."}</p>
+        {debtOpenedAs === "transfer" && (prbAccounts.length ? (
+          <>
+            <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+            <label>Дата и время передачи<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
+          </>
+        ) : (
+          <div>
+            <p role="alert">Для новой передачи денег сначала добавьте счёт в рублях ПМР.</p>
+            <button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить PRB-счёт</button>
+          </div>
+        ))}
+        <div className="fields-row">
+          <label>Срок возврата<input name="dueOn" type="date" /></label>
+        </div>
+        <label>Заметка<textarea name="note" rows={3} maxLength={2000} placeholder="Необязательно" /></label>
+        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending || !hasTransferAccount}>Записать долг</button></div>
+      </form>
+    );
+  }
+
+  function renderDebtRepaymentForm(debt: FinanceDebt) {
+    const prbAccounts = snapshot.finance.accounts.filter((account) => account.currency === "PRB");
+    const defaultPrbAccount = prbAccounts.find((account) => account.id === snapshot.settings.defaultAccountId)
+      ?? prbAccounts.find((account) => account.isDefault)
+      ?? prbAccounts[0];
+
+    if (!prbAccounts.length) {
+      return (
+        <div>
+          <p role="alert">Для записи возврата нужен счёт в рублях ПМР.</p>
+          <div className="actions">
+            <button type="button" disabled={pending} onClick={onClose}>Закрыть</button>
+            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить PRB-счёт</button>
+          </div>
+        </div>
+      );
+    }
+
+    const repaymentVerb = debt.direction === "i_owe" ? "возврат" : "получение";
+    return (
+      <form key={`debt-repayment-${debt.id}`} onSubmit={(event) => submitForm(event, (form) => {
+        const amountMinor = positiveMinor(requiredText(form, "amount", "Сумма возврата"), "Сумма возврата");
+        if (amountMinor > debt.remainingAmountMinor) throw new Error("Сумма не может быть больше остатка долга.");
+        return {
+          type: "debt.repayment.create",
+          id: debt.id,
+          amountMinor,
+          accountId: requiredText(form, "accountId", "Счёт в рублях ПМР"),
+          occurredAt: localTimestamp(recordValue(form, "occurredAt")),
+        };
+      })}>
+        <p>{debt.direction === "i_owe" ? "Возврат долга человеку" : "Получение возврата от человека"} · <strong>{debt.personName}</strong></p>
+        <p>Остаток: <strong>{amountLabel(debt.remainingAmountMinor, "PRB")}</strong></p>
+        <label>Сумма {repaymentVerb}, рубли ПМР<input name="amount" type="text" inputMode="decimal" max={debt.remainingAmountMinor / 100} required placeholder={moneyDecimal.format(debt.remainingAmountMinor / 100)} /></label>
+        <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+        <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
+        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать {repaymentVerb}</button></div>
       </form>
     );
   }
@@ -657,6 +752,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "finance": return renderFinanceForm(editor.entry);
       case "finance-plan": return renderFinancePlanForm(editor.plan);
       case "finance-plan-purchase": return renderFinancePlanPurchaseForm(editor.plan);
+      case "debt-create": return renderDebtCreateForm();
+      case "debt-repayment": return renderDebtRepaymentForm(editor.debt);
       case "target": return renderTargetForm();
       case "weight": return renderWeightForm();
       case "accounts": return renderAccountsForm(editor.account);
@@ -727,6 +824,8 @@ function editorTitle(editor: EditorState): string {
     case "finance": return editor.entry ? "Исправить операцию" : "Добавить операцию";
     case "finance-plan": return editor.plan ? "Изменить план" : "План покупки";
     case "finance-plan-purchase": return "Записать покупку";
+    case "debt-create": return "Новый долг";
+    case "debt-repayment": return editor.debt.direction === "i_owe" ? "Возврат долга" : "Получение возврата";
     case "target": return "Цель КБЖУ";
     case "weight": return "Масса тела";
     case "accounts": return "Счета и курс";

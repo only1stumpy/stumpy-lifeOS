@@ -42,6 +42,17 @@ export type FinancePlan = {
   amountMinor: number;
 };
 
+export type FinanceDebt = {
+  id: string;
+  personName: string;
+  direction: "i_owe" | "owed_to_me";
+  originalAmountMinor: number;
+  remainingAmountMinor: number;
+  dueOn: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
 export type ExerciseSet = {
   id: string;
   index: number;
@@ -82,6 +93,7 @@ export type LifeOSSnapshot = {
     accounts: MoneyAccount[];
     entries: MoneyEntry[];
     plans: FinancePlan[];
+    debts: FinanceDebt[];
   };
   gym: {
     trainingDay: boolean;
@@ -104,6 +116,8 @@ export type LifeOSAction =
   | { type: "finance.plan.edit"; id: string }
   | { type: "finance.plan.delete"; id: string }
   | { type: "finance.plan.purchase"; id: string }
+  | { type: "finance.debt.add" }
+  | { type: "finance.debt.repay"; id: string }
   | { type: "finance.manage-accounts" }
   | { type: "finance.manage-recurring" }
   | { type: "gym.edit-program" }

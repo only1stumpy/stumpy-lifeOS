@@ -9,6 +9,7 @@ import {
   retryFailedTelegramUpdates,
   sendDailySummary,
   sendDuePaymentReminder,
+  sendDueDebtReminder,
   sendWeeklySummary,
 } from "@/server/telegram/bot";
 
@@ -62,6 +63,27 @@ async function runCron(request: Request): Promise<Response> {
             payment.nextDueOn,
           );
           if (delivered) sent.push("payment");
+        }
+
+        const dueDebts = await getDb()
+          .select()
+          .from(schema.financeDebts)
+          .where(and(
+            eq(schema.financeDebts.ownerId, owner.id),
+            lte(schema.financeDebts.dueOn, localDate),
+          ));
+        const debtRepayments = await getDb()
+          .select()
+          .from(schema.financeDebtRepayments)
+          .where(eq(schema.financeDebtRepayments.ownerId, owner.id));
+        for (const debt of dueDebts) {
+          const repaid = debtRepayments
+            .filter((repayment) => repayment.debtId === debt.id)
+            .reduce((sum, repayment) => sum + Math.round(Number(repayment.amount) * 100), 0);
+          const remaining = Math.max(0, Math.round(Number(debt.originalAmount) * 100) - repaid);
+          if (remaining <= 0 || !debt.dueOn) continue;
+          const delivered = await sendDueDebtReminder(debt.id, debt.personName, debt.direction as "i_owe" | "owed_to_me", remaining, debt.dueOn, localDate);
+          if (delivered) sent.push("debt");
         }
 
         if (localTime.minuteOfDay >= dailyMinute && await sendDailySummary(now, owner.timezone)) sent.push("daily");

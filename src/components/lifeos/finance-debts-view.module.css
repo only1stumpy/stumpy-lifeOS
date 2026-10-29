@@ -1,0 +1,325 @@
+.debtsView {
+  --debt-ink: var(--ink, #35272c);
+  --debt-muted: var(--muted, #6f6067);
+  --debt-line: var(--line, rgba(96, 45, 62, 0.15));
+  --debt-wine: var(--wine, #742b45);
+  display: grid;
+  min-width: 0;
+  gap: 30px;
+  color: var(--debt-ink);
+  font-family: inherit;
+}
+
+.header {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.titleBlock {
+  min-width: 0;
+  flex: 1 1 150px;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--debt-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+}
+
+.titleBlock h2 {
+  margin: 0;
+  font-size: clamp(24px, 6vw, 30px);
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.debtsView button {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgba(116, 43, 69, 0.2);
+  border-radius: 16px;
+  padding: 13px 18px;
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--debt-wine);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.25;
+  transition: transform 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out;
+}
+
+.debtsView .addButton {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(145deg, rgba(116, 43, 69, 0.92), rgba(88, 32, 54, 0.94));
+  color: #fffaf9;
+  box-shadow: 0 5px 16px rgba(70, 45, 63, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  white-space: nowrap;
+}
+
+.addButton svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.debtsView button:hover {
+  border-color: rgba(116, 43, 69, 0.34);
+  background-color: rgba(255, 255, 255, 0.52);
+}
+
+.debtsView .addButton:hover {
+  background: linear-gradient(145deg, rgba(116, 43, 69, 0.98), rgba(88, 32, 54, 0.99));
+}
+
+.debtsView button:active {
+  transform: scale(0.98);
+}
+
+.debtsView button:focus-visible {
+  outline: 3px solid rgba(116, 43, 69, 0.62);
+  outline-offset: 3px;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 18px 0 22px;
+  border-top: 1px solid var(--debt-line);
+  border-bottom: 1px solid var(--debt-line);
+}
+
+.totalCard {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 8px;
+}
+
+.totalCard + .totalCard {
+  padding-left: 18px;
+  border-left: 1px solid var(--debt-line);
+}
+
+.totalCard span {
+  color: var(--debt-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.totalCard strong,
+.groupTotal,
+.remaining {
+  color: #754a38;
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalCard strong {
+  font-size: clamp(15px, 4vw, 20px);
+  font-weight: 550;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.group {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.group + .group {
+  padding-top: 26px;
+  border-top: 1px solid var(--debt-line);
+}
+
+.groupHeader {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.groupHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 550;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+}
+
+.groupHeader p {
+  margin: 5px 0 0;
+  color: var(--debt-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.groupTotal {
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.debtList {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debtRow {
+  display: grid;
+  min-width: 0;
+  gap: 13px;
+  padding: 20px 0;
+  border-top: 1px solid var(--debt-line);
+}
+
+.debtHeading {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.debtIdentity,
+.amounts {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.debtIdentity strong {
+  font-size: 16px;
+  font-weight: 570;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.debtIdentity span,
+.original {
+  color: var(--debt-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.amounts {
+  justify-items: end;
+  text-align: right;
+}
+
+.remaining {
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.debtMeta {
+  display: grid;
+  gap: 5px;
+  color: var(--debt-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.debtMeta p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.repayButton {
+  justify-self: start;
+  min-height: 46px !important;
+  padding: 11px 15px !important;
+  font-size: 11px !important;
+}
+
+.groupEmpty {
+  margin: 0;
+  padding: 15px 0 2px;
+  border-top: 1px solid var(--debt-line);
+  color: var(--debt-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 390px) {
+  .header {
+    align-items: stretch;
+  }
+
+  .titleBlock,
+  .addButton {
+    flex-basis: 100%;
+  }
+
+  .amounts {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .debtsView button {
+    transition: none;
+  }
+
+  .debtsView button:active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .debtsView button {
+    background-color: rgba(255, 255, 255, 0.88);
+  }
+
+  .debtsView .addButton {
+    background: #742b45;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .eyebrow,
+  .groupHeader p,
+  .debtIdentity span,
+  .original,
+  .debtMeta,
+  .groupEmpty,
+  .totalCard span {
+    color: #55454d;
+  }
+
+  .debtRow,
+  .totals,
+  .group + .group,
+  .groupEmpty {
+    border-color: rgba(69, 42, 54, 0.4);
+  }
+
+  .debtsView button:not(.addButton) {
+    border-color: rgba(69, 42, 54, 0.5);
+    background: rgba(250, 247, 246, 0.96);
+  }
+}

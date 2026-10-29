@@ -723,6 +723,17 @@
   margin-top: 24px;
 }
 
+.financeTabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.financeTabs > button {
+  min-width: 0;
+  width: 100%;
+  padding-inline: 12px;
+}
+
 .primaryButton,
 .secondaryButton {
   display: inline-flex;
@@ -770,6 +781,13 @@
 .secondaryButton:active {
   transition-duration: var(--motion-duration-press), var(--motion-duration-state), var(--motion-duration-state);
   transform: scale(0.98);
+}
+
+@media (max-width: 560px) {
+  .financeTabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
 }
 
 .listHeading {
