@@ -1,0 +1,294 @@
+.plansView {
+  --plans-ink: var(--ink, #35272c);
+  --plans-muted: var(--muted, #6f6067);
+  --plans-line: var(--line, rgba(96, 45, 62, 0.15));
+  --plans-wine: var(--wine, #742b45);
+  display: grid;
+  min-width: 0;
+  gap: 24px;
+  color: var(--plans-ink);
+  font-family: inherit;
+}
+
+.header {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.titleBlock {
+  min-width: 0;
+  flex: 1 1 150px;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--plans-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+}
+
+.titleBlock h2 {
+  margin: 0;
+  font-size: clamp(20px, 6vw, 24px);
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.plansView .addButton,
+.plansView .purchaseButton,
+.plansView .iconButton {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
+  transition: transform 160ms ease-out, color 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.plansView .addButton {
+  min-height: 52px;
+  flex: 0 1 auto;
+  gap: 9px;
+  padding: 13px 17px;
+  color: #fffaf9;
+  background: linear-gradient(145deg, var(--plans-wine), #582036);
+  box-shadow: 0 5px 14px rgba(116, 43, 69, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  font-size: 12px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.plansView .addButton svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.plansView .addButton:hover {
+  box-shadow: 0 5px 16px rgba(70, 45, 63, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.planCollection {
+  min-width: 0;
+}
+
+.totalLine {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 7px 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--plans-line);
+  color: var(--plans-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.totalLine strong {
+  margin-left: 3px;
+  color: #754a38;
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+}
+
+.planList {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planRow {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--plans-line);
+}
+
+.planDetails {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.planName {
+  min-width: 0;
+  color: var(--plans-ink);
+  font-size: 13px;
+  font-weight: 560;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.planAmount {
+  flex: 0 0 auto;
+  color: #754a38;
+  font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 540;
+  line-height: 1.45;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.plansView .purchaseButton {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 126px;
+  padding: 10px 12px;
+  border-color: rgba(169, 103, 67, 0.25);
+  border-radius: 12px;
+  background: rgba(169, 103, 67, 0.09);
+  color: #754a38;
+  font-size: 11px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.plansView .purchaseButton:hover {
+  border-color: rgba(169, 103, 67, 0.38);
+  background: rgba(169, 103, 67, 0.15);
+}
+
+.plansView .iconButton {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  padding: 0;
+  border-color: rgba(96, 45, 62, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--plans-muted);
+}
+
+.plansView .iconButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.plansView .iconButton:hover {
+  border-color: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--plans-wine);
+}
+
+.emptyState {
+  padding: 4px 0 0;
+}
+
+.emptyState h3 {
+  margin: 0 0 6px;
+  color: var(--plans-ink);
+  font-size: 16px;
+  font-weight: 540;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.emptyState p {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--plans-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.plansView button:focus-visible {
+  outline: 3px solid rgba(116, 43, 69, 0.65);
+  outline-offset: 3px;
+}
+
+.plansView button:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 380px) {
+  .header {
+    align-items: stretch;
+  }
+
+  .titleBlock {
+    flex-basis: 100%;
+  }
+
+  .addButton {
+    flex: 1 1 100%;
+  }
+
+  .planDetails {
+    align-items: flex-start;
+    gap: 7px;
+  }
+
+  .planAmount {
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .addButton,
+  .purchaseButton,
+  .iconButton {
+    transition: none;
+  }
+
+  .plansView button:active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .purchaseButton,
+  .iconButton {
+    background: rgba(255, 255, 255, 0.78);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .eyebrow,
+  .subtotal,
+  .emptyState p {
+    color: #55454d;
+  }
+
+.planRow {
+    border-color: rgba(69, 42, 54, 0.36);
+  }
+
+  .purchaseButton,
+  .iconButton {
+    border-color: rgba(69, 42, 54, 0.48);
+    background: rgba(250, 247, 246, 0.94);
+  }
+}

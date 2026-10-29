@@ -66,6 +66,79 @@ export const aiProviderProfiles = pgTable(
   ],
 );
 
+/** One provider account/API key per user; the encrypted credential never leaves server code. */
+export const aiProviderAccounts = pgTable(
+  "ai_provider_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    name: text("name").notNull(),
+    endpoint: text("endpoint").notNull(),
+    authHeaderName: text("auth_header_name").default("authorization").notNull(),
+    encryptedApiKey: text("encrypted_api_key").notNull(),
+    freeTierConfirmed: boolean("free_tier_confirmed").default(false).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    models: jsonb("models").$type<{
+      id: string;
+      name: string;
+      supportsImages: boolean;
+      contextLength: number | null;
+      freeRequestsPerDay: number | null;
+      freeRequestsPerMinute: number | null;
+      freeTokensPerMinute: number | null;
+    }[]>().default([]).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("ai_provider_accounts_owner_provider_order_idx").on(table.ownerId, table.providerId, table.sortOrder, table.createdAt),
+    check("ai_provider_accounts_provider_valid", sql`${table.providerId} in ('gemini', 'groq', 'cerebras', 'openrouter', 'custom')`),
+    check("ai_provider_accounts_auth_header_valid", sql`${table.authHeaderName} in ('authorization', 'x-goog-api-key')`),
+    check("ai_provider_accounts_sort_order_nonnegative", sql`${table.sortOrder} >= 0`),
+  ],
+);
+
+/** User-selected free models are shared across the provider card's connected accounts. */
+export const aiProviderModelSelections = pgTable(
+  "ai_provider_model_selections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    modelId: text("model_id").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("ai_provider_model_selections_owner_provider_model_unique").on(table.ownerId, table.providerId, table.modelId),
+    index("ai_provider_model_selections_owner_provider_order_idx").on(table.ownerId, table.providerId, table.sortOrder),
+    check("ai_provider_model_selections_provider_valid", sql`${table.providerId} in ('gemini', 'groq', 'cerebras', 'openrouter', 'custom')`),
+    check("ai_provider_model_selections_sort_order_nonnegative", sql`${table.sortOrder} >= 0`),
+  ],
+);
+
+/** Minimal per-model request counters for the limits screen; no prompt or response data is stored. */
+export const aiProviderUsageEvents = pgTable(
+  "ai_provider_usage_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => aiProviderAccounts.id, { onDelete: "cascade" }),
+    modelId: text("model_id").notNull(),
+    outcome: text("outcome").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("ai_provider_usage_owner_occurred_idx").on(table.ownerId, table.occurredAt),
+    index("ai_provider_usage_account_model_occurred_idx").on(table.accountId, table.modelId, table.occurredAt),
+    check("ai_provider_usage_outcome_valid", sql`${table.outcome} in ('success', 'failure')`),
+  ],
+);
+
 /** Persisted Telegram update metadata makes webhook retries idempotent. */
 export const telegramUpdates = pgTable(
   "telegram_updates",
@@ -435,6 +508,24 @@ export const financeEntries = pgTable(
     check("finance_entries_currency_valid", sql`${table.currency} in ('PRB', 'USD')`),
     check("finance_entries_usd_rate_required", sql`(${table.currency} = 'USD' and ${table.usdToPrbRate} is not null and ${table.usdToPrbRate} > 0) or (${table.currency} = 'PRB' and ${table.usdToPrbRate} is null)`),
     check("finance_entries_source_valid", sql`${table.source} in ('chat', 'mini_app', 'recurring')`),
+  ],
+);
+
+/** Planned purchases are separate from actual expenses and use PRB as agreed. */
+export const financePlans = pgTable(
+  "finance_plans",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    unique("finance_plans_id_owner_unique").on(table.id, table.ownerId),
+    index("finance_plans_owner_created_idx").on(table.ownerId, table.createdAt),
+    check("finance_plans_amount_positive", sql`${table.amount} > 0`),
   ],
 );
 

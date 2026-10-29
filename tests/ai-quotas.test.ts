@@ -155,9 +155,11 @@ test("403 Monitoring отличает недостающие права и не 
 test("GET endpoint требует Telegram-владельца и отвечает без кеширования", async () => {
   const previousToken = process.env.TELEGRAM_BOT_TOKEN;
   const previousOwner = process.env.TELEGRAM_OWNER_ID;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
   const previousCloudCredentials = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON;
   process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
   process.env.TELEGRAM_OWNER_ID = "4242";
+  delete process.env.DATABASE_URL;
   delete process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON;
   try {
     const unauthorized = await GET(new Request("https://lifeos.test/api/ai-quotas"));
@@ -168,16 +170,17 @@ test("GET endpoint требует Telegram-владельца и отвечае�
     const authorized = await GET(new Request("https://lifeos.test/api/ai-quotas", {
       headers: { Authorization: `tma ${query}` },
     }));
-    assert.equal(authorized.status, 200);
+    assert.equal(authorized.status, 503);
     assert.equal(authorized.headers.get("Cache-Control"), "no-store");
-    const body = await authorized.json() as { status: string; provider: string };
-    assert.equal(body.status, "not_configured");
-    assert.equal(body.provider, "gemini");
+    const body = await authorized.json() as { error: string };
+    assert.match(body.error, /Хранилище ещё не настроено/);
   } finally {
     if (previousToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
     else process.env.TELEGRAM_BOT_TOKEN = previousToken;
     if (previousOwner === undefined) delete process.env.TELEGRAM_OWNER_ID;
     else process.env.TELEGRAM_OWNER_ID = previousOwner;
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
     if (previousCloudCredentials === undefined) delete process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON;
     else process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON = previousCloudCredentials;
   }

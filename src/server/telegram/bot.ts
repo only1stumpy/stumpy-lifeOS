@@ -5,6 +5,7 @@ import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
 import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
+import { parseFinancePlanMessage } from "@/domain/finance-plans";
 import { executeCommand, ensureOwner, analyzeCapture, loadSnapshot } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -12,7 +13,7 @@ import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
 import { formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
 import { currentTelegramUserId, resolveTelegramUserId, withTelegramUser } from "@/server/owner-context";
-import { loadAiProviderConfigs } from "@/server/ai/provider-profiles";
+import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const TELEGRAM_FILE_TIMEOUT_MS = 20_000;
@@ -231,9 +232,10 @@ function getBot(): Bot<Context> {
         if (!previousDraftId) {
           const status = await ctx.reply("Сверяюсь с твоими данными и подбираю ответ…");
           statusMessageId = status.message_id;
-          const providerProfiles = await loadAiProviderConfigs(owner.id);
+          const providerProfiles = await loadConfiguredAiProviderConfigs(owner.id);
           const result = await answerLifeOSQuestion({ question: text, context: makeReferenceContext(snapshot) }, {
             profiles: providerProfiles,
+            ownerId: owner.id,
             allowLegacyProviders: Boolean(owner.telegramUserId && owner.telegramUserId === process.env.TELEGRAM_OWNER_ID?.trim()),
           });
           await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
@@ -241,6 +243,19 @@ function getBot(): Bot<Context> {
           await ctx.reply(result.answer);
           return;
         }
+      }
+
+      if (!photo && /^\s*план(?=$|[\s:,-])/iu.test(text)) {
+        const plan = parseFinancePlanMessage(text);
+        if (!plan) {
+          await ctx.reply("Формат: план шампунь 220. План сохранится без даты и не повлияет на расходы, пока не отметишь покупку.");
+          return;
+        }
+
+        const command = commandSchema.parse({ type: "finance-plan.save", ...plan });
+        await executeCommand(command);
+        await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, "PRB")}. Это пока не расход.`);
+        return;
       }
 
       if (previousDraftId && !photo && text.trim() && await isUncategorizedPendingMoneyDraft(owner.id, previousDraftId)) {

@@ -4,7 +4,7 @@ import * as schema from "@/db/schema";
 import { AppError } from "@/server/http";
 
 const formatName = "stumpy-lifeos-backup";
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const BACKUP_MAX_BYTES = 25 * 1024 * 1024;
 export const BACKUP_MAX_ROWS = 100_000;
 
@@ -27,6 +27,7 @@ const backupTables = [
   { key: "nutritionDrafts", table: schema.nutritionDrafts, ownerProperty: "ownerId" },
   { key: "moneyDrafts", table: schema.moneyDrafts, ownerProperty: "ownerId" },
   { key: "financeEntries", table: schema.financeEntries, ownerProperty: "ownerId" },
+  { key: "financePlans", table: schema.financePlans, ownerProperty: "ownerId" },
   { key: "exercises", table: schema.exercises, ownerProperty: "ownerId" },
   { key: "workoutDays", table: schema.workoutDays, ownerProperty: "ownerId" },
   { key: "workoutDayExercises", table: schema.workoutDayExercises, ownerProperty: "ownerId" },
@@ -34,6 +35,28 @@ const backupTables = [
   { key: "workoutSessionExercises", table: schema.workoutSessionExercises, ownerProperty: "ownerId" },
   { key: "workoutSets", table: schema.workoutSets, ownerProperty: "ownerId" },
 ] as const satisfies readonly TableDescriptor[];
+
+const backupV1TableKeys = [
+  "ownerSettings",
+  "captureDrafts",
+  "nutritionTargets",
+  "foodTemplates",
+  "nutritionEntries",
+  "weightEntries",
+  "financeAccounts",
+  "financeCategories",
+  "exchangeRates",
+  "recurringPayments",
+  "nutritionDrafts",
+  "moneyDrafts",
+  "financeEntries",
+  "exercises",
+  "workoutDays",
+  "workoutDayExercises",
+  "workoutSessions",
+  "workoutSessionExercises",
+  "workoutSets",
+] as const;
 
 export type BackupTableKey = (typeof backupTables)[number]["key"];
 export type LifeOSBackup = {
@@ -195,20 +218,23 @@ export function validateBackup(input: unknown): LifeOSBackup {
   if (!isRecord(input) || !keysMatch(input, ["format", "version", "ownerTelegramId", "exportedAt", "tables"])) {
     throw new AppError(400, "Формат резервной копии не распознан.");
   }
-  if (input.format !== formatName || input.version !== BACKUP_VERSION || !validOwnerId(input.ownerTelegramId)) {
+  if (input.format !== formatName || ![1, BACKUP_VERSION].includes(input.version as number) || !validOwnerId(input.ownerTelegramId)) {
     throw new AppError(400, "Версия или владелец резервной копии не поддерживается.");
   }
   if (typeof input.exportedAt !== "string" || !Number.isFinite(Date.parse(input.exportedAt))) {
     throw new AppError(400, "В резервной копии некорректна дата создания.");
   }
-  if (!isRecord(input.tables) || !keysMatch(input.tables, backupTables.map((table) => table.key))) {
+  const versionOne = input.version === 1;
+  if (!isRecord(input.tables) || !keysMatch(input.tables, versionOne ? [...backupV1TableKeys] : backupTables.map((table) => table.key))) {
     throw new AppError(400, "Список таблиц резервной копии не совпадает со схемой.");
   }
 
+  const inputTables: Row = { ...input.tables };
+  if (versionOne) inputTables.financePlans = [];
   const tables = emptyTables();
   let totalRows = 0;
   for (const descriptor of backupTables) {
-    const values = input.tables[descriptor.key];
+    const values = inputTables[descriptor.key];
     if (!Array.isArray(values)) throw new AppError(400, `Таблица ${descriptor.key} должна содержать список строк.`);
     totalRows += values.length;
     if (totalRows > BACKUP_MAX_ROWS) throw new AppError(413, "В резервной копии слишком много строк.");
