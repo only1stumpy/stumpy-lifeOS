@@ -43,6 +43,14 @@ test("OpenRouter discovery only admits zero-priced :free models", () => {
   }), []);
 });
 
+test("Groq catalog does not present Developer-tier limits as free-tier quotas", () => {
+  const [model] = normalizeProviderModel("groq", { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", context_window: 131_072 });
+  assert.ok(model);
+  assert.equal(model.freeRequestsPerDay, null);
+  assert.equal(model.freeRequestsPerMinute, null);
+  assert.equal(model.freeTokensPerMinute, null);
+});
+
 test("Gemini models are admitted only when the API marks generateContent available", () => {
   const valid = normalizeProviderModel("gemini", {
     name: "models/gemini-3.5-flash-lite",
