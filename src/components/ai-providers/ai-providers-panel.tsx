@@ -42,7 +42,7 @@ type QueueItem = { providerId: ProviderId; modelId: string };
 type ConnectForm = { name: string; apiKey: string };
 type CustomForm = { name: string; endpoint: string; model: string; apiKey: string };
 type LoadState = "loading" | "ready" | "error";
-type Screen = "providers" | "provider" | "models" | "queue";
+type Screen = "providers" | "provider" | "models" | "queue" | "welcome";
 type ProviderActionPayload =
   | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; freeTierConfirmed: true }
   | { action: "connect"; providerId: "custom"; name: string; endpoint: string; model: string; apiKey: string; freeTierConfirmed: true }
@@ -237,6 +237,7 @@ function providerStatus(provider: AiProvider): string {
 export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboarding = false }: AiProvidersPanelProps) {
   const motionVariants = useMotionVariants();
   const connectRef = useRef<HTMLFormElement>(null);
+  const skipConfirmationRef = useRef<HTMLDivElement>(null);
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [providers, setProviders] = useState<AiProvider[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -245,6 +246,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
   const [screen, setScreen] = useState<Screen>("providers");
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const [activeProviderId, setActiveProviderId] = useState<ProviderId | null>(null);
   const [connectProviderId, setConnectProviderId] = useState<ProviderId | null>(null);
   const [connectForm, setConnectForm] = useState<ConnectForm>(emptyConnect);
@@ -316,6 +318,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   };
 
   const openProvider = (providerId: ProviderId) => {
+    setConfirmSkip(false);
     setActiveProviderId(providerId);
     setConnectProviderId(null);
     setFormError("");
@@ -568,7 +571,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
     }
   };
 
-  const completeOnboarding = async (shouldClose: boolean) => {
+  const completeOnboarding = async (shouldClose: boolean, showWelcome = false) => {
     if (!guidedRun || busyAction) {
       if (shouldClose) onClose();
       return;
@@ -578,7 +581,12 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
     try {
       await postAction({ action: "complete-onboarding" });
       setOnboardingCompleted(true);
-      if (shouldClose) onClose();
+      if (showWelcome && queue.length > 0) {
+        setConfirmSkip(false);
+        setScreen("welcome");
+      } else if (shouldClose) {
+        onClose();
+      }
     } catch (error) {
       setLoadError(readableError(error, "Не удалось завершить настройку."));
     } finally {
@@ -596,7 +604,9 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       ? activeProvider?.name ?? "Провайдер"
       : screen === "models"
         ? "Выбор моделей"
-        : "Порядок моделей";
+        : screen === "queue"
+          ? "Порядок моделей"
+          : "ИИ-функции теперь доступны";
 
   const renderAccountList = (provider: AiProvider) => {
     const accounts = provider.accounts.slice().sort((left, right) => left.sortOrder - right.sortOrder);
@@ -674,6 +684,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   );
 
   const backToProviders = () => {
+    setConfirmSkip(false);
     setScreen("providers");
     setNotice("");
     setLoadError("");
@@ -688,8 +699,8 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       <div className={styles.panelContent}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
-            {screen !== "providers" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
-            <p className={styles.eyebrow}>{screen === "providers" ? "ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ ИИ" : screen === "queue" ? "ОБЩИЙ ПОРЯДОК ИСПОЛЬЗОВАНИЯ" : "НАСТРОЙКА ПРОВАЙДЕРА"}</p>
+            {screen !== "providers" && screen !== "welcome" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
+            <p className={styles.eyebrow}>{screen === "providers" ? "ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ ИИ" : screen === "queue" ? "ОБЩИЙ ПОРЯДОК ИСПОЛЬЗОВАНИЯ" : screen === "welcome" ? "НАСТРОЙКА ЗАВЕРШЕНА" : "НАСТРОЙКА ПРОВАЙДЕРА"}</p>
             <h1 id={`${id}-title`}>{screenTitle}</h1>
           </div>
         </header>
@@ -720,6 +731,32 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Выбери провайдера, чтобы управлять аккаунтами и моделями. Ключи хранятся зашифрованно и после сохранения не отображаются."} Вернуться сюда позже можно по шестерёнке в нижней панели.</p>
                 {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
               </div>
+              {guidedRun && queue.length === 0 && (
+                <div className={styles.skipBlock}>
+                  {!confirmSkip ? (
+                    <button className={styles.skipAction} type="button" onClick={() => {
+                      setConfirmSkip(true);
+                      requestAnimationFrame(() => skipConfirmationRef.current?.scrollIntoView({
+                        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+                        block: "center",
+                      }));
+                    }} disabled={busyAction !== null}>
+                      Пропустить настройку
+                    </button>
+                  ) : (
+                    <div ref={skipConfirmationRef} className={styles.skipConfirmation} role="group" aria-labelledby={`${id}-skip-title`} aria-live="polite">
+                      <h2 id={`${id}-skip-title`}>Отказаться от ИИ-функций?</h2>
+                      <p>ИИ-функции останутся выключены. К настройке можно вернуться в любой момент — нажми шестерёнку в нижней панели.</p>
+                      <div className={styles.skipActions}>
+                        <button className={styles.secondaryAction} type="button" onClick={() => setConfirmSkip(false)} disabled={busyAction !== null}>Продолжить настройку</button>
+                        <button className={styles.dangerAction} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>
+                          {busyAction === "complete-onboarding" ? "Сохраняю…" : "Отказаться от ИИ-функций"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className={styles.providerList} aria-label="Провайдеры ИИ">
                 {sortedProviders.map((provider) => {
                   const selectedCount = provider.models.filter((model) => model.selected).length;
@@ -895,29 +932,48 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
             </motion.div>
           )}
 
+          {loadState === "ready" && screen === "welcome" && (
+            <motion.section className={styles.welcomePanel} variants={motionVariants.screen} initial="initial" animate="animate" aria-live="polite" aria-labelledby={`${id}-welcome-title`}>
+              <p className={styles.welcomeEyebrow}>ПОПРОБУЙ В ЧАТЕ</p>
+              <h2 id={`${id}-welcome-title`}>Пиши как обычно</h2>
+              <p className={styles.welcomeLead}>Без команд и лишней ебли — LifeOS поймёт обычное сообщение.</p>
+              <ul className={styles.welcomeList}>
+                <li><strong>Еда и траты.</strong> Расскажи, что съел, отправь фото (если выбранная модель его поддерживает) или назови покупку. LifeOS покажет черновик, а ты сохранишь его кнопкой «Записать».</li>
+                <li><strong>Твои данные.</strong> Спроси, сколько потратил сегодня, какой сейчас баланс или сколько осталось по КБЖУ.</li>
+                <li><strong>Общая справка.</strong> Задай вопрос о питании, КБЖУ или упражнениях.</li>
+              </ul>
+              <p className={styles.welcomeFootnote}>Если все модели отвалятся, бот объяснит, какая хуйня случилась. Сам ничего не запишет.</p>
+            </motion.section>
+          )}
+
           {notice && <p className={styles.notice} role="status">{notice}</p>}
           {loadError && loadState === "ready" && <p className={styles.error} role="alert">{loadError}</p>}
         </div>
 
         {loadState === "ready" && screen === "providers" && (
-          <footer className={styles.screenFooter} data-lg-role="dock">
+          <footer className={styles.screenFooter}>
             {!guidedRun && <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></button>}
             {guidedRun && queue.length > 0 && <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></button>}
-            {guidedRun && <button className={styles.textButton} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Пропустить настройку"}</button>}
           </footer>
         )}
 
         {loadState === "ready" && screen === "models" && (
-          <footer className={styles.screenFooter} data-lg-role="dock">
+          <footer className={styles.screenFooter}>
             <p className={styles.guidance}>Для продвинутых пользователей. Если вы не знаете, какую модель выбрать, ничего менять не нужно. LifeOS уже настроил доступные модели автоматически. Просто нажмите «Готово».</p>
             <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }} disabled={busyAction !== null}>Готово</button>
           </footer>
         )}
 
         {loadState === "ready" && screen === "queue" && (
-          <footer className={styles.screenFooter} data-lg-role="dock">
+          <footer className={styles.screenFooter}>
             <p className={styles.guidance}>LifeOS автоматически настроил порядок использования моделей. Если вы не знаете, что это означает, оставьте настройки без изменений и нажмите «Готово». Вернуться к настройке можно по шестерёнке в нижней панели.</p>
-            <button className={styles.primaryAction} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Готово"}</button>
+            <button className={styles.primaryAction} type="button" onClick={() => void completeOnboarding(true, true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Готово"}</button>
+          </footer>
+        )}
+
+        {loadState === "ready" && screen === "welcome" && (
+          <footer className={styles.screenFooter}>
+            <button className={styles.primaryAction} type="button" onClick={onClose}>Продолжить в LifeOS</button>
           </footer>
         )}
       </div>
