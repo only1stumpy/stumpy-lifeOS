@@ -197,7 +197,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null },
+    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);

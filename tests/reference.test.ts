@@ -6,7 +6,7 @@ import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext
 
 const snapshot = {
   localDate: "2026-10-28",
-  settings: { timeZone: "Europe/Chisinau", usdToPrb: "17.5", defaultAccountId: "main" },
+  settings: { timeZone: "Europe/Chisinau", usdToPrb: "17.5", defaultAccountId: "main", aiOnboardingCompleted: true },
   finance: {
     accounts: [
       { id: "main", name: "Зарплатная карта", currency: "PRB", balanceMinor: 74200, openingBalanceMinor: 70000, isDefault: true },

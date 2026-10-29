@@ -118,7 +118,6 @@
   font-weight: 600;
   letter-spacing: -0.055em;
   text-align: left;
-  cursor: pointer;
 }
 
 .dateChip {
@@ -140,6 +139,10 @@
 .screenMotion {
   display: grid;
   gap: 30px;
+  min-width: 0;
+}
+
+.aiSettingsContent {
   min-width: 0;
 }
 
@@ -725,7 +728,7 @@
 
 .financeTabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .financeTabs > button {
@@ -1382,7 +1385,7 @@
   bottom: max(14px, var(--lifeos-safe-bottom));
   left: max(18px, calc((100vw - 470px) / 2));
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   width: min(430px, calc(100% - 36px));
   min-height: 70px;
   align-items: center;
