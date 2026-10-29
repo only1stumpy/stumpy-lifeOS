@@ -40,8 +40,6 @@ export type FinancePlan = {
   id: string;
   name: string;
   amountMinor: number;
-  /** First day of the target month, formatted as YYYY-MM-01. */
-  targetMonth: string;
 };
 
 export type ExerciseSet = {
