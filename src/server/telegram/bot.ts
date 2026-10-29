@@ -297,7 +297,8 @@ function getBot(): Bot<Context> {
         : "Не получилось разобрать сообщение. Попробуй ещё раз или напиши, что съел или купил и сколько это стоило.";
       await ctx.reply(messageText);
       if (error instanceof AppError && error.status < 500) return;
-      if (error instanceof AIAnalysisError && (error.code === "invalid_input" || error.code === "not_configured")) return;
+      // Expected AI errors were already reported to the user; replaying the update would repeat the same AI call and reply.
+      if (error instanceof AIAnalysisError) return;
       // The caller records unexpected failures so a persisted Telegram update can be retried.
       throw error;
     }
