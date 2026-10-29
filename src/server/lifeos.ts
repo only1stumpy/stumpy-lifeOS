@@ -78,7 +78,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     db.select().from(s.financeEntries).where(eq(s.financeEntries.ownerId, ownerId)).orderBy(desc(s.financeEntries.occurredAt)),
     db.select().from(s.exchangeRates).where(eq(s.exchangeRates.ownerId, ownerId)).orderBy(desc(s.exchangeRates.effectiveAt)),
     db.select().from(s.recurringPayments).where(and(eq(s.recurringPayments.ownerId, ownerId), eq(s.recurringPayments.isActive, true))),
-    db.select().from(s.financePlans).where(eq(s.financePlans.ownerId, ownerId)).orderBy(s.financePlans.targetMonth, s.financePlans.createdAt),
+    db.select().from(s.financePlans).where(eq(s.financePlans.ownerId, ownerId)).orderBy(s.financePlans.createdAt),
     db.select().from(s.workoutDays).where(and(eq(s.workoutDays.ownerId, ownerId), eq(s.workoutDays.isArchived, false))).orderBy(s.workoutDays.position),
     db.select().from(s.workoutDayExercises).where(eq(s.workoutDayExercises.ownerId, ownerId)).orderBy(s.workoutDayExercises.position),
     db.select().from(s.exercises).where(eq(s.exercises.ownerId, ownerId)),
@@ -170,7 +170,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       spentMonthPrbMinor: totalExpenses(monthlyExpenses),
       accounts: accounts.map((v) => ({ id: v.id, name: v.name, currency: asCurrency(v.currency), openingBalanceMinor: toMinor(v.openingBalance), isDefault: v.isDefault, balanceMinor: toMinor(v.openingBalance) + money.filter((e) => e.accountId === v.id).reduce((sum, e) => sum + (e.entryType === "income" ? 1 : -1) * toMinor(e.amount), 0) })),
       entries: money.map((v) => ({ id: v.id, accountId: v.accountId, label: v.name, occurredAt: v.occurredAt.toISOString(), amountMinor: toMinor(v.amount), currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "Без категории", kind: v.entryType as "expense" | "income" })),
-      plans: plans.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), targetMonth: v.targetMonth })),
+      plans: plans.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount) })),
     },
     gym: {
       trainingDay: Boolean(active || planned), nextWorkout: program.find((v) => v.id === (active?.workoutDayId ?? planned?.id)) ?? null,
@@ -353,7 +353,7 @@ export async function executeCommand(command: AppCommand) {
       }
       case "money.delete": await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id))); break;
       case "finance-plan.save": {
-        const values = { ownerId: owner.id, name: command.name, amount: decimal(command.amountMinor), targetMonth: command.targetMonth };
+        const values = { ownerId: owner.id, name: command.name, amount: decimal(command.amountMinor) };
         if (command.id) {
           const [existing] = await tx.select().from(s.financePlans)
             .where(and(eq(s.financePlans.id, command.id), eq(s.financePlans.ownerId, owner.id)));
