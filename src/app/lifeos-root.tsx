@@ -74,7 +74,7 @@ function isAppSnapshot(value: unknown): value is AppSnapshot {
   const settings = value.settings;
   return typeof value.localDate === "string"
     && isRecord(nutrition) && isRecord(nutrition.consumed) && Array.isArray(nutrition.entries) && Array.isArray(nutrition.weightHistory)
-    && isRecord(finance) && Array.isArray(finance.accounts) && Array.isArray(finance.entries) && Array.isArray(finance.plans)
+    && isRecord(finance) && Array.isArray(finance.accounts) && Array.isArray(finance.entries) && Array.isArray(finance.plans) && Array.isArray(finance.debts)
     && isRecord(gym) && Array.isArray(gym.program)
     && isRecord(settings) && typeof settings.timeZone === "string"
     && Array.isArray(value.recurring) && Array.isArray(value.drafts) && Array.isArray(value.templates);
@@ -145,6 +145,8 @@ function editorIdentity(editor: EditorState): string {
     case "finance": return `finance:${editor.entry?.id ?? "new"}`;
     case "finance-plan": return `finance-plan:${editor.plan?.id ?? "new"}`;
     case "finance-plan-purchase": return `finance-plan-purchase:${editor.plan.id}`;
+    case "debt-create": return `debt-create:${editor.openedAs ?? "transfer"}`;
+    case "debt-repayment": return `debt-repayment:${editor.debt.id}`;
     case "accounts": return `accounts:${editor.account?.id ?? "new"}`;
     case "recurring": return `recurring:${editor.item?.id ?? "new"}`;
     case "exercise": return `exercise:${editor.dayId}`;
@@ -472,6 +474,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         const plan = snapshot.finance.plans.find((item) => item.id === action.id);
         if (plan) openEditor({ kind: "finance-plan-purchase", plan });
         else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
+        return;
+      }
+      case "finance.debt.add": openEditor({ kind: "debt-create" }); return;
+      case "finance.debt.repay": {
+        const debt = snapshot.finance.debts.find((item) => item.id === action.id);
+        if (debt) openEditor({ kind: "debt-repayment", debt });
+        else setError("Долг уже изменился. Обновите данные и попробуйте ещё раз.");
         return;
       }
       case "finance.manage-accounts": openEditor({ kind: "accounts" }); return;

@@ -5,8 +5,9 @@ import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
 import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
-import { parseFinancePlanMessage } from "@/domain/finance-plans";
-import { executeCommand, ensureOwner, analyzeCapture, loadSnapshot } from "@/server/lifeos";
+import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
+import { parseDebtMessage } from "@/domain/debt-message";
+import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
@@ -109,6 +110,37 @@ function getBot(): Bot<Context> {
           .from(schema.financeEntries)
           .where(and(eq(schema.financeEntries.ownerId, owner.id), eq(schema.financeEntries.captureDraftId, id)))
           .limit(1);
+        const [debtDraft] = await getDb()
+          .select()
+          .from(schema.financeDebtDrafts)
+          .where(and(eq(schema.financeDebtDrafts.ownerId, owner.id), eq(schema.financeDebtDrafts.captureDraftId, id)))
+          .limit(1);
+        if (debtDraft) {
+          if (debtDraft.operation === "create") {
+            const direction = debtDraft.direction === "i_owe"
+              ? "Ты занял у " + debtDraft.personName
+              : "Ты одолжил " + debtDraft.personName;
+            const treatment = debtDraft.openedAs === "opening_balance"
+              ? "Добавил текущий остаток старого долга"
+              : "Записал новый долг и финансовую операцию";
+            const lines = [treatment + ": " + direction + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), "PRB")];
+            if (debtDraft.dueOn) lines.push("Срок возврата — " + debtDraft.dueOn + ".");
+            await ctx.answerCallbackQuery({ text: "Долг записан." });
+            await markMessage(ctx, lines.join("\n"));
+            return;
+          }
+          if (!debtDraft.debtId) throw new AppError(404, "Запись долга не найдена.");
+          const [record] = await getDb().select().from(schema.financeDebts)
+            .where(and(eq(schema.financeDebts.id, debtDraft.debtId), eq(schema.financeDebts.ownerId, owner.id))).limit(1);
+          if (!record) throw new AppError(404, "Долг не найден.");
+          const repayments = await getDb().select().from(schema.financeDebtRepayments)
+            .where(and(eq(schema.financeDebtRepayments.debtId, record.id), eq(schema.financeDebtRepayments.ownerId, owner.id)));
+          const remaining = Math.max(0, Math.round(Number(record.originalAmount) * 100) - repayments.reduce((sum, row) => sum + Math.round(Number(row.amount) * 100), 0));
+          const actionText = debtDraft.direction === "i_owe" ? "Вернул " + debtDraft.personName : debtDraft.personName + " вернул тебе";
+          await ctx.answerCallbackQuery({ text: "Возврат записан." });
+          await markMessage(ctx, "Записал: " + actionText + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), "PRB") + "\nОстаток долга: " + formatMoney(remaining, "PRB"));
+          return;
+        }
         const confirmation = formatConfirmedRecords({
           food: food ?? null,
           money: money ? { ...money, entryType: money.entryType as "expense" | "income", currency: money.currency as "PRB" | "USD" } : null,
@@ -245,10 +277,10 @@ function getBot(): Bot<Context> {
         }
       }
 
-      if (!photo && /^\s*план(?=$|[\s:,-])/iu.test(text)) {
+      if (!photo && hasFinancePlanMarker(text)) {
         const plan = parseFinancePlanMessage(text);
         if (!plan) {
-          await ctx.reply("Формат: план шампунь 220. План сохранится без даты и не повлияет на расходы, пока не отметишь покупку.");
+          await ctx.reply("Не разобрал название или цену. Напиши, например: «Запиши в планы шампунь за 220р». План не влияет на расходы, пока не отметишь покупку.");
           return;
         }
 
@@ -256,6 +288,25 @@ function getBot(): Bot<Context> {
         await executeCommand(command);
         await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, "PRB")}. Это пока не расход.`);
         return;
+      }
+
+      if (!photo) {
+        const debtIntent = parseDebtMessage(text);
+        if (debtIntent) {
+          const result = await createDebtCaptureDraft({
+            intent: debtIntent,
+            messageText: text.trim(),
+            telegramUpdateRowId: updateRowIds.get(ctx.update),
+          });
+          if (!result.draftIds.length) {
+            await ctx.reply(result.clarification ?? "Не получилось сопоставить долг. Открой «Финансы → Долги» и выбери запись вручную.");
+            return;
+          }
+          const draft = (await loadSnapshot()).drafts.find((item) => item.id === result.draftIds[0]);
+          if (!draft) throw new AppError(404, "Черновик долга не найден.");
+          await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+          return;
+        }
       }
 
       if (previousDraftId && !photo && text.trim() && await isUncategorizedPendingMoneyDraft(owner.id, previousDraftId)) {
@@ -439,6 +490,7 @@ function formatDraft(
     occurredAt: string;
     food: { label: string; portionLabel: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number; estimated: boolean } | null;
     money: { label: string; amountMinor: number; currency: "PRB" | "USD"; kind: "expense" | "income"; category: string | null } | null;
+    debt: { operation: "create" | "repayment"; personName: string; direction: "i_owe" | "owed_to_me"; amountMinor: number; openedAs: "transfer" | "opening_balance" | null; dueOn: string | null; note: string | null; remainingAmountMinor: number | null } | null;
   },
   timeZone: string,
 ): string {
@@ -457,6 +509,20 @@ function formatDraft(
   if (draft.money) {
     lines.push(`${draft.money.kind === "income" ? "Доход" : "Расход"}: ${draft.money.label} · ${formatMoney(draft.money.amountMinor, draft.money.currency)}`);
     lines.push(draft.money.category ? `Категория: ${draft.money.category}` : "Категорию пока не распознал — выбери её через «Исправить».");
+  }
+  if (draft.debt) {
+    const debt = draft.debt;
+    const direction = debt.direction === "i_owe" ? `ты должен ${debt.personName}` : `${debt.personName} должен тебе`;
+    if (debt.operation === "create") {
+      lines.push(`Долг: ${direction} · ${formatMoney(debt.amountMinor, "PRB")}`);
+      lines.push(debt.openedAs === "opening_balance" ? "Это текущий остаток, без записи операции задним числом." : "Создам финансовую операцию на выбранном PRB-счёте.");
+      if (debt.dueOn) lines.push(`Срок: ${debt.dueOn}`);
+      if (debt.note) lines.push(`Заметка: ${debt.note}`);
+    } else {
+      const verb = debt.direction === "i_owe" ? `Возврат ${debt.personName}` : `Возврат от ${debt.personName}`;
+      lines.push(`${verb}: ${formatMoney(debt.amountMinor, "PRB")}`);
+      if (debt.remainingAmountMinor !== null) lines.push(`Остаток после возврата: ${formatMoney(Math.max(0, debt.remainingAmountMinor - debt.amountMinor), "PRB")}`);
+    }
   }
   return lines.join("\n");
 }
@@ -601,6 +667,21 @@ export async function sendDuePaymentReminder(paymentId: string, name: string, am
   const keyboard = new InlineKeyboard().text("Оплата списана", `pay:${paymentId}`);
   const text = `Похоже, подошёл срок платежа: ${name} · ${formatMoney(amountMinor, currency)} · ${dueOn}. Проверь, списались ли деньги. Расход запишу только после твоего подтверждения.`;
   return sendDeduplicatedOwnerNotification(`payment:${paymentId}:${dueOn}`, text, keyboard);
+}
+
+export async function sendDueDebtReminder(
+  debtId: string,
+  personName: string,
+  direction: "i_owe" | "owed_to_me",
+  remainingAmountMinor: number,
+  dueOn: string,
+  localDate: string,
+): Promise<boolean> {
+  const message = direction === "i_owe"
+    ? "Сегодня срок возврата долга " + personName
+    : "Сегодня срок, когда " + personName + " должен вернуть долг";
+  const text = message + " · остаток " + formatMoney(remainingAmountMinor, "PRB") + " · срок " + dueOn + ".";
+  return sendDeduplicatedOwnerNotification("debt:" + debtId + ":" + localDate, text);
 }
 
 export async function sendDailySummary(now: Date, timeZone: string): Promise<boolean> {

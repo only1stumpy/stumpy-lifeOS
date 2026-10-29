@@ -1,5 +1,4 @@
-import type { LifeOSSnapshot } from "./types";
-import type { MacroValues } from "./types";
+import type { LifeOSSnapshot, MacroValues } from "./types";
 export type AppReports = {
   nutritionDays: (MacroValues & { date: string; entryCount: number })[];
   expenseDays: { date: string; amountMinor: number }[];
@@ -14,7 +13,7 @@ export type AppSnapshot = LifeOSSnapshot & {
   reports: AppReports;
   settings: { timeZone: string; usdToPrb: string | null; defaultAccountId: string | null };
   recurring: { id: string; name: string; amountMinor: number; accountId: string; currency: "PRB" | "USD"; category: string; frequency: "weekly" | "monthly" | "yearly"; nextDueAt: string }[];
-  drafts: { id: string; description: string; occurredAt: string; food: { label: string; portionLabel: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number; estimated: boolean } | null; money: { label: string; amountMinor: number; currency: "PRB" | "USD"; kind: "expense" | "income"; category: string | null } | null }[];
+  drafts: { id: string; description: string; occurredAt: string; food: { label: string; portionLabel: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number; estimated: boolean } | null; money: { label: string; amountMinor: number; currency: "PRB" | "USD"; kind: "expense" | "income"; category: string | null } | null; debt: { operation: "create" | "repayment"; personName: string; direction: "i_owe" | "owed_to_me"; amountMinor: number; openedAs: "transfer" | "opening_balance" | null; debtId: string | null; dueOn: string | null; note: string | null; remainingAmountMinor: number | null } | null }[];
   templates: { id: string; name: string }[];
   activeSession: { id: string; dayId: string; startedAt: string } | null;
 };

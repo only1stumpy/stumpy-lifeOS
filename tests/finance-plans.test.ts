@@ -10,6 +10,17 @@ test("план покупки разбирается по явному марк�
   assert.deepEqual(parsed, { name: "куртка", amountMinor: 150_000 });
 });
 
+test("распознаёт разговорную команду добавить покупку в планы", () => {
+  assert.deepEqual(parseFinancePlanMessage("Запиши в планы шампунь за 220р"), {
+    name: "шампунь",
+    amountMinor: 22_000,
+  });
+  assert.deepEqual(parseFinancePlanMessage("Добавь в план новую куртку 1500"), {
+    name: "новую куртку",
+    amountMinor: 150_000,
+  });
+});
+
 test("описание плана может содержать числа, сумма берётся из конца сообщения", () => {
   const parsed = parseFinancePlanMessage("план iPhone 16 Pro 25000");
 

@@ -4,7 +4,7 @@ import * as schema from "@/db/schema";
 import { AppError } from "@/server/http";
 
 const formatName = "stumpy-lifeos-backup";
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 export const BACKUP_MAX_BYTES = 25 * 1024 * 1024;
 export const BACKUP_MAX_ROWS = 100_000;
 
@@ -28,6 +28,9 @@ const backupTables = [
   { key: "moneyDrafts", table: schema.moneyDrafts, ownerProperty: "ownerId" },
   { key: "financeEntries", table: schema.financeEntries, ownerProperty: "ownerId" },
   { key: "financePlans", table: schema.financePlans, ownerProperty: "ownerId" },
+  { key: "financeDebts", table: schema.financeDebts, ownerProperty: "ownerId" },
+  { key: "financeDebtRepayments", table: schema.financeDebtRepayments, ownerProperty: "ownerId" },
+  { key: "financeDebtDrafts", table: schema.financeDebtDrafts, ownerProperty: "ownerId" },
   { key: "exercises", table: schema.exercises, ownerProperty: "ownerId" },
   { key: "workoutDays", table: schema.workoutDays, ownerProperty: "ownerId" },
   { key: "workoutDayExercises", table: schema.workoutDayExercises, ownerProperty: "ownerId" },
@@ -56,6 +59,12 @@ const backupV1TableKeys = [
   "workoutSessions",
   "workoutSessionExercises",
   "workoutSets",
+] as const;
+
+const backupV2TableKeys = [
+  ...backupV1TableKeys.slice(0, 13),
+  "financePlans",
+  ...backupV1TableKeys.slice(13),
 ] as const;
 
 export type BackupTableKey = (typeof backupTables)[number]["key"];
@@ -218,19 +227,26 @@ export function validateBackup(input: unknown): LifeOSBackup {
   if (!isRecord(input) || !keysMatch(input, ["format", "version", "ownerTelegramId", "exportedAt", "tables"])) {
     throw new AppError(400, "Формат резервной копии не распознан.");
   }
-  if (input.format !== formatName || ![1, BACKUP_VERSION].includes(input.version as number) || !validOwnerId(input.ownerTelegramId)) {
+  if (input.format !== formatName || ![1, 2, BACKUP_VERSION].includes(input.version as number) || !validOwnerId(input.ownerTelegramId)) {
     throw new AppError(400, "Версия или владелец резервной копии не поддерживается.");
   }
   if (typeof input.exportedAt !== "string" || !Number.isFinite(Date.parse(input.exportedAt))) {
     throw new AppError(400, "В резервной копии некорректна дата создания.");
   }
   const versionOne = input.version === 1;
-  if (!isRecord(input.tables) || !keysMatch(input.tables, versionOne ? [...backupV1TableKeys] : backupTables.map((table) => table.key))) {
+  const versionTwo = input.version === 2;
+  const expectedKeys = versionOne ? [...backupV1TableKeys] : versionTwo ? [...backupV2TableKeys] : backupTables.map((table) => table.key);
+  if (!isRecord(input.tables) || !keysMatch(input.tables, expectedKeys)) {
     throw new AppError(400, "Список таблиц резервной копии не совпадает со схемой.");
   }
 
   const inputTables: Row = { ...input.tables };
   if (versionOne) inputTables.financePlans = [];
+  if (versionOne || versionTwo) {
+    inputTables.financeDebts = [];
+    inputTables.financeDebtRepayments = [];
+    inputTables.financeDebtDrafts = [];
+  }
   const tables = emptyTables();
   let totalRows = 0;
   for (const descriptor of backupTables) {

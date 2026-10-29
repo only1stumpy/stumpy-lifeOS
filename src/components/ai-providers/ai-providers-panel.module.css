@@ -224,6 +224,28 @@
   letter-spacing: -0.07em;
 }
 
+.providerMark svg {
+  width: 25px;
+  height: 25px;
+  fill: currentColor;
+}
+
+.brandGemini {
+  color: #8e75b2;
+}
+
+.brandGroq {
+  color: #f55036;
+}
+
+.brandCerebras {
+  color: #f15a29;
+}
+
+.brandOpenrouter {
+  color: #5669a8;
+}
+
 .providerTitle {
   min-width: 0;
 }
@@ -865,6 +887,42 @@
   font-family: "Medeo Mono", ui-monospace, monospace;
   font-size: 9px;
   white-space: nowrap;
+}
+
+.modelApiLink {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid rgba(116, 43, 69, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  color: #742b45;
+  font-size: 9px;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modelApiLink:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.modelApiLink:focus-visible {
+  outline: 2px solid #742b45;
+  outline-offset: 2px;
+}
+
+.modelApiLink svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
 }
 
 .catalogHint {

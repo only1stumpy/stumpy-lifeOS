@@ -20,6 +20,8 @@ const OWNER_ID = "123456789";
 const OWNER_UUID = "10000000-0000-4000-8000-000000000001";
 const UPDATE_UUID = "20000000-0000-4000-8000-000000000001";
 const CAPTURE_UUID = "30000000-0000-4000-8000-000000000001";
+const DEBT_CAPTURE_UUID = "30000000-0000-4000-8000-000000000002";
+const REPAYMENT_CAPTURE_UUID = "30000000-0000-4000-8000-000000000003";
 const TEMPLATE_UUID = "40000000-0000-4000-8000-000000000001";
 const FOOD_UUID = "50000000-0000-4000-8000-000000000001";
 const ACCOUNT_PRB_UUID = "60000000-0000-4000-8000-000000000001";
@@ -31,6 +33,8 @@ const DAY_UUID = "a0000000-0000-4000-8000-000000000001";
 const DAY_EXERCISE_UUID = "b0000000-0000-4000-8000-000000000001";
 const SESSION_UUID = "c0000000-0000-4000-8000-000000000001";
 const SESSION_EXERCISE_UUID = "d0000000-0000-4000-8000-000000000001";
+const DEBT_UUID = "e0000000-0000-4000-8000-000000000001";
+const DEBT_REPAYMENT_ENTRY_UUID = "f0000000-0000-4000-8000-000000000001";
 
 async function migrationNames() {
   const directory = fileURLToPath(new URL("../drizzle/", import.meta.url));
@@ -227,6 +231,22 @@ async function seed(database: ReturnType<typeof drizzle>) {
     expiresAt: new Date("2026-10-27T16:00:00.123Z"),
     confirmedAt: new Date("2026-10-27T15:30:00.456Z"),
   });
+  await database.insert(schema.captureDrafts).values([
+    {
+      id: DEBT_CAPTURE_UUID,
+      ownerId: OWNER_UUID,
+      kind: "debt",
+      status: "pending",
+      messageText: "старый долг Ивану 100",
+    },
+    {
+      id: REPAYMENT_CAPTURE_UUID,
+      ownerId: OWNER_UUID,
+      kind: "debt",
+      status: "pending",
+      messageText: "вернул Ивану 25",
+    },
+  ]);
   await database.insert(schema.nutritionTargets).values({
     ownerId: OWNER_UUID,
     effectiveFrom: "2026-10-01",
@@ -333,6 +353,66 @@ async function seed(database: ReturnType<typeof drizzle>) {
     occurredAt: new Date("2026-10-27T14:10:12.333Z"),
     source: "recurring",
   });
+  await database.insert(schema.financeDebts).values({
+    id: DEBT_UUID,
+    ownerId: OWNER_UUID,
+    personName: "Ивану",
+    direction: "i_owe",
+    originalAmount: "100.0000",
+    openedAs: "opening_balance",
+    dueOn: "2026-11-15",
+    note: "старый долг",
+  });
+  await database.insert(schema.financeEntries).values({
+    id: DEBT_REPAYMENT_ENTRY_UUID,
+    ownerId: OWNER_UUID,
+    accountId: ACCOUNT_PRB_UUID,
+    categoryId: CATEGORY_UUID,
+    entryType: "expense",
+    name: "Вернул Ивану",
+    amount: "25.0000",
+    currency: "PRB",
+    usdToPrbRate: null,
+    occurredAt: new Date("2026-10-28T14:00:00.000Z"),
+    source: "mini_app",
+  });
+  await database.insert(schema.financeDebtRepayments).values({
+    ownerId: OWNER_UUID,
+    debtId: DEBT_UUID,
+    financeEntryId: DEBT_REPAYMENT_ENTRY_UUID,
+    amount: "25.0000",
+    occurredAt: new Date("2026-10-28T14:00:00.000Z"),
+  });
+  await database.insert(schema.financeDebtDrafts).values([
+    {
+      ownerId: OWNER_UUID,
+      captureDraftId: DEBT_CAPTURE_UUID,
+      operation: "create",
+      personName: "Ивану",
+      direction: "i_owe",
+      amount: "100.0000",
+      openedAs: "opening_balance",
+      debtId: null,
+      accountId: null,
+      dueOn: "2026-11-15",
+      note: "старый долг",
+      occurredAt: new Date("2026-10-27T14:00:00.000Z"),
+    },
+    {
+      ownerId: OWNER_UUID,
+      captureDraftId: REPAYMENT_CAPTURE_UUID,
+      operation: "repayment",
+      personName: "Ивану",
+      direction: "i_owe",
+      amount: "10.0000",
+      openedAs: null,
+      debtId: DEBT_UUID,
+      accountId: ACCOUNT_PRB_UUID,
+      dueOn: null,
+      note: null,
+      occurredAt: new Date("2026-10-29T09:00:00.000Z"),
+    },
+  ]);
   await database.insert(schema.exercises).values({ id: EXERCISE_UUID, ownerId: OWNER_UUID, name: "Жим лёжа", muscleGroup: "грудь", equipment: "штанга" });
   await database.insert(schema.workoutDays).values({ id: DAY_UUID, ownerId: OWNER_UUID, name: "Верх тела", weekday: 1, position: 0 });
   await database.insert(schema.workoutDayExercises).values({
@@ -402,6 +482,9 @@ test("backup round-trips all persistent tables and leaves ephemeral references c
     assert.equal(backup.tables.recurringPayments[0].anchorDay, 1);
     assert.equal(backup.tables.recurringPayments[0].anchorMonth, 11);
     assert.equal(backup.tables.workoutSets[0].weightKg, "75.500");
+    assert.equal(backup.tables.financeDebts[0].originalAmount, "100.0000");
+    assert.equal(backup.tables.financeDebtRepayments[0].amount, "25.0000");
+    assert.equal(backup.tables.financeDebtDrafts.length, 2);
     assert.equal("telegramUpdates" in backup.tables, false);
     assert.equal("notificationDeliveries" in backup.tables, false);
 
@@ -412,6 +495,20 @@ test("backup round-trips all persistent tables and leaves ephemeral references c
     const notifications = await target.select().from(schema.notificationDeliveries);
     assert.equal(ephemeral.length, 0);
     assert.equal(notifications.length, 0);
+
+    const legacyTables = { ...backup.tables } as Record<string, unknown>;
+    delete legacyTables.financeDebts;
+    delete legacyTables.financeDebtRepayments;
+    delete legacyTables.financeDebtDrafts;
+    const legacyV2 = validateBackup({
+      ...backup,
+      version: 2,
+      tables: legacyTables,
+    });
+    assert.equal(legacyV2.version, BACKUP_VERSION);
+    assert.deepEqual(legacyV2.tables.financeDebts, []);
+    assert.deepEqual(legacyV2.tables.financeDebtRepayments, []);
+    assert.deepEqual(legacyV2.tables.financeDebtDrafts, []);
 
     await assert.rejects(restoreBackup(asBackupDatabase(target), backup, OWNER_ID), /пустую базу/);
     const ownersAfterRejectedRestore = await target.select().from(schema.ownerSettings);

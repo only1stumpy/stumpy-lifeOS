@@ -43,6 +43,13 @@
       "when": 1793259597397,
       "tag": "0005_romantic_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793264211137,
+      "tag": "0006_cooing_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

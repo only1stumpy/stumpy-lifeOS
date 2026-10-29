@@ -194,7 +194,7 @@ export const captureDrafts = pgTable(
   (table) => [
     unique("capture_drafts_id_owner_unique").on(table.id, table.ownerId),
     index("capture_drafts_owner_status_created_idx").on(table.ownerId, table.status, table.createdAt),
-    check("capture_drafts_kind_valid", sql`${table.kind} in ('nutrition', 'finance', 'combined')`),
+    check("capture_drafts_kind_valid", sql`${table.kind} in ('nutrition', 'finance', 'combined', 'debt')`),
     check("capture_drafts_status_valid", sql`${table.status} in ('pending', 'confirmed', 'cancelled', 'expired')`),
   ],
 );
@@ -526,6 +526,84 @@ export const financePlans = pgTable(
     unique("finance_plans_id_owner_unique").on(table.id, table.ownerId),
     index("finance_plans_owner_created_idx").on(table.ownerId, table.createdAt),
     check("finance_plans_amount_positive", sql`${table.amount} > 0`),
+  ],
+);
+
+/** Open and closed personal debts; old balances are recorded without backdating finance. */
+export const financeDebts = pgTable(
+  "finance_debts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    personName: text("person_name").notNull(),
+    direction: text("direction").notNull(),
+    originalAmount: numeric("original_amount", { precision: 18, scale: 4 }).notNull(),
+    openedAs: text("opened_as").notNull(),
+    dueOn: date("due_on", { mode: "string" }),
+    note: text("note"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    unique("finance_debts_id_owner_unique").on(table.id, table.ownerId),
+    index("finance_debts_owner_direction_due_idx").on(table.ownerId, table.direction, table.dueOn),
+    check("finance_debts_person_nonempty", sql`length(trim(${table.personName})) > 0`),
+    check("finance_debts_direction_valid", sql`${table.direction} in ('i_owe', 'owed_to_me')`),
+    check("finance_debts_opened_as_valid", sql`${table.openedAs} in ('transfer', 'opening_balance')`),
+    check("finance_debts_amount_positive", sql`${table.originalAmount} > 0`),
+  ],
+);
+
+/** Each partial repayment is a separate row linked to its actual finance operation. */
+export const financeDebtRepayments = pgTable(
+  "finance_debt_repayments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    debtId: uuid("debt_id").notNull().references(() => financeDebts.id, { onDelete: "cascade" }),
+    financeEntryId: uuid("finance_entry_id").notNull().references(() => financeEntries.id, { onDelete: "restrict" }),
+    amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("finance_debt_repayments_owner_debt_idx").on(table.ownerId, table.debtId, table.occurredAt),
+    check("finance_debt_repayments_amount_positive", sql`${table.amount} > 0`),
+  ],
+);
+
+/** Explicit bot confirmation drafts for creating a debt or recording a repayment. */
+export const financeDebtDrafts = pgTable(
+  "finance_debt_drafts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    captureDraftId: uuid("capture_draft_id").notNull(),
+    operation: text("operation").notNull(),
+    personName: text("person_name").notNull(),
+    direction: text("direction").notNull(),
+    amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
+    openedAs: text("opened_as"),
+    debtId: uuid("debt_id").references(() => financeDebts.id, { onDelete: "restrict" }),
+    accountId: uuid("account_id").references(() => financeAccounts.id, { onDelete: "restrict" }),
+    dueOn: date("due_on", { mode: "string" }),
+    note: text("note"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("finance_debt_drafts_capture_unique").on(table.captureDraftId),
+    foreignKey({
+      name: "finance_debt_drafts_capture_owner_fk",
+      columns: [table.captureDraftId, table.ownerId],
+      foreignColumns: [captureDrafts.id, captureDrafts.ownerId],
+    }).onDelete("cascade"),
+    index("finance_debt_drafts_owner_created_idx").on(table.ownerId, table.createdAt),
+    check("finance_debt_drafts_operation_valid", sql`${table.operation} in ('create', 'repayment')`),
+    check("finance_debt_drafts_direction_valid", sql`${table.direction} in ('i_owe', 'owed_to_me')`),
+    check("finance_debt_drafts_amount_positive", sql`${table.amount} > 0`),
+    check("finance_debt_drafts_fields_match_operation", sql`(${table.operation} = 'create' and ${table.openedAs} in ('transfer', 'opening_balance') and ${table.debtId} is null) or (${table.operation} = 'repayment' and ${table.openedAs} is null and ${table.debtId} is not null)`),
+    check("finance_debt_drafts_account_match_operation", sql`(${table.openedAs} = 'opening_balance' and ${table.accountId} is null) or (${table.openedAs} = 'transfer' and ${table.accountId} is not null) or (${table.operation} = 'repayment' and ${table.accountId} is not null)`),
   ],
 );
 

@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { GlassRefraction } from "@/components/glass/glass-refraction";
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
 import { motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
+import { ProviderBrandMark } from "./provider-brand-mark";
 import styles from "./ai-providers-panel.module.css";
 
 type ProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "custom";
@@ -56,12 +57,26 @@ type AiProvidersPanelProps = {
 };
 
 const providerOrder: ProviderId[] = ["gemini", "groq", "cerebras", "openrouter", "custom"];
-const providerCopy: Record<ProviderId, { mark: string; description: string }> = {
-  gemini: { mark: "G", description: "Google AI Studio · проверь, что ключ использует Free Tier." },
-  groq: { mark: "Gr", description: "Быстрые модели с бесплатной квотой." },
-  cerebras: { mark: "C", description: "Каталог моделей Cerebras." },
-  openrouter: { mark: "OR", description: "Каталог бесплатных моделей с суффиксом :free." },
+const providerCopy: Record<ProviderId, { mark: string | null; description: string }> = {
+  gemini: { mark: null, description: "Google AI Studio · проверь, что ключ использует Free Tier." },
+  groq: { mark: null, description: "Быстрые модели с бесплатной квотой." },
+  cerebras: { mark: null, description: "Каталог моделей Cerebras." },
+  openrouter: { mark: null, description: "Каталог бесплатных моделей с суффиксом :free." },
   custom: { mark: "API", description: "Свой OpenAI-compatible endpoint. Подключай только модель с нулевой стоимостью." },
+};
+
+const providerApiKeyPages: Record<StandardProviderId, string> = {
+  gemini: "https://aistudio.google.com/app/apikey",
+  groq: "https://console.groq.com/keys",
+  cerebras: "https://cloud.cerebras.ai/",
+  openrouter: "https://openrouter.ai/settings/keys",
+};
+
+const providerBrandClasses: Record<StandardProviderId, string> = {
+  gemini: styles.brandGemini,
+  groq: styles.brandGroq,
+  cerebras: styles.brandCerebras,
+  openrouter: styles.brandOpenrouter,
 };
 
 const emptyConnect: ConnectForm = { name: "", apiKey: "" };
@@ -147,6 +162,16 @@ function accountCountLabel(count: number): string {
 
 function compactNumber(value: number): string {
   return new Intl.NumberFormat("ru-RU", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function safeHttpsUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 function availableAccountNames(provider: AiProvider, model: ProviderModel): string {
@@ -520,6 +545,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                 const connecting = connectProviderId === provider.id;
                 const connectingNow = busyAction === `connect:${provider.id}`;
                 const providerUnavailable = !provider.connectable;
+                const apiKeysUrl = safeHttpsUrl(providerApiKeyPages[provider.id]);
 
                 return (
                   <motion.section
@@ -532,7 +558,9 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                     aria-labelledby={`${id}-${provider.id}-heading`}
                   >
                     <div className={styles.providerHeader}>
-                      <div className={styles.providerMark} aria-hidden="true">{copy.mark}</div>
+                      <div className={`${styles.providerMark} ${providerBrandClasses[provider.id]}`} aria-hidden="true">
+                        <ProviderBrandMark provider={provider.id} />
+                      </div>
                       <div className={styles.providerTitle}>
                         <h3 id={`${id}-${provider.id}-heading`}>{provider.name}</h3>
                         <p>{providerUnavailable ? provider.connectionBlockReason || "Подключение этого провайдера сейчас недоступно." : copy.description}</p>
@@ -686,6 +714,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas }: AiProvider
                                     <span className={styles.modelBadges}>
                                       {model.supportsImages ? <span className={styles.capabilityAvailable}>Текст + фото</span> : <span className={styles.capabilityLimited}>Только текст</span>}
                                       {model.contextLength !== null && <span className={styles.contextLength}>{compactNumber(model.contextLength)} конт.</span>}
+                                      {apiKeysUrl && (
+                                        <a className={styles.modelApiLink} href={apiKeysUrl} target="_blank" rel="noreferrer noopener" aria-label={`Открыть API-ключи ${provider.name} в новой вкладке`} title={`Страница API-ключей ${provider.name}`}>
+                                          API-ключи <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
+                                        </a>
+                                      )}
                                     </span>
                                   </li>
                                 ))}
