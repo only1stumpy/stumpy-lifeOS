@@ -6,7 +6,6 @@ export type FinancePlanViewItem = {
   id: string;
   name: string;
   amountMinor: number;
-  targetMonth: string;
 };
 
 type FinancePlansViewProps = {
@@ -17,35 +16,9 @@ type FinancePlansViewProps = {
   onPurchase(plan: FinancePlanViewItem): void;
 };
 
-type MonthGroup = {
-  month: string;
-  monthIndex: number | null;
-  plans: FinancePlanViewItem[];
-};
-
 const planAmountFormat = new Intl.NumberFormat("ru-RU", {
   maximumFractionDigits: 2,
 });
-
-function monthDetails(value: string): { label: string; index: number } | null {
-  const match = /^(\d{4})-(\d{2})-01$/.exec(value);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  if (month < 1 || month > 12) return null;
-
-  const date = new Date(year, month - 1, 1, 12);
-  return {
-    label: new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(date),
-    index: year * 12 + month - 1,
-  };
-}
-
-function currentMonthIndex(): number {
-  const now = new Date();
-  return now.getFullYear() * 12 + now.getMonth();
-}
 
 function moneyLabel(amountMinor: number): string {
   return `${planAmountFormat.format(Math.abs(amountMinor) / 100)} р. ПМР`;
@@ -64,30 +37,7 @@ function DeleteIcon() {
 }
 
 export default function FinancePlansView({ plans, onAdd, onEdit, onDelete, onPurchase }: FinancePlansViewProps) {
-  const groupsByMonth = new Map<string, MonthGroup>();
-  for (const plan of plans) {
-    const group = groupsByMonth.get(plan.targetMonth);
-    if (group) {
-      group.plans.push(plan);
-    } else {
-      groupsByMonth.set(plan.targetMonth, {
-        month: plan.targetMonth,
-        monthIndex: monthDetails(plan.targetMonth)?.index ?? null,
-        plans: [plan],
-      });
-    }
-  }
-
-  const thisMonth = currentMonthIndex();
-  const groups = [...groupsByMonth.values()].sort((a, b) => {
-    if (a.monthIndex === null) return b.monthIndex === null ? 0 : 1;
-    if (b.monthIndex === null) return -1;
-
-    const aIsUpcoming = a.monthIndex >= thisMonth;
-    const bIsUpcoming = b.monthIndex >= thisMonth;
-    if (aIsUpcoming !== bIsUpcoming) return aIsUpcoming ? -1 : 1;
-    return aIsUpcoming ? a.monthIndex - b.monthIndex : b.monthIndex - a.monthIndex;
-  });
+  const total = plans.reduce((sum, plan) => sum + Math.abs(plan.amountMinor), 0);
 
   return (
     <section className={styles.plansView} aria-labelledby="finance-plans-heading">
@@ -102,58 +52,48 @@ export default function FinancePlansView({ plans, onAdd, onEdit, onDelete, onPur
         </button>
       </header>
 
-      {groups.length ? (
-        <div className={styles.monthList}>
-          {groups.map((group) => {
-            const details = monthDetails(group.month);
-            const heading = details?.label ?? "Месяц не указан";
-            const subtotal = group.plans.reduce((sum, plan) => sum + Math.abs(plan.amountMinor), 0);
-
-            return (
-              <section className={styles.monthGroup} key={group.month} aria-label={heading}>
-                <div className={styles.monthHeading}>
-                  <h3>{heading}</h3>
-                  <p className={styles.subtotal}>Итого <strong>{moneyLabel(subtotal)}</strong></p>
+      {plans.length ? (
+        <div className={styles.planCollection}>
+          <div className={styles.totalLine}>
+            <span>Всего запланировано</span>
+            <strong>{moneyLabel(total)}</strong>
+          </div>
+          <ul className={styles.planList}>
+            {plans.map((plan) => (
+              <li className={styles.planRow} key={plan.id}>
+                <div className={styles.planDetails}>
+                  <strong className={styles.planName}>{plan.name}</strong>
+                  <span className={styles.planAmount}>{moneyLabel(plan.amountMinor)}</span>
                 </div>
-                <ul className={styles.planList}>
-                  {group.plans.map((plan) => (
-                    <li className={styles.planRow} key={plan.id}>
-                      <div className={styles.planDetails}>
-                        <strong className={styles.planName}>{plan.name}</strong>
-                        <span className={styles.planAmount}>{moneyLabel(plan.amountMinor)}</span>
-                      </div>
-                      <div className={styles.actions}>
-                        <button
-                          type="button"
-                          className={styles.purchaseButton}
-                          aria-label={`Записать расход: ${plan.name}`}
-                          onClick={() => onPurchase(plan)}
-                        >
-                          Записать расход
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.iconButton}
-                          aria-label={`Изменить план: ${plan.name}`}
-                          onClick={() => onEdit(plan)}
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.iconButton}
-                          aria-label={`Удалить план: ${plan.name}`}
-                          onClick={() => onDelete(plan.id)}
-                        >
-                          <DeleteIcon />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+                <div className={styles.actions}>
+                  <button
+                    type="button"
+                    className={styles.purchaseButton}
+                    aria-label={`Записать расход: ${plan.name}`}
+                    onClick={() => onPurchase(plan)}
+                  >
+                    Записать расход
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={`Изменить план: ${plan.name}`}
+                    onClick={() => onEdit(plan)}
+                  >
+                    <EditIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={`Удалить план: ${plan.name}`}
+                    onClick={() => onDelete(plan.id)}
+                  >
+                    <DeleteIcon />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : (
         <div className={styles.emptyState}>
