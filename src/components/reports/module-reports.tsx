@@ -1,8 +1,10 @@
 "use client";
 
 import { useId, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AppReports } from "@/domain/app";
 import type { ModuleKey } from "@/domain/types";
+import { motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 import styles from "./module-reports.module.css";
 
 type ModuleReportsProps = { reports: AppReports; section: ModuleKey };
@@ -151,6 +153,8 @@ function LineChart({ title, points, formatValue, accent }: { title: string; poin
 }
 
 function NutritionReports({ reports }: { reports: AppReports }) {
+  const motionVariants = useMotionVariants();
+  const prefersReducedMotion = useReducedMotion() !== false;
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<NutritionMetric>("calories");
   const days = [...reports.nutritionDays].sort((left, right) => left.date.localeCompare(right.date));
@@ -202,27 +206,31 @@ function NutritionReports({ reports }: { reports: AppReports }) {
           <button type="button" aria-label="Следующий месяц" disabled={!canGoForward} onClick={() => changeMonth(monthAfter)}>›</button>
         </div>
         <div className={styles.calendarWeekdays} aria-hidden="true">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className={styles.calendarGrid} role="group" aria-label={`Календарь питания за ${monthLabel(displayedMonth)}`}>
-          {Array.from({ length: calendar.leadingDays }, (_, index) => <span key={`empty-${index}`} aria-hidden="true" />)}
-          {calendar.dates.map((date) => {
-            const day = dayByDate.get(date);
-            const hasEntries = Boolean(day && day.entryCount > 0);
-            const isFuture = date > latestDate;
-            const accessibleLabel = `${dayLabel(date, { day: "numeric", month: "long", year: "numeric" })}: ${hasEntries ? `${formatValue(day!.calories)} ккал, ${day!.entryCount} ${plural(day!.entryCount, "запись", "записи", "записей")}` : "нет записей"}`;
-            return <button
-              key={date}
-              type="button"
-              className={`${styles.calendarDay} ${hasEntries ? styles.calendarDayRecorded : ""}`}
-              aria-label={accessibleLabel}
-              aria-pressed={date === selectedDate}
-              disabled={isFuture}
-              onClick={() => setSelectedDate(date)}
-            >
-              <span>{Number(date.slice(-2))}</span>
-              {hasEntries && <small>{formatValue(day!.calories)}</small>}
-            </button>;
-          })}
-        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={displayedMonth} className={styles.calendarGrid} role="group" aria-label={`Календарь питания за ${monthLabel(displayedMonth)}`} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">
+            {Array.from({ length: calendar.leadingDays }, (_, index) => <span key={`empty-${index}`} aria-hidden="true" />)}
+            {calendar.dates.map((date) => {
+              const day = dayByDate.get(date);
+              const hasEntries = Boolean(day && day.entryCount > 0);
+              const isFuture = date > latestDate;
+              const accessibleLabel = `${dayLabel(date, { day: "numeric", month: "long", year: "numeric" })}: ${hasEntries ? `${formatValue(day!.calories)} ккал, ${day!.entryCount} ${plural(day!.entryCount, "запись", "записи", "записей")}` : "нет записей"}`;
+              return <motion.button
+                key={date}
+                type="button"
+                className={`${styles.calendarDay} ${hasEntries ? styles.calendarDayRecorded : ""}`}
+                aria-label={accessibleLabel}
+                aria-pressed={date === selectedDate}
+                disabled={isFuture}
+                onClick={() => setSelectedDate(date)}
+                animate={{ transform: `scale(${date === selectedDate && !prefersReducedMotion ? 1.035 : 1})` }}
+                transition={prefersReducedMotion ? { duration: 0 } : motionSpring.snappy}
+              >
+                <span>{Number(date.slice(-2))}</span>
+                {hasEntries && <small>{formatValue(day!.calories)}</small>}
+              </motion.button>;
+            })}
+          </motion.div>
+        </AnimatePresence>
         <section className={styles.selectedDay} aria-live="polite" aria-labelledby="lifeos-nutrition-selected-day">
           <div className={styles.selectedDayHeading}>
             <div><p className={styles.eyebrow}>ДНЕВНИК</p><h3 id="lifeos-nutrition-selected-day">{dayLabel(selectedDate, { day: "numeric", month: "long", year: "numeric" })}</h3></div>
@@ -246,13 +254,18 @@ function NutritionReports({ reports }: { reports: AppReports }) {
         ))}
       </div>
       <p className={styles.chartTitle}>{metricInfo.label}, {metricInfo.unit}</p>
-      <LineChart title={`${metricInfo.label} по дням`} points={chartPoints} formatValue={formatValue} accent="var(--report-accent)" />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={`${metric}:${period}:${selectedDate}`} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">
+          <LineChart title={`${metricInfo.label} по дням`} points={chartPoints} formatValue={formatValue} accent="var(--report-accent)" />
+        </motion.div>
+      </AnimatePresence>
       <p className={styles.dataNote}>Разрыв линии означает, что в этот день не было записей. Это не нулевое потребление.</p>
     </section>
   );
 }
 
 function ExpenseCategoryRows({ categories }: { categories: AppReports["expenseCategories"] }) {
+  const prefersReducedMotion = useReducedMotion() !== false;
   if (categories.length === 0) return <p className={styles.emptyText}>За текущий месяц расходов по категориям пока нет.</p>;
   const rows = [...categories].sort((a, b) => b.amountMinor - a.amountMinor);
   const max = Math.max(...rows.map((row) => row.amountMinor));
@@ -261,7 +274,7 @@ function ExpenseCategoryRows({ categories }: { categories: AppReports["expenseCa
       {rows.map((category) => (
         <li key={category.name}>
           <div className={styles.categoryLine}><span>{category.name}</span><strong>{prbLabel(category.amountMinor)}</strong></div>
-          <div className={styles.barTrack} role="progressbar" aria-label={`Доля категории ${category.name}`} aria-valuemin={0} aria-valuemax={max} aria-valuenow={category.amountMinor}><span style={{ width: `${Math.max(2, category.amountMinor / max * 100)}%` }} /></div>
+          <div className={styles.barTrack} role="progressbar" aria-label={`Доля категории ${category.name}`} aria-valuemin={0} aria-valuemax={max} aria-valuenow={category.amountMinor}><motion.span initial={{ transform: prefersReducedMotion ? "scaleX(1)" : "scaleX(0)" }} animate={{ transform: `scaleX(${Math.max(2, category.amountMinor / max * 100) / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} /></div>
         </li>
       ))}
     </ol>

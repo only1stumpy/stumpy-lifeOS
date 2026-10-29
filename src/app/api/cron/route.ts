@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { dateKey } from "@/domain/math";
 import { AppError } from "@/server/http";
-import { ensureOwner } from "@/server/lifeos";
+import { withTelegramUser } from "@/server/owner-context";
 import {
   retryFailedTelegramUpdates,
   sendDailySummary,
@@ -33,42 +33,40 @@ async function runCron(request: Request): Promise<Response> {
       throw new AppError(401, "Недействительный запрос планировщика.");
     }
 
-    const owner = await ensureOwner();
     const now = new Date();
-    const localDate = dateKey(now, owner.timezone);
-    const localTime = getLocalTime(now, owner.timezone);
     const dailyMinute = configuredMinute("DAILY_SUMMARY_TIME", "19:30");
     const weeklyMinute = configuredMinute("WEEKLY_SUMMARY_TIME", "19:30");
     const sent: string[] = [];
 
     await retryFailedTelegramUpdates();
+    const owners = await getDb().select().from(schema.ownerSettings);
+    for (const owner of owners) {
+      await withTelegramUser(owner.telegramUserId, async () => {
+        const localDate = dateKey(now, owner.timezone);
+        const localTime = getLocalTime(now, owner.timezone);
+        const duePayments = await getDb()
+          .select()
+          .from(schema.recurringPayments)
+          .where(and(
+            eq(schema.recurringPayments.ownerId, owner.id),
+            eq(schema.recurringPayments.isActive, true),
+            eq(schema.recurringPayments.reminderEnabled, true),
+            lte(schema.recurringPayments.nextDueOn, localDate),
+          ));
+        for (const payment of duePayments) {
+          const delivered = await sendDuePaymentReminder(
+            payment.id,
+            payment.name,
+            Math.round(Number(payment.amount) * 100),
+            payment.currency === "USD" ? "USD" : "PRB",
+            payment.nextDueOn,
+          );
+          if (delivered) sent.push("payment");
+        }
 
-    const duePayments = await getDb()
-      .select()
-      .from(schema.recurringPayments)
-      .where(and(
-        eq(schema.recurringPayments.ownerId, owner.id),
-        eq(schema.recurringPayments.isActive, true),
-        eq(schema.recurringPayments.reminderEnabled, true),
-        lte(schema.recurringPayments.nextDueOn, localDate),
-      ));
-    for (const payment of duePayments) {
-      const delivered = await sendDuePaymentReminder(
-        payment.id,
-        payment.name,
-        Math.round(Number(payment.amount) * 100),
-        payment.currency === "USD" ? "USD" : "PRB",
-        payment.nextDueOn,
-      );
-      if (delivered) sent.push(`payment:${payment.id}`);
-    }
-
-    if (localTime.minuteOfDay >= dailyMinute) {
-      if (await sendDailySummary(now, owner.timezone)) sent.push("daily");
-    }
-
-    if (localTime.weekday === 0 && localTime.minuteOfDay >= weeklyMinute) {
-      if (await sendWeeklySummary(now, owner.timezone)) sent.push("weekly");
+        if (localTime.minuteOfDay >= dailyMinute && await sendDailySummary(now, owner.timezone)) sent.push("daily");
+        if (localTime.weekday === 0 && localTime.minuteOfDay >= weeklyMinute && await sendWeeklySummary(now, owner.timezone)) sent.push("weekly");
+      });
     }
 
     return Response.json({ ok: true, sent: sent.length });

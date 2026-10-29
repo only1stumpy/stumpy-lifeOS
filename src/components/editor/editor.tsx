@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, MouseEvent, ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { exerciseCatalog } from "@/domain/exercise-catalog";
@@ -9,6 +10,7 @@ import { parseMinor } from "@/domain/math";
 import { suggestTargets } from "@/domain/nutrition";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
+import { motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 
 export type EditorState =
   | { kind: "food"; entry?: FoodLogEntry }
@@ -31,6 +33,7 @@ type EditorDialogProps = {
   onClose(): void;
   onChange(editor: EditorState): void;
   onCommand(command: AppCommand, keepOpen?: boolean): Promise<boolean>;
+  onRegisterTelegramBackHandler?(handler: (() => void) | null): void;
 };
 
 const moneyDecimal = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -131,9 +134,11 @@ function MacroFields({ values }: { values?: { calories: number; proteinGrams: nu
   );
 }
 
-export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand }: EditorDialogProps) {
+export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler }: EditorDialogProps) {
+  const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [suggestedTarget, setSuggestedTarget] = useState<MacroValues | null>(null);
   const [targetRevision, setTargetRevision] = useState(0);
@@ -156,23 +161,32 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const canGoBack = editor.kind === "program" && selectedDayId !== null;
   const backLabel = selectedReplacementId ? "Назад к упражнениям дня" : "Назад к тренировочным дням";
 
-  function goBack() {
+  const goBack = useCallback(() => {
     if (!canGoBack) return;
     if (selectedReplacementId) {
       setSelectedReplacementId(null);
       return;
     }
     setSelectedDayId(null);
-  }
+  }, [canGoBack, selectedReplacementId]);
+
+  useEffect(() => {
+    onRegisterTelegramBackHandler?.(canGoBack ? goBack : null);
+    return () => onRegisterTelegramBackHandler?.(null);
+  }, [canGoBack, goBack, onRegisterTelegramBackHandler]);
 
   async function submitForm(event: FormEvent<HTMLFormElement>, build: (form: FormData) => AppCommand, keepOpen = false): Promise<boolean> {
     event.preventDefault();
     if (pending) return false;
     const formElement = event.currentTarget;
     setFormError(null);
+    setSaved(false);
     try {
       const succeeded = await onCommand(build(new FormData(formElement)), keepOpen);
-      if (succeeded && keepOpen) formElement.reset();
+      if (succeeded && keepOpen) {
+        formElement.reset();
+        setSaved(true);
+      }
       return succeeded;
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "Проверьте введённые данные.");
@@ -183,7 +197,9 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   async function runCommand(command: AppCommand, keepOpen = false) {
     if (pending) return;
     setFormError(null);
-    await onCommand(command, keepOpen);
+    setSaved(false);
+    const succeeded = await onCommand(command, keepOpen);
+    if (succeeded && keepOpen) setSaved(true);
   }
 
   function renderFoodForm(entry?: FoodLogEntry) {
@@ -590,12 +606,19 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   return (
-    <dialog
+    <motion.dialog
       ref={dialogRef}
       className={`editor${editor.kind === "program" || editor.kind === "exercise" || editor.kind === "set" ? " editor--workout" : ""}`}
       aria-labelledby="lifeos-editor-title"
+      aria-busy={pending}
+      variants={motionVariants.dialog}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={motionSpring.gentle}
       onCancel={(event) => { event.preventDefault(); if (!pending) onClose(); }}
       onClick={(event) => { if (event.target === dialogRef.current && !pending) onClose(); }}
+      onInput={() => setSaved(false)}
     >
       <header className="editor-header">
         {canGoBack && (
@@ -608,10 +631,13 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           <EditorIcon kind="close" />
         </button>
       </header>
-      {activeError && <p className="error" role="alert">{activeError}</p>}
-      {pending && <p role="status" aria-live="polite">Сохраняю…</p>}
+      <AnimatePresence initial={false} mode="wait">{activeError && <motion.p key="editor-error" className="error" role="alert" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">{activeError}</motion.p>}</AnimatePresence>
+      <AnimatePresence initial={false} mode="wait">
+        {pending ? <motion.p key="editor-pending" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохраняю…</motion.p>
+          : saved ? <motion.p key="editor-saved" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохранено.</motion.p> : null}
+      </AnimatePresence>
       {renderEditorContent()}
-    </dialog>
+    </motion.dialog>
   );
 }
 

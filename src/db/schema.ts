@@ -21,7 +21,7 @@ import {
 const createdAt = () => timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow().notNull();
 const updatedAt = () => timestamp("updated_at", { withTimezone: true, mode: "date" }).defaultNow().notNull();
 
-/** The single LifeOS owner and settings shared by the bot and Mini App. */
+/** One Telegram user's LifeOS profile and settings shared by the bot and Mini App. */
 export const ownerSettings = pgTable(
   "owner_settings",
   {
@@ -42,6 +42,27 @@ export const ownerSettings = pgTable(
   (table) => [
     uniqueIndex("owner_settings_telegram_user_id_unique").on(table.telegramUserId),
     check("owner_settings_height_positive", sql`${table.heightCm} is null or ${table.heightCm} > 0`),
+  ],
+);
+
+/** Per-user BYOK credentials for OpenAI-compatible AI providers. API keys are encrypted at rest. */
+export const aiProviderProfiles = pgTable(
+  "ai_provider_profiles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    endpoint: text("endpoint").notNull(),
+    model: text("model").notNull(),
+    encryptedApiKey: text("encrypted_api_key").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index("ai_provider_profiles_owner_order_idx").on(table.ownerId, table.sortOrder, table.createdAt),
+    check("ai_provider_profiles_sort_order_nonnegative", sql`${table.sortOrder} >= 0`),
   ],
 );
 
