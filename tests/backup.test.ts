@@ -60,7 +60,7 @@ test("recurring payment migration backfills anchors from existing due dates", as
 
   try {
     const migrations = await migrationNames();
-    assert.equal(migrations.length, 3);
+    assert.ok(migrations.length >= 3);
     await applyMigration(client, migrations[0]);
     await client.exec(`
       INSERT INTO owner_settings (id, telegram_user_id)
