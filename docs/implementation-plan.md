@@ -1,6 +1,6 @@
 # План реализации
 
-**Статус на 29 октября 2026 года: production Vercel, Neon, Telegram webhook, legacy Gemini и cron-job.org настроены; полный личный запуск не завершён.** Production Neon содержит миграции `0000`–`0006`, долговые таблицы проверены прямым запросом. Последний production-деплой для commit `64c87b6` имеет статус READY. PR #24 содержит онбординг ИИ и отдельный экран настроек в пятой вкладке с шестерёнкой; его Vercel Preview на commit `1064f78` имеет статус READY. Главная Preview отвечает `200`, но без Telegram и Neon environment variables там нельзя проверить Mini App API и вход с подписанным `initData`. Production-миграция `0007` подготовлена, но ещё не применена; после неё нужны слияние PR и production-проверка.
+**Статус на 29 октября 2026 года: production Vercel, Neon, Telegram webhook, legacy Gemini и cron-job.org настроены; полный личный запуск не завершён.** Production Neon содержит миграции `0000`–`0007`, долговые таблицы и новые флаги AI-онбординга проверены прямым запросом. Последний production-деплой для commit `64c87b6` имеет статус READY. PR #24 содержит онбординг ИИ и отдельный экран настроек в пятой вкладке с шестерёнкой; Vercel Preview имеет статус READY. Главная Preview отвечает `200`, но без Telegram и Neon environment variables там нельзя проверить Mini App API и вход с подписанным `initData`. Миграция `0007` применена; ожидаются merge PR и production-проверка интерфейса.
 
 ## Текущий срез
 
