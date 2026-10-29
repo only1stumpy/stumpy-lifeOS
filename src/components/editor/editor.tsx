@@ -98,17 +98,6 @@ function defaultDateTime(date: string): string {
   return `${date}T${time}:00`;
 }
 
-function nextMonthValue(localDate: string): string {
-  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(localDate);
-  if (!match) throw new Error("Не удалось определить следующий месяц.");
-  const month = new Date(Date.UTC(Number(match[1]), Number(match[2]), 1));
-  return month.toISOString().slice(0, 7);
-}
-
-function monthInputValue(value: string): string {
-  return /^\d{4}-\d{2}-01$/.test(value) ? value.slice(0, 7) : "";
-}
-
 function positiveMinor(value: string, label: string): number {
   const amount = parseMinor(value);
   if (amount < 1) throw new Error(`Сумма в поле «${label}» должна быть больше нуля.`);
@@ -317,22 +306,14 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
 
   function renderFinancePlanForm(plan?: FinancePlan) {
     return (
-      <form key={plan?.id ?? "new-finance-plan"} onSubmit={(event) => submitForm(event, (form) => {
-        const month = requiredText(form, "targetMonth", "Месяц покупки");
-        if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Выберите месяц покупки.");
-        return {
-          type: "finance-plan.save",
-          ...(plan ? { id: plan.id } : {}),
-          name: requiredText(form, "name", "Название покупки"),
-          amountMinor: positiveMinor(requiredText(form, "amount", "Сумма"), "Сумма"),
-          targetMonth: `${month}-01`,
-        };
-      })}>
+      <form key={plan?.id ?? "new-finance-plan"} onSubmit={(event) => submitForm(event, (form) => ({
+        type: "finance-plan.save",
+        ...(plan ? { id: plan.id } : {}),
+        name: requiredText(form, "name", "Название покупки"),
+        amountMinor: positiveMinor(requiredText(form, "amount", "Сумма"), "Сумма"),
+      }))}>
         <label>Покупка<input name="name" maxLength={300} required defaultValue={plan?.name ?? ""} placeholder="Например, шампунь" /></label>
-        <div className="fields-row">
-          <label>Сумма, рубли ПМР<input name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" /></label>
-          <label>Месяц покупки<input name="targetMonth" type="month" required defaultValue={plan ? monthInputValue(plan.targetMonth) : nextMonthValue(snapshot.localDate)} /></label>
-        </div>
+        <label>Сумма, рубли ПМР<input name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" /></label>
         <p>План не меняет баланс и расходы. Сумму можно поправить при фактической покупке.</p>
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{plan ? "Сохранить план" : "Добавить в план"}</button></div>
       </form>
