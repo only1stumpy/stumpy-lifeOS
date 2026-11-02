@@ -95,7 +95,7 @@ export default function FinanceDebtsView({ debts, onAdd, onRepay }: FinanceDebts
     <section className={styles.debtsView} aria-labelledby="finance-debts-heading">
       <header className={styles.header}>
         <div className={styles.titleBlock}>
-          <span className={styles.eyebrow}>ЛИЧНЫЕ ОБЯЗАТЕЛЬСТВА</span>
+          <span className={styles.eyebrow}>Личные обязательства</span>
           <h2 id="finance-debts-heading">Долги</h2>
         </div>
         <button type="button" className={styles.addButton} onClick={onAdd}>

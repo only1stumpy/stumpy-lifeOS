@@ -700,7 +700,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
         <header className={styles.header}>
           <div className={styles.headerTitle}>
             {screen !== "providers" && screen !== "welcome" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
-            <p className={styles.eyebrow}>{screen === "providers" ? "ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ ИИ" : screen === "queue" ? "ОБЩИЙ ПОРЯДОК ИСПОЛЬЗОВАНИЯ" : screen === "welcome" ? "НАСТРОЙКА ЗАВЕРШЕНА" : "НАСТРОЙКА ПРОВАЙДЕРА"}</p>
+            <p className={styles.eyebrow}>{screen === "providers" ? "Персональные настройки ИИ" : screen === "queue" ? "Общий порядок использования" : screen === "welcome" ? "Настройка завершена" : "Настройка провайдера"}</p>
             <h1 id={`${id}-title`}>{screenTitle}</h1>
           </div>
         </header>
@@ -728,7 +728,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "ready" && screen === "providers" && (
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}>
-                <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Выбери провайдера, чтобы управлять аккаунтами и моделями. Ключи хранятся зашифрованно и после сохранения не отображаются."} Вернуться сюда позже можно по шестерёнке в нижней панели.</p>
+                <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключи аккаунты и выбери модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
                 {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
               </div>
               {guidedRun && queue.length === 0 && (
@@ -815,7 +815,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
                 <div className={styles.detailSection}>
                   <div className={styles.sectionHeading}>
-                    <div><p className={styles.eyebrow}>АККАУНТЫ</p><h4>Подключения</h4></div>
+                    <div><p className={styles.eyebrow}>Аккаунты</p><h4>Подключения</h4></div>
                     <button className={styles.secondaryAction} type="button" onClick={() => beginConnect(activeProvider.id)} disabled={busyAction !== null || !activeProvider.connectable}><span aria-hidden="true">+</span> Добавить</button>
                   </div>
                   {renderAccountList(activeProvider)}
@@ -823,7 +823,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
                 <div className={styles.detailSection}>
                   <div className={styles.sectionHeading}>
-                    <div><p className={styles.eyebrow}>КАТАЛОГ</p><h4>Модели провайдера</h4></div>
+                    <div><p className={styles.eyebrow}>Каталог</p><h4>Модели провайдера</h4></div>
                     <span className={styles.modelsCount}>{activeProvider.models.filter((model) => model.selected).length} из {activeProvider.models.length} выбрано</span>
                   </div>
                   <p className={styles.modelsIntro}>{activeProvider.models.length ? "Нажми, чтобы настроить доступные модели и перейти к общему порядку." : "Подключи аккаунт, чтобы получить список моделей."}</p>
@@ -833,7 +833,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 {connectProviderId === activeProvider.id && activeProvider.id !== "custom" && activeProvider.connectable && (
                   <form ref={connectRef} className={styles.connectForm} onSubmit={submitConnect}>
                     <div className={styles.formHeading}>
-                      <div><p className={styles.eyebrow}>НОВЫЙ АККАУНТ</p><h4>Проверить и подключить</h4></div>
+                      <div><p className={styles.eyebrow}>Новый аккаунт</p><h4>Проверить и подключить</h4></div>
                       <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setFormError(""); }} disabled={busyAction !== null}>Отмена</button>
                     </div>
                     <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required /></label>
@@ -851,7 +851,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 {activeProvider.id === "custom" && activeProvider.connectable && connectProviderId === "custom" && (
                   <form ref={connectRef} className={styles.connectForm} onSubmit={submitCustom}>
                     <div className={styles.formHeading}>
-                      <div><p className={styles.eyebrow}>РАСШИРЕННОЕ ПОДКЛЮЧЕНИЕ</p><h4>Свой endpoint</h4></div>
+                      <div><p className={styles.eyebrow}>Расширенное подключение</p><h4>Свой endpoint</h4></div>
                       <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setCustomError(""); }} disabled={busyAction !== null}>Отмена</button>
                     </div>
                     <p className={styles.modelsIntro}>Используй OpenAI-compatible Chat Completions. LifeOS не может проверить тариф модели или риск списаний.</p>
@@ -934,15 +934,15 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
           {loadState === "ready" && screen === "welcome" && (
             <motion.section className={styles.welcomePanel} variants={motionVariants.screen} initial="initial" animate="animate" aria-live="polite" aria-labelledby={`${id}-welcome-title`}>
-              <p className={styles.welcomeEyebrow}>ПОПРОБУЙ В ЧАТЕ</p>
+              <p className={styles.welcomeEyebrow}>Попробуй в чате</p>
               <h2 id={`${id}-welcome-title`}>Пиши как обычно</h2>
-              <p className={styles.welcomeLead}>Без команд и лишней ебли — LifeOS поймёт обычное сообщение.</p>
+              <p className={styles.welcomeLead}>Напиши, что съел или потратил, обычным сообщением.</p>
               <ul className={styles.welcomeList}>
                 <li><strong>Еда и траты.</strong> Расскажи, что съел, отправь фото (если выбранная модель его поддерживает) или назови покупку. LifeOS покажет черновик, а ты сохранишь его кнопкой «Записать».</li>
                 <li><strong>Твои данные.</strong> Спроси, сколько потратил сегодня, какой сейчас баланс или сколько осталось по КБЖУ.</li>
                 <li><strong>Общая справка.</strong> Задай вопрос о питании, КБЖУ или упражнениях.</li>
               </ul>
-              <p className={styles.welcomeFootnote}>Если все модели отвалятся, бот объяснит, какая хуйня случилась. Сам ничего не запишет.</p>
+              <p className={styles.welcomeFootnote}>Если модели недоступны, бот объяснит причину. Данные сохраняются только после подтверждения.</p>
             </motion.section>
           )}
 
@@ -959,14 +959,14 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
         {loadState === "ready" && screen === "models" && (
           <footer className={styles.screenFooter}>
-            <p className={styles.guidance}>Для продвинутых пользователей. Если вы не знаете, какую модель выбрать, ничего менять не нужно. LifeOS уже настроил доступные модели автоматически. Просто нажмите «Готово».</p>
+            <p className={styles.guidance}>Доступные модели уже выбраны. Можно изменить выбор или нажать «Готово».</p>
             <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }} disabled={busyAction !== null}>Готово</button>
           </footer>
         )}
 
         {loadState === "ready" && screen === "queue" && (
           <footer className={styles.screenFooter}>
-            <p className={styles.guidance}>LifeOS автоматически настроил порядок использования моделей. Если вы не знаете, что это означает, оставьте настройки без изменений и нажмите «Готово». Вернуться к настройке можно по шестерёнке в нижней панели.</p>
+            <p className={styles.guidance}>Начальный порядок задан автоматически. LifeOS пробует модели сверху вниз. Можно изменить порядок или нажать «Готово».</p>
             <button className={styles.primaryAction} type="button" onClick={() => void completeOnboarding(true, true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Готово"}</button>
           </footer>
         )}

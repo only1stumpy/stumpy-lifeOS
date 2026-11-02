@@ -14,6 +14,7 @@ type TrendPoint = { date: string; value: number | null; detail: string };
 type PositionedPoint = TrendPoint & { x: number; y: number | null };
 
 const numberFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
+const calendarKcalFormat = new Intl.NumberFormat("ru-RU", { useGrouping: false, maximumFractionDigits: 0 });
 const moneyFormat = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const metricLabels: Record<NutritionMetric, { label: string; unit: string }> = {
   calories: { label: "Калории", unit: "ккал" },
@@ -196,7 +197,7 @@ function NutritionReports({ reports }: { reports: AppReports }) {
   return (
     <section className={`${styles.reportSurface} ${styles.nutrition}`} data-lg-role="rail" aria-labelledby="lifeos-nutrition-reports-title">
       <div className={styles.sectionHeading}>
-        <div><p className={styles.eyebrow}>ИСТОРИЯ ПИТАНИЯ</p><h2 id="lifeos-nutrition-reports-title">Динамика КБЖУ</h2></div>
+        <div><p className={styles.eyebrow}>История питания</p><h2 id="lifeos-nutrition-reports-title">Динамика КБЖУ</h2></div>
         <span className={styles.periodLabel}>История записей</span>
       </div>
       <div className={styles.calendar}>
@@ -226,14 +227,14 @@ function NutritionReports({ reports }: { reports: AppReports }) {
                 transition={prefersReducedMotion ? { duration: 0 } : motionSpring.snappy}
               >
                 <span>{Number(date.slice(-2))}</span>
-                {hasEntries && <small>{formatValue(day!.calories)}</small>}
+                {hasEntries && <small>{calendarKcalFormat.format(day!.calories)}</small>}
               </motion.button>;
             })}
           </motion.div>
         </AnimatePresence>
         <section className={styles.selectedDay} aria-live="polite" aria-labelledby="lifeos-nutrition-selected-day">
           <div className={styles.selectedDayHeading}>
-            <div><p className={styles.eyebrow}>ДНЕВНИК</p><h3 id="lifeos-nutrition-selected-day">{dayLabel(selectedDate, { day: "numeric", month: "long", year: "numeric" })}</h3></div>
+            <div><p className={styles.eyebrow}>Дневник</p><h3 id="lifeos-nutrition-selected-day">{dayLabel(selectedDate, { day: "numeric", month: "long", year: "numeric" })}</h3></div>
             {selectedDay && selectedDay.entryCount > 0 && <span>{selectedDay.entryCount} {plural(selectedDay.entryCount, "запись", "записи", "записей")}</span>}
           </div>
           {selectedDay && selectedDay.entryCount > 0 ? <dl className={styles.macroValues}>
@@ -301,7 +302,7 @@ function FinanceReports({ reports }: { reports: AppReports }) {
   return (
     <div className={`${styles.reportStack} ${styles.finance}`} data-lg-role="rail">
       <section className={styles.reportSurface} aria-labelledby="lifeos-finance-comparison-title">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>РАСХОДЫ</p><h2 id="lifeos-finance-comparison-title">Сравнение периода</h2></div>{selectedDate && <span className={styles.periodLabel}>по {dayLabel(selectedDate, { day: "numeric", month: "short" })}</span>}</div>
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Расходы</p><h2 id="lifeos-finance-comparison-title">Сравнение периода</h2></div>{selectedDate && <span className={styles.periodLabel}>по {dayLabel(selectedDate, { day: "numeric", month: "short" })}</span>}</div>
         <div className={styles.comparisonValues}>
           <div><span>Текущий месяц · по {selectedDate ? dayLabel(selectedDate, { day: "numeric", month: "short" }) : "выбранную дату"}</span><strong>{prbLabel(current)}</strong></div>
           <span className={styles.comparisonMark} aria-hidden="true">к</span>
@@ -310,11 +311,11 @@ function FinanceReports({ reports }: { reports: AppReports }) {
         <p className={`${styles.comparisonNote} ${difference > 0 ? styles.negative : difference < 0 ? styles.positive : ""}`}>{expenseComparison(current, previous, reports.monthComparison.previousPeriodEnd)}</p>
       </section>
       <section className={styles.reportSurface} aria-labelledby="lifeos-expense-categories-title">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>ТЕКУЩИЙ МЕСЯЦ</p><h2 id="lifeos-expense-categories-title">По категориям</h2></div>{categoriesTotal > 0 && <span className={styles.periodLabel}>{prbLabel(categoriesTotal)}</span>}</div>
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Текущий месяц</p><h2 id="lifeos-expense-categories-title">По категориям</h2></div>{categoriesTotal > 0 && <span className={styles.periodLabel}>{prbLabel(categoriesTotal)}</span>}</div>
         <ExpenseCategoryRows categories={reports.expenseCategories} />
       </section>
       <section className={styles.reportSurface} aria-labelledby="lifeos-purchases-title">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>ПОКУПКИ</p><h2 id="lifeos-purchases-title">Куда уходят деньги</h2></div></div>
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Покупки</p><h2 id="lifeos-purchases-title">Куда уходят деньги</h2></div></div>
         <div className={styles.purchaseGroup}>
           <h3>Крупнейшие покупки за месяц</h3>
           {largest.length ? <ol className={styles.purchaseList}>{largest.map((item, index) => <li key={`${item.occurredAt}-${item.name}-${index}`}><span><strong>{item.name}</strong><small>{dayLabel(item.occurredAt, { day: "numeric", month: "long" })}</small></span><strong>{prbLabel(item.amountMinor)}</strong></li>)}</ol> : <p className={styles.emptyText}>Пока нет покупок за этот месяц.</p>}
@@ -342,7 +343,7 @@ function GymReports({ reports }: { reports: AppReports }) {
   return (
     <div className={`${styles.reportStack} ${styles.gym}`} data-lg-role="rail">
       <section className={styles.reportSurface} aria-labelledby="lifeos-gym-progress-title">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>ПРОГРЕСС</p><h2 id="lifeos-gym-progress-title">Рабочий вес</h2></div></div>
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Прогресс</p><h2 id="lifeos-gym-progress-title">Рабочий вес</h2></div></div>
         {exercises.length ? <>
           <label className={styles.exerciseSelect}>Упражнение<select value={selectedExercise?.id ?? ""} onChange={(event) => setRequestedExerciseId(event.currentTarget.value)}>{exercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select></label>
           <p className={styles.chartTitle}>{selectedExercise?.name} · лучший завершённый подход</p>
@@ -351,7 +352,7 @@ function GymReports({ reports }: { reports: AppReports }) {
         </> : <p className={styles.emptyText}>Истории рабочих весов пока нет. Она появится после сохранения завершённых подходов с весом.</p>}
       </section>
       <section className={styles.reportSurface} aria-labelledby="lifeos-workout-history-title">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>ЖУРНАЛ</p><h2 id="lifeos-workout-history-title">Тренировки</h2></div><span className={styles.periodLabel}>{sessions.length} {plural(sessions.length, "тренировка", "тренировки", "тренировок")}</span></div>
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Журнал</p><h2 id="lifeos-workout-history-title">Тренировки</h2></div><span className={styles.periodLabel}>{sessions.length} {plural(sessions.length, "тренировка", "тренировки", "тренировок")}</span></div>
         {sessions.length ? <ol className={styles.sessionList}>{sessions.map((session) => <li key={session.id}>
           <span className={styles.sessionDate}>{dayLabel(session.completedAt, { day: "numeric", month: "short", year: "numeric" })}</span>
           <div className={styles.sessionBody}><strong>{session.name}</strong><small>{session.completedSets} {plural(session.completedSets, "подход", "подхода", "подходов")} · объём {numberFormat.format(session.volumeKg)} кг×повторы</small></div>
