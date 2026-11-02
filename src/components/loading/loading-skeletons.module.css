@@ -39,7 +39,7 @@
 .bootContent {
   display: grid;
   width: min(100%, 470px);
-  gap: 21px;
+  gap: 24px;
   margin-inline: auto;
 }
 
@@ -61,7 +61,7 @@
 .brandTitle { width: 66px; height: 13px; }
 .dateChip { width: 92px; height: 8px; border-radius: 999px; opacity: 0.7; }
 
-.pageHeading { gap: 9px; padding: 8px 2px 1px; }
+.pageHeading { gap: 8px; padding: 8px 2px 1px; }
 .pageTitle { width: min(58%, 190px); height: 27px; border-radius: 9px; }
 .pageSubtitle { width: min(74%, 248px); height: 9px; opacity: 0.65; }
 
@@ -77,17 +77,17 @@
   box-shadow: 0 15px 36px rgba(66, 31, 46, 0.075), inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
-.overviewCard { padding: 22px 21px 20px; }
+.overviewCard { padding: 24px 20px 20px; }
 .cardHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sectionLabel { width: 108px; height: 8px; opacity: 0.74; }
 .smallBadge { width: 28px; height: 22px; border-radius: 999px; opacity: 0.72; }
-.overviewValue { width: min(62%, 212px); height: 34px; margin-top: 19px; border-radius: 10px; }
+.overviewValue { width: min(62%, 212px); height: 34px; margin-top: 20px; border-radius: 10px; }
 
 .statGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid rgba(116, 43, 69, 0.11);
 }
@@ -95,14 +95,14 @@
 .stat { display: grid; min-width: 0; gap: 8px; }
 .statLabel { width: 70%; height: 7px; opacity: 0.62; }
 .statValue { width: 88%; height: 13px; border-radius: 5px; }
-.progressTrack { height: 7px; margin-top: 18px; overflow: hidden; border-radius: 999px; background: rgba(90, 68, 77, 0.1); }
+.progressTrack { height: 7px; margin-top: 16px; overflow: hidden; border-radius: 999px; background: rgba(90, 68, 77, 0.1); }
 .progressFill { display: block; width: 58%; height: 100%; border-radius: inherit; background: rgba(116, 43, 69, 0.16); }
 
-.secondaryCard { display: grid; gap: 16px; padding: 19px 20px 17px; border-radius: 25px; }
+.secondaryCard { display: grid; gap: 16px; padding: 20px; border-radius: 25px; }
 .secondaryTitle { width: 118px; height: 11px; }
-.secondaryRow { display: flex; min-width: 0; align-items: center; gap: 11px; }
+.secondaryRow { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .rowMark { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 12px; opacity: 0.8; }
-.rowCopy { flex: 1; gap: 7px; }
+.rowCopy { flex: 1; gap: 8px; }
 .rowTitle { width: min(100%, 134px); height: 9px; }
 .rowSubtitle { width: min(76%, 98px); height: 7px; opacity: 0.62; }
 .rowValue { width: 48px; height: 11px; flex: 0 0 48px; }
@@ -111,15 +111,15 @@
   position: fixed;
   z-index: 1;
   right: max(18px, calc((100vw - 470px) / 2));
-  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
   left: max(18px, calc((100vw - 470px) / 2));
   display: grid;
   width: min(430px, calc(100% - 36px));
   min-height: 70px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
   margin-inline: auto;
-  padding: 7px;
+  padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 999px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.63), rgba(255, 255, 255, 0.4));
@@ -130,13 +130,13 @@
 .dockIcon { width: 18px; height: 18px; border-radius: 6px; }
 
 .profileList,
-.quotaList { display: grid; gap: 13px; width: 100%; }
+.quotaList { display: grid; gap: 12px; width: 100%; }
 
 .profileCard {
   display: grid;
   min-width: 0;
   gap: 12px;
-  padding: 19px;
+  padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.77);
   border-radius: 23px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.18)), rgba(255, 255, 255, 0.14);
@@ -158,7 +158,7 @@
 .profileActionShort { width: 62px; opacity: 0.48; }
 
 .quotaList { gap: 0; border-top: 1px solid rgba(116, 43, 69, 0.13); }
-.quotaRow { display: grid; min-width: 0; gap: 12px; padding: 19px 0 17px; border-bottom: 1px solid rgba(116, 43, 69, 0.13); }
+.quotaRow { display: grid; min-width: 0; gap: 12px; padding: 20px 0 16px; border-bottom: 1px solid rgba(116, 43, 69, 0.13); }
 .quotaName { width: min(44%, 128px); height: 12px; }
 .quotaWindow { width: 76px; height: 8px; flex: 0 0 76px; opacity: 0.59; }
 .quotaValues { align-items: baseline; }
@@ -189,9 +189,9 @@
 }
 
 @media (max-width: 360px) {
-  .boot { padding-inline: 14px; }
-  .bootContent { gap: 17px; }
-  .overviewCard { padding: 19px 16px 17px; }
+  .boot { padding-inline: 16px; }
+  .bootContent { gap: 16px; }
+  .overviewCard { padding: 20px 16px; }
   .secondaryCard { padding-inline: 16px; }
   .statGrid { gap: 8px; }
   .profileCard { padding: 16px; }

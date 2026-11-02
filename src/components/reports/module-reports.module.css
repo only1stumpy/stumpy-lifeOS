@@ -7,7 +7,7 @@
 
 .reportStack {
   display: grid;
-  gap: 22px;
+  gap: 24px;
   margin-top: 0;
 }
 
@@ -15,7 +15,7 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: 26px 24px 24px;
+  padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.68);
   border-radius: 27px;
   background:
@@ -64,39 +64,40 @@
 
 .sectionHeading {
   align-items: flex-start;
-  margin-bottom: 17px;
+  margin-bottom: 16px;
 }
 
 .sectionHeading h2 {
   margin: 0;
   font-size: clamp(18px, 5vw, 21px);
   font-weight: 540;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.02em;
   line-height: 1.16;
 }
 
 .eyebrow {
-  margin: 0 0 5px;
+  margin: 0 0 4px;
   color: #76666d;
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 0.13em;
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: 0;
   line-height: 1.4;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .periodLabel,
 .periodHint {
   flex: 0 0 auto;
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .calendar {
-  margin: 5px 0 21px;
-  padding: 15px 13px 14px;
+  margin: 4px 0 20px;
+  padding: 16px 12px 12px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 21px;
   background: rgba(255, 255, 255, 0.08);
@@ -118,6 +119,7 @@
   font-weight: 560;
   text-align: center;
   text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
 }
 
 .calendarHeader button {
@@ -146,13 +148,13 @@
 .calendarGrid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 5px;
+  gap: 4px;
 }
 
 .calendarWeekdays {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 560;
   text-align: center;
 }
@@ -164,7 +166,7 @@
   min-height: 48px;
   align-content: center;
   justify-items: center;
-  gap: 3px;
+  gap: 4px;
   padding: 4px 1px;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -172,6 +174,7 @@
   color: #76666d;
   font: inherit;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -184,7 +187,7 @@
 .calendarDay[aria-pressed="true"] {
   border-color: var(--report-accent);
   background: rgba(255, 255, 255, 0.32);
-  box-shadow: 0 3px 9px rgba(70, 45, 63, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  box-shadow: 0 1px 3px rgba(53, 39, 44, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.68);
   color: #35272c;
 }
 
@@ -197,7 +200,7 @@
   max-width: 100%;
   color: var(--report-accent);
   font-family: "Medeo Mono", ui-monospace, monospace;
-  font-size: 8px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   overflow: hidden;
@@ -205,8 +208,8 @@
 }
 
 .selectedDay {
-  margin-top: 15px;
-  padding-top: 15px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid rgba(96, 45, 62, 0.13);
 }
 
@@ -214,7 +217,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
 .selectedDayHeading .eyebrow {
@@ -227,19 +230,21 @@
   font-size: 15px;
   font-weight: 560;
   text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
 }
 
 .selectedDayHeading > span {
   flex: 0 0 auto;
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .macroValues {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px;
-  margin: 13px 0 0;
+  gap: 8px;
+  margin: 12px 0 0;
 }
 
 .macroValues > div {
@@ -248,7 +253,7 @@
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  padding: 10px 11px;
+  padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.1);
@@ -256,26 +261,26 @@
 
 .macroValues dt {
   color: #76666d;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .macroValues dd {
   margin: 0;
   color: #35272c;
   font-family: "Medeo Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
 .controlRow {
-  margin-bottom: 13px;
+  margin-bottom: 12px;
 }
 
 .segmented {
   display: inline-flex;
-  gap: 3px;
-  padding: 3px;
+  gap: 4px;
+  padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.31);
@@ -285,14 +290,14 @@
 .segmented button,
 .metricButton {
   min-width: 54px;
-  min-height: 42px;
+  min-height: 44px;
   padding: 8px 12px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: #76666d;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform var(--motion-duration-release) var(--motion-ease-out);
   -webkit-tap-highlight-color: transparent;
@@ -302,7 +307,7 @@
 .metricButton[aria-pressed="true"] {
   border-color: rgba(255, 255, 255, 0.88);
   background: rgba(255, 255, 255, 0.68);
-  box-shadow: 0 3px 10px rgba(70, 45, 63, 0.08), inset 0 1px 0 #fff;
+  box-shadow: 0 1px 3px rgba(53, 39, 44, 0.06), inset 0 1px 0 #fff;
   color: #35272c;
 }
 
@@ -326,24 +331,24 @@
 .metricButton {
   min-width: 0;
   min-height: 52px;
-  padding: 14px 18px;
-  font-size: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
   text-align: center;
   white-space: nowrap;
 }
 
 .chartTitle {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   color: #76666d;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 550;
-  letter-spacing: 0.015em;
+  letter-spacing: 0;
 }
 
 .chartFrame {
   width: 100%;
   min-width: 0;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .chart {
@@ -353,6 +358,7 @@
   overflow: visible;
   color: var(--report-accent);
   font-family: "Medeo Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .gridLine {
@@ -363,33 +369,39 @@
 
 .axisLabel {
   fill: #76666d;
-  font-size: 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 440px) {
+  .axisLabel {
+    font-size: 16px;
+  }
 }
 
 .dataNote,
 .emptyText,
 .emptyChart {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   color: #6f6067;
   font-size: 12px;
   line-height: 1.5;
 }
 
 .emptyChart {
-  padding: 18px 0;
+  padding: 16px 0;
 }
 
 .tableDetails {
-  margin-top: 11px;
+  margin-top: 12px;
   border-top: 1px solid rgba(96, 45, 62, 0.13);
   color: #5f5056;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .tableDetails summary {
   width: fit-content;
-  min-height: 40px;
-  padding: 11px 2px 7px;
+  min-height: 44px;
+  padding: 12px 0 8px;
   color: #742b45;
   cursor: pointer;
 }
@@ -408,7 +420,7 @@
 }
 
 .tableScroll caption {
-  padding: 6px 0;
+  padding: 8px 0;
   color: #76666d;
   text-align: left;
 }
@@ -416,7 +428,7 @@
 .tableScroll th,
 .tableScroll td {
   min-width: 92px;
-  padding: 8px 9px 8px 0;
+  padding: 8px 8px 8px 0;
   border-bottom: 1px solid rgba(96, 45, 62, 0.1);
   vertical-align: top;
 }
@@ -426,7 +438,7 @@
 }
 
 .dataNote {
-  padding: 9px 11px;
+  padding: 8px 12px;
   border-left: 2px solid var(--report-accent);
   background: var(--report-accent-soft);
 }
@@ -435,7 +447,7 @@
 .purchaseList,
 .sessionList {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -447,7 +459,7 @@
 
 .categoryLine {
   align-items: baseline;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 12px;
   line-height: 1.35;
 }
@@ -462,9 +474,10 @@
   flex: 0 0 auto;
   color: #35272c;
   font-family: "Medeo Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 540;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .barTrack {
@@ -491,13 +504,13 @@
 .comparisonValues > div {
   display: grid;
   flex: 1 1 0;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
 .comparisonValues > div > span {
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -507,7 +520,8 @@
   font-family: "Medeo Mono", ui-monospace, monospace;
   font-size: clamp(12px, 3.8vw, 17px);
   font-weight: 550;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .comparisonMark {
@@ -518,7 +532,7 @@
 }
 
 .comparisonNote {
-  margin: 14px 0 0;
+  margin: 16px 0 0;
   color: #6f6067;
   font-size: 12px;
   line-height: 1.45;
@@ -533,22 +547,22 @@
 }
 
 .purchaseGroup + .purchaseGroup {
-  margin-top: 21px;
-  padding-top: 19px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid rgba(96, 45, 62, 0.13);
 }
 
 .purchaseGroup h3 {
-  margin: 0 0 11px;
+  margin: 0 0 12px;
   color: #5f5056;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .purchaseList li {
   align-items: flex-start;
-  padding-bottom: 11px;
+  padding-bottom: 12px;
   border-bottom: 1px solid rgba(96, 45, 62, 0.1);
   font-size: 12px;
 }
@@ -571,21 +585,22 @@
 
 .purchaseList li small {
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .exerciseSelect {
   display: grid;
-  gap: 7px;
-  margin: 0 0 14px;
+  gap: 8px;
+  margin: 0 0 16px;
   color: #76666d;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .exerciseSelect select {
   width: 100%;
   min-height: 44px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.42);
@@ -601,7 +616,7 @@
 .sessionList li {
   align-items: flex-start;
   justify-content: flex-start;
-  padding: 13px 0;
+  padding: 12px 0;
   border-top: 1px solid rgba(96, 45, 62, 0.11);
 }
 
@@ -609,8 +624,9 @@
   flex: 0 0 68px;
   padding-top: 2px;
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
 .sessionBody {
@@ -627,8 +643,9 @@
 
 .sessionBody small {
   color: #76666d;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
 .reportSurface :is(button, select, summary):active {
@@ -641,18 +658,37 @@
   transition-duration: 160ms, 160ms, 160ms, var(--motion-duration-press);
 }
 
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   .reportSurface {
-    padding: 18px 15px 17px;
+    padding: 16px 12px;
   }
 
   .calendar {
-    padding-inline: 9px;
+    padding-inline: 8px;
   }
 
   .calendarWeekdays,
   .calendarGrid {
-    gap: 3px;
+    gap: 4px;
+  }
+
+  .calendarDay {
+    padding-inline: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .axisLabel {
+    font-size: 18px;
+  }
+
+  .calendar {
+    padding-inline: 0;
+  }
+
+  .calendarWeekdays,
+  .calendarGrid {
+    gap: 0;
   }
 
   .calendarDay {

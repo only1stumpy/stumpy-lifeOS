@@ -5,7 +5,7 @@
   --debt-wine: var(--wine, #742b45);
   display: grid;
   min-width: 0;
-  gap: 30px;
+  gap: 32px;
   color: var(--debt-ink);
   font-family: inherit;
 }
@@ -26,11 +26,11 @@
 
 .eyebrow {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 8px;
   color: var(--debt-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 
@@ -38,7 +38,7 @@
   margin: 0;
   font-size: clamp(24px, 6vw, 30px);
   font-weight: 550;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -48,15 +48,15 @@
   min-height: 52px;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid rgba(116, 43, 69, 0.2);
   border-radius: 16px;
-  padding: 13px 18px;
+  padding: 12px 16px;
   background: rgba(255, 255, 255, 0.3);
   color: var(--debt-wine);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   line-height: 1.25;
   transition: transform 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out;
@@ -64,9 +64,9 @@
 
 .debtsView .addButton {
   border-color: rgba(255, 255, 255, 0.7);
-  background: linear-gradient(145deg, rgba(116, 43, 69, 0.92), rgba(88, 32, 54, 0.94));
+  background: var(--debt-wine);
   color: #fffaf9;
-  box-shadow: 0 5px 16px rgba(70, 45, 63, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  box-shadow: 0 1px 2px rgba(53, 39, 44, 0.08);
   white-space: nowrap;
 }
 
@@ -82,7 +82,8 @@
 }
 
 .debtsView .addButton:hover {
-  background: linear-gradient(145deg, rgba(116, 43, 69, 0.98), rgba(88, 32, 54, 0.99));
+  background: var(--debt-wine);
+  box-shadow: 0 2px 4px rgba(53, 39, 44, 0.1);
 }
 
 .debtsView button:active {
@@ -97,8 +98,8 @@
 .totals {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  padding: 18px 0 22px;
+  gap: 16px;
+  padding: 16px 0 24px;
   border-top: 1px solid var(--debt-line);
   border-bottom: 1px solid var(--debt-line);
 }
@@ -111,7 +112,7 @@
 }
 
 .totalCard + .totalCard {
-  padding-left: 18px;
+  padding-left: 16px;
   border-left: 1px solid var(--debt-line);
 }
 
@@ -143,7 +144,7 @@
 }
 
 .group + .group {
-  padding-top: 26px;
+  padding-top: 24px;
   border-top: 1px solid var(--debt-line);
 }
 
@@ -153,21 +154,21 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px 14px;
+  gap: 8px 16px;
 }
 
 .groupHeader h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 550;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
   line-height: 1.25;
 }
 
 .groupHeader p {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   color: var(--debt-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -188,7 +189,7 @@
 .debtRow {
   display: grid;
   min-width: 0;
-  gap: 13px;
+  gap: 12px;
   padding: 20px 0;
   border-top: 1px solid var(--debt-line);
 }
@@ -219,7 +220,7 @@
 .debtIdentity span,
 .original {
   color: var(--debt-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -237,9 +238,9 @@
 
 .debtMeta {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   color: var(--debt-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -250,14 +251,14 @@
 
 .repayButton {
   justify-self: start;
-  min-height: 46px !important;
-  padding: 11px 15px !important;
-  font-size: 11px !important;
+  min-height: 48px !important;
+  padding: 12px 16px !important;
+  font-size: 13px !important;
 }
 
 .groupEmpty {
   margin: 0;
-  padding: 15px 0 2px;
+  padding: 16px 0 4px;
   border-top: 1px solid var(--debt-line);
   color: var(--debt-muted);
   font-size: 12px;

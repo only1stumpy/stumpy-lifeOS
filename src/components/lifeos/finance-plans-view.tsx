@@ -43,7 +43,7 @@ export default function FinancePlansView({ plans, onAdd, onEdit, onDelete, onPur
     <section className={styles.plansView} aria-labelledby="finance-plans-heading">
       <header className={styles.header}>
         <div className={styles.titleBlock}>
-          <span className={styles.eyebrow}>БУДУЩИЕ ПОКУПКИ</span>
+          <span className={styles.eyebrow}>Будущие покупки</span>
           <h2 id="finance-plans-heading">Планы покупок</h2>
         </div>
         <button type="button" className={styles.addButton} onClick={onAdd}>

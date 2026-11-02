@@ -79,6 +79,7 @@ export function LifeOSBootSkeleton({ fullscreen = false, safeAreaTop = 0, conten
         <span className={styles.dockItem}><span className={`${styles.block} ${styles.dockIcon}`} /></span>
         <span className={styles.dockItem}><span className={`${styles.block} ${styles.dockIcon}`} /></span>
         <span className={styles.dockItem}><span className={`${styles.block} ${styles.dockIcon}`} /></span>
+        <span className={styles.dockItem}><span className={`${styles.block} ${styles.dockIcon}`} /></span>
       </nav>
     </div>
   );

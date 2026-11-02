@@ -198,7 +198,7 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
       <section ref={surfaceRef} className={styles.sheet} data-lg-role="focus">
         <GlassRefraction surfaceRef={surfaceRef} filterId={filterId} profile="soft" />
         <header className={styles.header}>
-          <div><p className={styles.eyebrow}>СЛУЖЕБНЫЙ РАЗДЕЛ</p><h2 id="ai-quotas-title">Лимиты ИИ</h2></div>
+          <div><p className={styles.eyebrow}>Служебный раздел</p><h2 id="ai-quotas-title">Лимиты ИИ</h2></div>
           <button ref={closeRef} className={styles.close} type="button" aria-label="Закрыть панель лимитов" onClick={onClose}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
         </header>
 
