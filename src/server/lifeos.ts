@@ -469,8 +469,12 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   const draftIds: string[] = [];
   await getDb().transaction(async (tx) => {
     if (input.previousDraftId) await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.id, input.previousDraftId), eq(s.captureDrafts.status, "pending")));
-    for (const entry of analysis.entries) {
-      const [capture] = await tx.insert(s.captureDrafts).values({ ownerId: owner.id, telegramUpdateRowId: input.telegramUpdateRowId, kind: entry.food && entry.money ? "combined" : entry.food ? "nutrition" : "finance", messageText: input.text }).returning();
+    // Food and money from one message always become separate drafts, so each has its own «Записать» and «Отменить».
+    const separated = analysis.entries.flatMap((entry) => entry.food && entry.money
+      ? [{ ...entry, money: null }, { ...entry, food: null }]
+      : [entry]);
+    for (const entry of separated) {
+      const [capture] = await tx.insert(s.captureDrafts).values({ ownerId: owner.id, telegramUpdateRowId: input.telegramUpdateRowId, kind: entry.food ? "nutrition" : "finance", messageText: input.text }).returning();
       draftIds.push(capture.id);
       const occurredAt = new Date(entry.occurredAt);
       if (entry.food) await tx.insert(s.nutritionDrafts).values({ ownerId: owner.id, captureDraftId: capture.id, name: entry.food.label, portionLabel: entry.food.portionLabel, ...macroStrings(entry.food), estimated: entry.food.estimated, occurredAt });

@@ -14,8 +14,15 @@ export function sumMacros(rows: MacroValues[]): MacroValues {
     carbsGrams: Math.round(total.carbsGrams * 100) / 100,
   };
 }
+// Constructing Intl.DateTimeFormat is expensive; snapshots call dateKey for every stored row.
+const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>();
 export function dateKey(value: Date | string, timeZone = "Europe/Chisinau"): string {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(value));
+  let formatter = dateKeyFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    dateKeyFormatters.set(timeZone, formatter);
+  }
+  const parts = formatter.formatToParts(new Date(value));
   const part = (key: string) => parts.find((p) => p.type === key)?.value ?? "";
   return part("year") + "-" + part("month") + "-" + part("day");
 }
