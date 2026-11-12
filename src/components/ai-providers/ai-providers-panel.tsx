@@ -42,7 +42,8 @@ type QueueItem = { providerId: ProviderId; modelId: string };
 type ConnectForm = { name: string; apiKey: string };
 type CustomForm = { name: string; endpoint: string; model: string; apiKey: string };
 type LoadState = "loading" | "ready" | "error";
-type Screen = "providers" | "provider" | "models" | "queue" | "welcome";
+type Screen = "intro" | "key" | "providers" | "provider" | "models" | "queue" | "welcome";
+type WizardProviderId = "gemini" | "groq" | "openrouter";
 type ProviderActionPayload =
   | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; freeTierConfirmed: true }
   | { action: "connect"; providerId: "custom"; name: string; endpoint: string; model: string; apiKey: string; freeTierConfirmed: true }
@@ -80,6 +81,38 @@ const providerBrandClasses: Record<StandardProviderId, string> = {
   groq: styles.brandGroq,
   cerebras: styles.brandCerebras,
   openrouter: styles.brandOpenrouter,
+};
+
+/** First-run wizard copy: one recommended service first, plain steps instead of provider settings. */
+const wizardProviderOrder: WizardProviderId[] = ["gemini", "openrouter", "groq"];
+const wizardCopy: Record<WizardProviderId, { summary: string; site: string; steps: string[] }> = {
+  gemini: {
+    summary: "Понимает текст, фото еды и чеков. Нужен аккаунт Google.",
+    site: "Google AI Studio",
+    steps: [
+      "Открой Google AI Studio по кнопке ниже и войди через аккаунт Google.",
+      "Нажми «Create API key» и дождись, пока ключ появится.",
+      "Скопируй ключ и вернись сюда.",
+    ],
+  },
+  openrouter: {
+    summary: "Понимает текст, фото еды и чеков. Подойдёт, если Google AI Studio недоступен.",
+    site: "OpenRouter",
+    steps: [
+      "Открой OpenRouter по кнопке ниже и зарегистрируйся по почте.",
+      "Нажми «Create Key», придумай любое название.",
+      "Скопируй ключ сразу — второй раз сайт его не покажет — и вернись сюда.",
+    ],
+  },
+  groq: {
+    summary: "Очень быстрый, но понимает только текст — фото еды и чеков разобрать не сможет.",
+    site: "Groq Console",
+    steps: [
+      "Открой Groq Console по кнопке ниже и зарегистрируйся.",
+      "Нажми «Create API Key», придумай любое название.",
+      "Скопируй ключ сразу — второй раз сайт его не покажет — и вернись сюда.",
+    ],
+  },
 };
 
 const emptyConnect: ConnectForm = { name: "", apiKey: "" };
@@ -260,6 +293,12 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const [modelQuery, setModelQuery] = useState<Record<string, string>>({});
   const [confirmDelete, setConfirmDelete] = useState<{ providerId: ProviderId; account: ProviderAccount } | null>(null);
   const [draggedQueueIndex, setDraggedQueueIndex] = useState<number | null>(null);
+  const [wizardProviderId, setWizardProviderId] = useState<WizardProviderId>("gemini");
+  const [wizardShowOthers, setWizardShowOthers] = useState(false);
+  const [wizardKey, setWizardKey] = useState("");
+  const [wizardFreeConfirmed, setWizardFreeConfirmed] = useState(false);
+  const [wizardConnected, setWizardConnected] = useState<{ name: string; models: number; images: boolean } | null>(null);
+  const initialScreenChosenRef = useRef(false);
 
   const authorization = `tma ${initData}`;
   const guidedRun = guidedOnboarding && !onboardingCompleted;
@@ -290,6 +329,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setQueue(orderedQueue);
       setLegacyProfileCount(body.legacyProfileCount);
       setOnboardingCompleted(body.onboardingCompleted);
+      if (!initialScreenChosenRef.current) {
+        initialScreenChosenRef.current = true;
+        // With nothing connected — first run or a return after «Настрою позже» — show the short wizard, not the settings catalog.
+        if (orderedQueue.length === 0 && sorted.every((provider) => provider.accounts.length === 0)) setScreen("intro");
+      }
       setLoadState("ready");
       return true;
     } catch (error) {
@@ -298,7 +342,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setLoadState("error");
       return false;
     }
-  }, [authorization, setLegacyProfileCount, setLoadError, setLoadState, setOnboardingCompleted, setProviders, setQueue]);
+  }, [authorization, setLegacyProfileCount, setLoadError, setLoadState, setOnboardingCompleted, setProviders, setQueue, setScreen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -380,6 +424,42 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       await finishConnection(connectProviderId, name);
     } catch (error) {
       setFormError(readableError(error, "Не удалось проверить и подключить аккаунт."));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const submitWizardKey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busyAction) return;
+    const apiKey = wizardKey.trim();
+    if (!apiKey) {
+      setFormError("Вставь ключ, который скопировал на сайте сервиса.");
+      return;
+    }
+    if (!wizardFreeConfirmed) {
+      setFormError("Отметь, что используешь бесплатный тариф.");
+      return;
+    }
+    const providerName = providers.find((provider) => provider.id === wizardProviderId)?.name ?? wizardCopy[wizardProviderId].site;
+    setBusyAction("wizard-connect");
+    setFormError("");
+    try {
+      const result = await postAction({ action: "connect", providerId: wizardProviderId, name: providerName, apiKey, freeTierConfirmed: true });
+      const models = isObject(result) && Array.isArray(result.models) ? result.models : [];
+      setWizardConnected({
+        name: providerName,
+        models: models.length,
+        images: models.some((model) => isObject(model) && model.supportsImages === true),
+      });
+      setWizardKey("");
+      setWizardFreeConfirmed(false);
+      // Models and their order are already chosen by the server; the wizard skips those screens.
+      await postAction({ action: "complete-onboarding" }).then(() => setOnboardingCompleted(true)).catch(() => undefined);
+      setScreen("welcome");
+      await reloadProviders();
+    } catch (error) {
+      setFormError(readableError(error, "Не удалось проверить ключ. Убедись, что скопировал его целиком, и попробуй ещё раз."));
     } finally {
       setBusyAction(null);
     }
@@ -598,7 +678,13 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const activeProvider = sortedProviders.find((provider) => provider.id === activeProviderId) ?? null;
   const globalAccounts = getGlobalAccountOrder(sortedProviders);
   const activeProviderApiUrl = activeProvider && isStandardProvider(activeProvider) ? safeHttpsUrl(providerApiKeyPages[activeProvider.id]) : null;
-  const screenTitle = screen === "providers"
+  const wizardProvider = sortedProviders.find((provider) => provider.id === wizardProviderId) ?? null;
+  const wizardApiUrl = safeHttpsUrl(providerApiKeyPages[wizardProviderId]);
+  const screenTitle = screen === "intro"
+    ? "Подключим ИИ"
+    : screen === "key"
+      ? "Получи ключ"
+      : screen === "providers"
     ? "Провайдеры ИИ"
     : screen === "provider"
       ? activeProvider?.name ?? "Провайдер"
@@ -699,8 +785,9 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       <div className={styles.panelContent}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
-            {screen !== "providers" && screen !== "welcome" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
-            <p className={styles.eyebrow}>{screen === "providers" ? "Персональные настройки ИИ" : screen === "queue" ? "Общий порядок использования" : screen === "welcome" ? "Настройка завершена" : "Настройка провайдера"}</p>
+            {screen === "key" && <button className={styles.backButton} type="button" onClick={() => { setFormError(""); setScreen("intro"); }} disabled={busyAction !== null}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
+            {screen !== "providers" && screen !== "welcome" && screen !== "intro" && screen !== "key" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
+            <p className={styles.eyebrow}>{screen === "intro" ? "Шаг 1 из 3" : screen === "key" ? "Шаг 2 из 3" : screen === "welcome" && wizardConnected ? "Шаг 3 из 3" : screen === "providers" ? "Персональные настройки ИИ" : screen === "queue" ? "Общий порядок использования" : screen === "welcome" ? "Настройка завершена" : "Настройка провайдера"}</p>
             <h1 id={`${id}-title`}>{screenTitle}</h1>
           </div>
         </header>
@@ -723,6 +810,61 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
               <p>{loadError || "Не удалось загрузить каталог ИИ."}</p>
               <button type="button" className={styles.secondaryAction} onClick={() => void reloadProviders()} disabled={busyAction !== null}>Повторить</button>
             </div>
+          )}
+
+          {loadState === "ready" && screen === "intro" && (
+            <motion.section className={styles.welcomePanel} variants={motionVariants.screen} initial="initial" animate="animate" aria-labelledby={`${id}-title`}>
+              <p className={styles.welcomeLead}>LifeOS понимает обычные сообщения вроде «съел плов» или «такси 40 рублей». Разбирает их ИИ — и ему нужен ключ.</p>
+              <ul className={styles.welcomeList}>
+                <li><strong>Что такое ключ.</strong> Это длинный код, как пароль. Ты получаешь его на сайте сервиса ИИ и вставляешь сюда один раз.</li>
+                <li><strong>Это бесплатно.</strong> У сервисов есть бесплатный тариф, которого хватает для личного дневника. LifeOS не подключает платные модели сам.</li>
+                <li><strong>Две минуты.</strong> Покажу, куда нажать. Ключ хранится в зашифрованном виде и после сохранения нигде не показывается.</li>
+              </ul>
+            </motion.section>
+          )}
+
+          {loadState === "ready" && screen === "key" && (
+            <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
+              <fieldset className={styles.wizardChoices} disabled={busyAction !== null}>
+                <legend className="visually-hidden">Сервис ИИ</legend>
+                {wizardProviderOrder.filter((providerId, index) => index === 0 || wizardShowOthers || providerId === wizardProviderId).map((providerId, index) => {
+                  const provider = sortedProviders.find((entry) => entry.id === providerId);
+                  if (!provider?.connectable) return null;
+                  return (
+                    <label key={providerId} className={`${styles.wizardChoice} ${wizardProviderId === providerId ? styles.wizardChoiceActive : ""}`}>
+                      <input type="radio" name={`${id}-wizard-provider`} checked={wizardProviderId === providerId} onChange={() => { setWizardProviderId(providerId); setFormError(""); }} />
+                      <span className={`${styles.providerMark} ${providerBrandClasses[providerId]}`} aria-hidden="true"><ProviderBrandMark provider={providerId} /></span>
+                      <span className={styles.wizardChoiceCopy}>
+                        <strong>{provider.name}{index === 0 && providerId === "gemini" ? <em>Советуем</em> : null}</strong>
+                        <span>{wizardCopy[providerId].summary}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+                {!wizardShowOthers && <button type="button" className={styles.textButton} onClick={() => setWizardShowOthers(true)}>Не открывается или нет аккаунта Google? Другие сервисы</button>}
+              </fieldset>
+
+              <form className={styles.connectForm} onSubmit={submitWizardKey}>
+                <ol className={styles.wizardSteps}>
+                  {wizardCopy[wizardProviderId].steps.map((step) => <li key={step}>{step}</li>)}
+                </ol>
+                {wizardApiUrl && (
+                  <a className={styles.providerApiLink} href={wizardApiUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, wizardApiUrl)}>
+                    Открыть {wizardCopy[wizardProviderId].site}
+                    <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
+                  </a>
+                )}
+                <label className={styles.field}><span>Ключ</span><input autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => setWizardKey(event.target.value)} placeholder="Вставь скопированный ключ" required /></label>
+                <label className={styles.confirmation}>
+                  <input type="checkbox" checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} />
+                  <span>Я на бесплатном тарифе и не привязывал карту к {wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.</span>
+                </label>
+                <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
+                {formError && <p className={styles.error} role="alert">{formError}</p>}
+                <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</button>
+              </form>
+              <button type="button" className={styles.textButton} onClick={() => { setFormError(""); setScreen("providers"); }} disabled={busyAction !== null}>Расширенные настройки</button>
+            </motion.div>
           )}
 
           {loadState === "ready" && screen === "providers" && (
@@ -934,11 +1076,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
           {loadState === "ready" && screen === "welcome" && (
             <motion.section className={styles.welcomePanel} variants={motionVariants.screen} initial="initial" animate="animate" aria-live="polite" aria-labelledby={`${id}-welcome-title`}>
-              <p className={styles.welcomeEyebrow}>Попробуй в чате</p>
+              <p className={styles.welcomeEyebrow}>{wizardConnected ? `${wizardConnected.name} подключён · ${wizardConnected.images ? "текст и фото" : "только текст"}` : "Попробуй в чате"}</p>
               <h2 id={`${id}-welcome-title`}>Пиши как обычно</h2>
               <p className={styles.welcomeLead}>Напиши, что съел или потратил, обычным сообщением.</p>
               <ul className={styles.welcomeList}>
-                <li><strong>Еда и траты.</strong> Расскажи, что съел, отправь фото (если выбранная модель его поддерживает) или назови покупку. LifeOS покажет черновик, а ты сохранишь его кнопкой «Записать».</li>
+                <li><strong>Еда и траты.</strong> Расскажи, что съел, или назови покупку. Можно прислать фото блюда, этикетки или чека, если выбранная модель понимает фото. LifeOS покажет черновик, а ты сохранишь его кнопкой «Записать».</li>
                 <li><strong>Твои данные.</strong> Спроси, сколько потратил сегодня, какой сейчас баланс или сколько осталось по КБЖУ.</li>
                 <li><strong>Общая справка.</strong> Задай вопрос о питании, КБЖУ или упражнениях.</li>
               </ul>
@@ -949,6 +1091,14 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {notice && <p className={styles.notice} role="status">{notice}</p>}
           {loadError && loadState === "ready" && <p className={styles.error} role="alert">{loadError}</p>}
         </div>
+
+        {loadState === "ready" && screen === "intro" && (
+          <footer className={styles.screenFooter}>
+            <button className={styles.primaryAction} type="button" onClick={() => setScreen("key")} disabled={busyAction !== null}>Начать</button>
+            <button className={styles.textButton} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : guidedRun ? "Настрою позже" : "Закрыть"}</button>
+            <p className={styles.guidance}>Без ключа дневник, финансы и зал работают вручную. Вернуться можно по шестерёнке внизу.</p>
+          </footer>
+        )}
 
         {loadState === "ready" && screen === "providers" && (
           <footer className={styles.screenFooter}>

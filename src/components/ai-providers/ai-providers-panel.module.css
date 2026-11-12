@@ -1414,7 +1414,7 @@
   letter-spacing: 0;
 }
 
-.welcomePanel > .welcomeLead {
+.welcomePanel > p.welcomeLead:not(.welcomeEyebrow) {
   margin-bottom: 16px;
 }
 
@@ -1727,5 +1727,110 @@
   .skipConfirmation,
   .welcomePanel {
     background: rgba(250, 246, 245, 0.96);
+  }
+}
+
+/* First-run wizard */
+.wizardChoices {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wizardChoice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid rgba(116, 43, 69, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.42);
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.wizardChoice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wizardChoiceActive {
+  border-color: rgba(116, 43, 69, 0.56);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.wizardChoice:focus-within {
+  box-shadow: 0 0 0 4px rgba(116, 43, 69, 0.1);
+}
+
+.wizardChoiceCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #6f6067;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wizardChoiceCopy strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #35272c;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.wizardChoiceCopy em {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(102, 131, 109, 0.16);
+  color: #4d6b55;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.wizardSteps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: wizard-step;
+  color: #4b333c;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.wizardSteps li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  counter-increment: wizard-step;
+}
+
+.wizardSteps li::before {
+  content: counter(wizard-step);
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(116, 43, 69, 0.1);
+  color: #742b45;
+  font: 600 13px/1 "Medeo Mono", ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wizardChoice {
+    transition: none;
   }
 }

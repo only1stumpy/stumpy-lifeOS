@@ -19,6 +19,7 @@ import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const TELEGRAM_FILE_TIMEOUT_MS = 20_000;
 const MAX_UPDATE_ATTEMPTS = 3;
+const MAX_SEPARATE_DRAFT_MESSAGES = 5;
 
 let botInstance: Bot<Context> | undefined;
 let botInitialization: Promise<void> | undefined;
@@ -41,7 +42,7 @@ function getBot(): Bot<Context> {
       .webApp("Открыть LifeOS", appUrl)
       .row()
       .text("Сводка сегодня", "today");
-    await ctx.reply("Привет! Я Stumpy’s LifeOS: помогу вести КБЖУ, финансы и тренировки. Для ИИ-разбора еды и ответов на вопросы сначала подключи API-ключ в Mini App. У некоторых провайдеров бывают бесплатные API-лимиты — условия зависят от конкретного сервиса. При первом открытии LifeOS покажет короткую настройку; дальше просто пиши, что съел или потратил, а я покажу черновик перед записью.", {
+    await ctx.reply("Привет! Я Stumpy’s LifeOS: помогу вести КБЖУ, финансы и тренировки. Пиши обычным текстом, что съел или потратил, — я покажу черновик, а запишу только после кнопки «Записать».\n\nЧтобы я понимал сообщения, нужен бесплатный ключ сервиса ИИ. Нажми «Открыть LifeOS» — там три коротких шага, это пара минут.", {
       reply_markup: keyboard,
     });
   });
@@ -83,6 +84,39 @@ function getBot(): Bot<Context> {
     }
 
     try {
+      if (action === "all" || action === "none") {
+        const owner = await ensureOwner();
+        const pending = await getDb()
+          .select({ id: schema.captureDrafts.id })
+          .from(schema.captureDrafts)
+          .where(and(eq(schema.captureDrafts.ownerId, owner.id), eq(schema.captureDrafts.telegramUpdateRowId, id), eq(schema.captureDrafts.status, "pending")));
+        if (!pending.length) {
+          await ctx.answerCallbackQuery({ text: "Здесь уже нечего подтверждать." });
+          await markMessage(ctx, "Все черновики из этого сообщения уже обработаны.");
+          return;
+        }
+        if (action === "none") {
+          for (const draft of pending) await executeCommand({ type: "draft.reject", id: draft.id });
+          await ctx.answerCallbackQuery({ text: "Хорошо, отменил." });
+          await markMessage(ctx, `Отменил черновики: ${pending.length}. Ничего не записывал.`);
+          return;
+        }
+        let saved = 0;
+        const problems: string[] = [];
+        for (const draft of pending) {
+          try {
+            await executeCommand({ type: "draft.confirm", id: draft.id });
+            saved += 1;
+          } catch (error) {
+            if (!(error instanceof AppError) || error.status >= 500) throw error;
+            if (!problems.includes(error.message)) problems.push(error.message);
+          }
+        }
+        await ctx.answerCallbackQuery({ text: `Записал: ${saved} из ${pending.length}.` });
+        await markMessage(ctx, [`Записал: ${saved} из ${pending.length}.`, ...problems.map((problem) => `Не записано: ${problem}`)].join("\n"));
+        return;
+      }
+
       if (action === "confirm") {
         await executeCommand({ type: "draft.confirm", id });
         await clearEditingCapture(id);
@@ -242,7 +276,7 @@ function getBot(): Bot<Context> {
       candidate.width * candidate.height > largest.width * largest.height ? candidate : largest,
     );
     if (!text.trim() && !photo) {
-      await ctx.reply("Я умею разбирать текст и фото еды или этикетки. Пришли одно из них — посмотрим, что получится записать.");
+      await ctx.reply("Я умею разбирать текст и фото еды, этикетки или чека. Пришли одно из них — посмотрим, что получится записать.");
       return;
     }
 
@@ -326,7 +360,7 @@ function getBot(): Bot<Context> {
       }
 
       if (photo) {
-        const status = await ctx.reply("Смотрю фото и оцениваю порцию…");
+        const status = await ctx.reply("Смотрю фото…");
         statusMessageId = status.message_id;
         image = await downloadTelegramPhoto(ctx, photo.file_id);
       } else {
@@ -359,9 +393,19 @@ function getBot(): Bot<Context> {
       const snapshot = await loadSnapshot();
       const drafts = snapshot.drafts.filter((draft) => result.draftIds.includes(draft.id));
       if (statusMessageId) await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
-      for (const draft of drafts) {
-        await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+      const moneyOnly = drafts.every((draft) => draft.money && !draft.food && !draft.debt);
+      if (updateRowId && moneyOnly && drafts.length > MAX_SEPARATE_DRAFT_MESSAGES) {
+        // A long receipt would flood the chat with one message per item; list it once with bulk actions.
+        await ctx.reply(formatDraftList(drafts), { reply_markup: bulkDraftKeyboard(updateRowId) });
+      } else {
+        for (const draft of drafts) {
+          await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+        }
+        if (updateRowId && drafts.length > 1) {
+          await ctx.reply(`Черновиков: ${drafts.length}. Можно подтвердить каждый отдельно или все разом.`, { reply_markup: bulkDraftKeyboard(updateRowId) });
+        }
       }
+      if (result.clarification) await ctx.reply(result.clarification);
     } catch (error) {
       if (statusMessageId) await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
       const messageText = error instanceof AppError || error instanceof AIAnalysisError
@@ -525,6 +569,25 @@ function formatDraft(
     }
   }
   return lines.join("\n");
+}
+
+function formatDraftList(drafts: { money: { label: string; amountMinor: number; currency: "PRB" | "USD"; category: string | null } | null }[]): string {
+  const lines = [`Проверь, пожалуйста · позиций: ${drafts.length}`];
+  const totals = new Map<"PRB" | "USD", number>();
+  drafts.forEach((draft, index) => {
+    if (!draft.money) return;
+    totals.set(draft.money.currency, (totals.get(draft.money.currency) ?? 0) + draft.money.amountMinor);
+    lines.push(`${index + 1}. ${draft.money.label} · ${formatMoney(draft.money.amountMinor, draft.money.currency)} · ${draft.money.category ?? "без категории"}`);
+  });
+  lines.push("Итого: " + [...totals].map(([currency, amountMinor]) => formatMoney(amountMinor, currency)).join(" + "));
+  lines.push("Каждая позиция запишется отдельной операцией. Отдельную позицию потом можно поправить или удалить в Mini App → Финансы.");
+  return lines.join("\n");
+}
+
+function bulkDraftKeyboard(updateRowId: string) {
+  return new InlineKeyboard()
+    .text("Записать все", `all:${updateRowId}`)
+    .text("Отменить все", `none:${updateRowId}`);
 }
 
 function draftKeyboard(id: string) {
