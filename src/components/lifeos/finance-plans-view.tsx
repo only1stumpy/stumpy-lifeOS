@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoneyAmount } from "@/domain/math";
 import styles from "./finance-plans-view.module.css";
 
 export type FinancePlanViewItem = {
@@ -16,12 +17,9 @@ type FinancePlansViewProps = {
   onPurchase(plan: FinancePlanViewItem): void;
 };
 
-const planAmountFormat = new Intl.NumberFormat("ru-RU", {
-  maximumFractionDigits: 2,
-});
 
 function moneyLabel(amountMinor: number): string {
-  return `${planAmountFormat.format(Math.abs(amountMinor) / 100)} р. ПМР`;
+  return `${formatMoneyAmount(amountMinor)} р. ПМР`;
 }
 
 function PlusIcon() {
