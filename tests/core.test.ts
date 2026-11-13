@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import { commandSchema } from "../src/domain/commands";
-import { convertToLocalMinor, parseMinor } from "../src/domain/math";
+import { convertToLocalMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
 import { suggestTargets } from "../src/domain/nutrition";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
@@ -466,4 +466,12 @@ test("предложенная цель КБЖУ даёт редактируем
   assert.throws(() => suggestTargets({ age: 18, heightCm: 180, weightKg: 80, sex: "male", activityMultiplier: 1.5 }));
   assert.throws(() => suggestTargets({ age: 30, heightCm: 180, weightKg: 29, sex: "male", activityMultiplier: 1.5 }));
   assert.throws(() => suggestTargets({ age: 30, heightCm: 180, weightKg: 80, sex: "male", activityMultiplier: 2 }));
+});
+
+test("суммы с копейками всегда показывают два знака, целые остаются короткими", () => {
+  assert.equal(formatMoneyAmount(90), "0,90");
+  assert.equal(formatMoneyAmount(4050), "40,50");
+  assert.equal(formatMoneyAmount(4851), "48,51");
+  assert.equal(formatMoneyAmount(2700), "27");
+  assert.equal(formatMoneyAmount(-3100), "31");
 });

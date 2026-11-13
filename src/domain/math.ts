@@ -42,3 +42,10 @@ export function convertToLocalMinor(amountMinor: number, currency: "PRB" | "USD"
   if (!Number.isSafeInteger(converted)) throw new Error("Сумма превышает допустимую точность.");
   return converted;
 }
+const wholeMoneyFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
+const fractionalMoneyFormat = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Whole amounts stay short ("27"); amounts with kopecks always show two digits ("0,90", not "0,9"). */
+export function formatMoneyAmount(minor: number): string {
+  const absolute = Math.abs(Math.round(minor));
+  return (absolute % 100 === 0 ? wholeMoneyFormat : fractionalMoneyFormat).format(absolute / 100);
+}

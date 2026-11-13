@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoneyAmount } from "@/domain/math";
 import styles from "./finance-debts-view.module.css";
 
 export type FinanceDebtViewItem = {
@@ -19,10 +20,9 @@ type FinanceDebtsViewProps = {
   onRepay(debt: FinanceDebtViewItem): void;
 };
 
-const amountFormat = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 function moneyLabel(amountMinor: number): string {
-  return `${amountFormat.format(Math.abs(amountMinor) / 100)} р. ПМР`;
+  return `${formatMoneyAmount(amountMinor)} р. ПМР`;
 }
 
 function dateLabel(value: string): string {

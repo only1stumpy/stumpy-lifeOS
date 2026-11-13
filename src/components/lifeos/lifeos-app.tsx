@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoneyAmount } from "@/domain/math";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -108,9 +109,8 @@ function timeLabel(value: string, timeZone: string): string {
 }
 
 function moneyLabel(minor: number, currency: "PRB" | "USD", signed = false): string {
-  const value = minor / 100;
   const prefix = minor < 0 ? "−" : signed && minor > 0 ? "+" : "";
-  const amount = decimalFormat.format(Math.abs(value));
+  const amount = formatMoneyAmount(minor);
   return currency === "USD" ? `${prefix}${amount} $` : `${prefix}${amount} р. ПМР`;
 }
 
