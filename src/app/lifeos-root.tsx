@@ -170,6 +170,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [showAiQuotas, setShowAiQuotas] = useState(false);
   const [showAiProviders, setShowAiProviders] = useState(false);
   const [guidedAiOnboarding, setGuidedAiOnboarding] = useState(false);
+  const [aiOnboardingQueued, setAiOnboardingQueued] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
@@ -270,7 +271,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         setSnapshot(nextSnapshot);
         setSelectedDate(nextSnapshot.localDate);
         setError(null);
-        if (!nextSnapshot.settings.aiOnboardingCompleted) {
+        if (!nextSnapshot.settings.profileOnboardingCompleted) {
+          setEditor({ kind: "target", firstRun: true });
+          setAiOnboardingQueued(!nextSnapshot.settings.aiOnboardingCompleted);
+        } else if (!nextSnapshot.settings.aiOnboardingCompleted) {
           setGuidedAiOnboarding(true);
           setShowAiProviders(true);
         }
@@ -419,6 +423,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     setError(null);
     setEditor(nextEditor);
   }, []);
+
+  // First run: the profile questionnaire comes first, AI setup opens once it is closed.
+  if (!editor && aiOnboardingQueued) {
+    setAiOnboardingQueued(false);
+    setGuidedAiOnboarding(true);
+    setShowAiProviders(true);
+  }
 
   const closeAiQuotas = useCallback(() => setShowAiQuotas(false), []);
   const closeAiProviders = useCallback(() => {

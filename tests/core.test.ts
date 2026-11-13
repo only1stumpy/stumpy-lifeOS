@@ -4,7 +4,8 @@ import test from "node:test";
 
 import { commandSchema } from "../src/domain/commands";
 import { convertToLocalMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
-import { suggestTargets } from "../src/domain/nutrition";
+import { ageOn, birthDateForAge, suggestTargets } from "../src/domain/nutrition";
+import { parseWeightMessage } from "../src/domain/weight-message";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
 import { analyzeMessage } from "../src/server/ai/analyze";
@@ -450,22 +451,41 @@ test("команды отклоняют отрицательные или нек
   assert.equal(missingMoneyCategoryMessage("expense"), "Уточните категорию расхода через «Исправить».");
 });
 
-test("предложенная цель КБЖУ даёт редактируемые числовые значения и отклоняет неподходящие параметры", () => {
-  const target = suggestTargets({ age: 30, heightCm: 180, weightKg: 80, sex: "male", activityMultiplier: 1.5 });
+test("предложенная цель КБЖУ учитывает цель и даёт редактируемые значения", () => {
+  const base = { age: 30, heightCm: 180, weightKg: 80, sex: "male", activityLevel: "moderate" } as const;
+  assert.deepEqual(suggestTargets({ ...base, goalType: "gain_mass" }), { calories: 3_050, proteinGrams: 128, fatGrams: 64, carbsGrams: 491 });
+  assert.deepEqual(suggestTargets({ ...base, goalType: "maintain" }), { calories: 2_750, proteinGrams: 128, fatGrams: 64, carbsGrams: 416 });
+  assert.deepEqual(suggestTargets({ ...base, goalType: "lose_weight" }), { calories: 2_350, proteinGrams: 160, fatGrams: 64, carbsGrams: 284 });
+  const target = suggestTargets({ ...base, goalType: "gain_mass" });
+  const edited = { ...target, calories: target.calories + 100 };
+  const command = commandSchema.parse({ type: "profile.save", profile: { ...base, goalType: "gain_mass" }, target: edited });
+  assert.deepEqual(command.type === "profile.save" ? command.target : null, edited);
+  assert.throws(() => suggestTargets({ ...base, age: 15, goalType: "maintain" }));
+  assert.throws(() => suggestTargets({ ...base, weightKg: 29, goalType: "maintain" }));
+  assert.throws(() => commandSchema.parse({ type: "profile.save", profile: { ...base, activityLevel: "extreme", goalType: "maintain" }, target }));
+});
 
-  assert.deepEqual(target, {
-    calories: 2_950,
-    proteinGrams: 128,
-    fatGrams: 64,
-    carbsGrams: 466,
-  });
-  assert.equal(typeof target.calories, "number");
-  const editedTarget = { ...target, calories: target.calories + 100 };
-  const settings = commandSchema.parse({ type: "settings.save", timeZone: "Europe/Chisinau", target: editedTarget });
-  assert.deepEqual(settings.type === "settings.save" ? settings.target : null, editedTarget);
-  assert.throws(() => suggestTargets({ age: 18, heightCm: 180, weightKg: 80, sex: "male", activityMultiplier: 1.5 }));
-  assert.throws(() => suggestTargets({ age: 30, heightCm: 180, weightKg: 29, sex: "male", activityMultiplier: 1.5 }));
-  assert.throws(() => suggestTargets({ age: 30, heightCm: 180, weightKg: 80, sex: "male", activityMultiplier: 2 }));
+test("возраст из анкеты хранится датой рождения и сам растёт с годами", () => {
+  const birth = birthDateForAge(30, "2026-11-13");
+  assert.equal(birth, "1996-11-13");
+  assert.equal(ageOn(birth, "2026-11-13"), 30);
+  assert.equal(ageOn(birth, "2027-11-12"), 30);
+  assert.equal(ageOn(birth, "2027-11-13"), 31);
+  assert.equal(birthDateForAge(20, "2028-02-29"), "2008-02-28");
+});
+
+test("вес из чата распознаётся только по слову «вес» или единице измерения", () => {
+  assert.equal(parseWeightMessage("вес 60"), 60);
+  assert.equal(parseWeightMessage("Вес: 72,4 кг"), 72.4);
+  assert.equal(parseWeightMessage("60 килограмм"), 60);
+  assert.equal(parseWeightMessage("60кг"), 60);
+  assert.equal(parseWeightMessage("вешу 81.5"), 81.5);
+  assert.equal(parseWeightMessage("мой вес сегодня 59,8 кг."), 59.8);
+  assert.equal(parseWeightMessage("60"), null);
+  assert.equal(parseWeightMessage("гречка 60 г"), null);
+  assert.equal(parseWeightMessage("купил картошку 5 кг"), null);
+  assert.equal(parseWeightMessage("вес 5"), null);
+  assert.equal(parseWeightMessage("вес 900 кг"), null);
 });
 
 test("суммы с копейками всегда показывают два знака, целые остаются короткими", () => {

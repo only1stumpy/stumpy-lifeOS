@@ -1,4 +1,4 @@
-import { and, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { Bot, InlineKeyboard, type Context } from "grammy";
 import type { InlineKeyboardMarkup, Update } from "grammy/types";
 import * as schema from "@/db/schema";
@@ -7,6 +7,7 @@ import { commandSchema } from "@/domain/commands";
 import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
 import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
 import { parseDebtMessage } from "@/domain/debt-message";
+import { parseWeightMessage } from "@/domain/weight-message";
 import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -286,6 +287,12 @@ function getBot(): Bot<Context> {
     let image: { mimeType: string; dataBase64: string } | undefined;
 
     try {
+      const weightKg = photo ? null : parseWeightMessage(text);
+      if (weightKg !== null) {
+        await ctx.reply(await saveWeightFromChat(owner.id, owner.timezone, weightKg));
+        return;
+      }
+
       if (!photo && text.trim() && isReferenceQuestion(text)) {
         const snapshot = await loadSnapshot();
         const knownAnswer = answerKnownReferenceQuestion(text, snapshot);
@@ -601,6 +608,24 @@ function draftKeyboard(id: string) {
 function formatMoney(amountMinor: number, currency: "PRB" | "USD"): string {
   const amount = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amountMinor / 100);
   return currency === "PRB" ? `${amount} руб. ПМР` : `${amount} USD`;
+}
+
+/** Records today's body weight without AI and compares it with the previous measurement. */
+async function saveWeightFromChat(ownerId: string, timeZone: string, weightKg: number): Promise<string> {
+  const today = dateKey(new Date(), timeZone);
+  const [previous] = await getDb().select().from(schema.weightEntries)
+    .where(and(eq(schema.weightEntries.ownerId, ownerId), lt(schema.weightEntries.occurredAt, new Date(today + "T12:00:00Z"))))
+    .orderBy(desc(schema.weightEntries.occurredAt))
+    .limit(1);
+  await executeCommand(commandSchema.parse({ type: "weight.save", date: today, weightKg }));
+  const lines = [`Записал вес ${round1(weightKg)} кг на сегодня.`];
+  if (previous) {
+    const [, month, day] = dateKey(previous.occurredAt, timeZone).split("-");
+    const delta = weightKg - Number(previous.weightKg);
+    lines.push(`Прошлый замер ${day}.${month}: ${round1(Number(previous.weightKg))} кг${Math.abs(delta) >= 0.05 ? ` (${formatSigned(delta)} кг)` : ", без изменений"}.`);
+  }
+  lines.push("Ошибся — пришли правильный вес, он заменит сегодняшний.");
+  return lines.join("\n");
 }
 
 function round1(value: number): string {
