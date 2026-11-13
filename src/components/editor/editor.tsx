@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FormEvent, MouseEvent, ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { exerciseCatalog } from "@/domain/exercise-catalog";
 import { parseMinor } from "@/domain/math";
-import { suggestTargets } from "@/domain/nutrition";
+import { ACTIVITY_LEVELS, GOALS, profileSchema, suggestTargets } from "@/domain/nutrition";
+import type { NutritionProfile } from "@/domain/nutrition";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { useMotionVariants } from "@/components/motion/motion-system";
@@ -19,7 +20,7 @@ export type EditorState =
   | { kind: "finance-plan-purchase"; plan: FinancePlan }
   | { kind: "debt-create"; openedAs?: "transfer" | "opening_balance" }
   | { kind: "debt-repayment"; debt: FinanceDebt }
-  | { kind: "target" }
+  | { kind: "target"; firstRun?: boolean }
   | { kind: "weight" }
   | { kind: "accounts"; account?: MoneyAccount }
   | { kind: "recurring"; item?: AppSnapshot["recurring"][number] }
@@ -454,51 +455,75 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
 
   function renderTargetForm() {
     const target = snapshot.nutrition.target;
-    function calculateTarget(event: MouseEvent<HTMLButtonElement>) {
-      const form = event.currentTarget.form;
-      if (!form) return;
+    const firstRun = editor.kind === "target" && editor.firstRun === true;
+    const saved = { ...snapshot.settings.profile, weightKg: snapshot.nutrition.bodyWeightKg ?? undefined };
+    const savedProfile = profileSchema.safeParse(saved);
+    const initialTarget = target ?? (savedProfile.success ? suggestTargets(savedProfile.data) : null);
+    const profileFields = ["sex", "age", "heightCm", "profileWeightKg", "activityLevel", "goalType"];
+
+    function readProfile(form: FormData): NutritionProfile | null {
+      const filled = profileFields.filter((name) => recordValue(form, name)).length;
+      if (filled === 0) return null;
+      if (filled < profileFields.length) throw new Error("Заполните все параметры профиля или оставьте их пустыми.");
+      const parsed = profileSchema.safeParse({
+        sex: recordValue(form, "sex"),
+        age: requiredNumber(form, "age", "Возраст"),
+        heightCm: requiredNumber(form, "heightCm", "Рост"),
+        weightKg: requiredNumber(form, "profileWeightKg", "Вес"),
+        activityLevel: recordValue(form, "activityLevel"),
+        goalType: recordValue(form, "goalType"),
+      });
+      if (!parsed.success) throw new Error("Проверьте профиль: возраст 16–90 лет, рост 100–250 см, вес 30–350 кг.");
+      return parsed.data;
+    }
+
+    function recalculate(event: FormEvent<HTMLFormElement>) {
+      const field = event.target as HTMLInputElement | HTMLSelectElement;
+      if (!profileFields.includes(field.name)) return;
       try {
-        const values = new FormData(form);
-        const nextTarget = suggestTargets({
-          age: requiredNumber(values, "age", "Возраст"),
-          heightCm: requiredNumber(values, "heightCm", "Рост"),
-          weightKg: requiredNumber(values, "profileWeightKg", "Масса тела"),
-          sex: requiredText(values, "sex", "Пол при расчёте") as "male" | "female",
-          activityMultiplier: requiredNumber(values, "activityMultiplier", "Уровень активности"),
-        });
+        const profile = readProfile(new FormData(event.currentTarget));
+        if (!profile) return;
         setFormError(null);
-        setSuggestedTarget(nextTarget);
+        setSuggestedTarget(suggestTargets(profile));
         setTargetRevision((revision) => revision + 1);
-      } catch (cause) {
-        setFormError(cause instanceof Error ? cause.message : "Проверьте параметры расчёта.");
+      } catch {
+        // Incomplete profile while typing: keep the current numbers.
       }
     }
+
     return (
-      <form onSubmit={(event) => submitForm(event, (form) => ({
-        type: "settings.save",
-        timeZone: snapshot.settings.timeZone,
-        target: {
+      <form onChange={recalculate} onSubmit={(event) => submitForm(event, (form) => {
+        const targetValues = {
           calories: requiredNumber(form, "calories", "Калории"),
           proteinGrams: requiredNumber(form, "proteinGrams", "Белки"),
           fatGrams: requiredNumber(form, "fatGrams", "Жиры"),
           carbsGrams: requiredNumber(form, "carbsGrams", "Углеводы"),
-        },
-      }))}>
-        <p>Укажите дневную цель КБЖУ для набора массы. Значения можно изменить позже.</p>
-        <details>
-          <summary>Рассчитать стартовую цель по параметрам</summary>
-          <p>Это редактируемая оценка с профицитом 10%. Параметры не сохраняются.</p>
-          <div className="fields-row">
-            <label>Возраст<input name="age" type="number" min="19" max="78" step="1" /></label>
-            <label>Рост, см<input name="heightCm" type="number" min="100" max="250" step="0.1" /></label>
-            <label>Масса тела, кг<input name="profileWeightKg" type="number" min="30" max="350" step="0.1" /></label>
-            <label>Пол<select name="sex" defaultValue=""><option value="" disabled>Выберите</option><option value="male">Мужской</option><option value="female">Женский</option></select></label>
-          </div>
-          <label>Активность<select name="activityMultiplier" defaultValue=""><option value="" disabled>Выберите уровень</option><option value="1.2">Минимальная — почти без активности</option><option value="1.375">Низкая — лёгкая активность</option><option value="1.55">Средняя — тренировки несколько раз в неделю</option><option value="1.725">Высокая — интенсивные тренировки</option><option value="1.9">Очень высокая — тяжёлая нагрузка</option></select></label>
-          <button type="button" onClick={calculateTarget}>Рассчитать и заполнить КБЖУ</button>
-        </details>
-        <MacroFields key={targetRevision} values={suggestedTarget ?? target} />
-        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить цель</button></div>
+        };
+        const profile = readProfile(form);
+        return profile
+          ? { type: "profile.save", profile, target: targetValues }
+          : { type: "settings.save", timeZone: snapshot.settings.timeZone, target: targetValues };
+      })}>
+        <p>{firstRun
+          ? "Ответьте на шесть вопросов — посчитаем дневную норму калорий и КБЖУ. Всё можно поменять позже."
+          : "Норма пересчитывается при изменении профиля. Цифры можно поправить вручную."}</p>
+        <div className="fields-row">
+          <label>Пол<select name="sex" defaultValue={saved.sex ?? ""}><option value="" disabled>Выберите</option><option value="male">Мужской</option><option value="female">Женский</option></select></label>
+          <label>Возраст, лет<input name="age" type="number" inputMode="numeric" min="16" max="90" step="1" defaultValue={saved.age ?? ""} /></label>
+          <label>Рост, см<input name="heightCm" type="number" inputMode="decimal" min="100" max="250" step="0.1" defaultValue={saved.heightCm ?? ""} /></label>
+          <label>Вес, кг<input name="profileWeightKg" type="number" inputMode="decimal" min="30" max="350" step="0.1" defaultValue={saved.weightKg ?? ""} /></label>
+        </div>
+        <label>Активность<select name="activityLevel" defaultValue={saved.activityLevel ?? ""}><option value="" disabled>Выберите уровень</option>{Object.entries(ACTIVITY_LEVELS).map(([value, level]) => <option key={value} value={value}>{level.label}</option>)}</select></label>
+        <label>Цель<select name="goalType" defaultValue={savedProfile.success || !firstRun ? saved.goalType ?? "" : ""}><option value="" disabled>Выберите цель</option>{Object.entries(GOALS).map(([value, goal]) => <option key={value} value={value}>{goal.label}</option>)}</select></label>
+        <h3>Норма в день</h3>
+        <MacroFields key={targetRevision} values={suggestedTarget ?? initialTarget} />
+        <p>Оценка по формуле Миффлина — Сан Жеора с учётом активности и цели. Вес из профиля попадёт в историю веса.</p>
+        <div className="actions">
+          {firstRun
+            ? <button type="button" disabled={pending} onClick={() => void onCommand({ type: "profile.skip" })}>Позже</button>
+            : <button type="button" disabled={pending} onClick={onClose}>Отмена</button>}
+          <button className="submit" type="submit" disabled={pending}>Сохранить</button>
+        </div>
       </form>
     );
   }
@@ -826,7 +851,7 @@ function editorTitle(editor: EditorState): string {
     case "finance-plan-purchase": return "Записать покупку";
     case "debt-create": return "Новый долг";
     case "debt-repayment": return editor.debt.direction === "i_owe" ? "Возврат долга" : "Получение возврата";
-    case "target": return "Цель КБЖУ";
+    case "target": return editor.firstRun ? "Расскажите о себе" : "Профиль и цель КБЖУ";
     case "weight": return "Масса тела";
     case "accounts": return "Счета и курс";
     case "recurring": return editor.item ? "Изменить платёж" : "Подписки и платежи";

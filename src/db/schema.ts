@@ -37,6 +37,8 @@ export const ownerSettings = pgTable(
     heightCm: numeric("height_cm", { precision: 6, scale: 2 }),
     activityLevel: text("activity_level"),
     goalType: text("goal_type").default("gain_mass").notNull(),
+    sex: text("sex"),
+    profileOnboardingCompleted: boolean("profile_onboarding_completed").default(false).notNull(),
     financeConfirmationRequired: boolean("finance_confirmation_required").default(true).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { profileSchema } from "./nutrition";
 
 const id = z.string().uuid();
 const text = z.string().trim().min(1).max(300);
@@ -10,6 +11,8 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("settings.save"), timeZone: z.string().min(1).max(100), target: macrosSchema.nullable() }),
   z.object({ type: z.literal("food.save"), id: id.optional(), label: text, portionLabel: text, occurredAt: timestamp, estimated: z.boolean().default(false), ...macrosSchema.shape }),
   z.object({ type: z.literal("food.delete"), id }),
+  z.object({ type: z.literal("profile.save"), profile: profileSchema, target: macrosSchema }),
+  z.object({ type: z.literal("profile.skip") }),
   z.object({ type: z.literal("weight.save"), date: z.string().date(), weightKg: z.number().min(1).max(700) }),
   z.object({ type: z.literal("account.save"), id: id.optional(), name: text, currency: z.enum(["PRB", "USD"]), openingBalanceMinor: z.number().int().min(-1e12).max(1e12).default(0), isDefault: z.boolean().default(false) }),
   z.object({ type: z.literal("rate.save"), usdToPrb: z.string().regex(/^\d{1,6}(\.\d{1,6})?$/).refine((v) => Number(v) > 0), effectiveAt: timestamp.optional() }),

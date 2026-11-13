@@ -7,6 +7,7 @@ import type { FinanceDebt, MacroValues, FoodLogEntry, WorkoutDay } from "@/domai
 import { convertToLocalMinor, dateKey, sumMacros } from "@/domain/math";
 import { advanceRecurrenceDate } from "@/domain/recurrence";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
+import { ACTIVITY_LEVELS, GOALS, ageOn, birthDateForAge, type NutritionProfile } from "@/domain/nutrition";
 import { AppError } from "./http";
 import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
@@ -28,6 +29,24 @@ const toMinor = (value: string) => {
 const macroNumbers = (row: { calories: string; proteinGrams: string; fatGrams: string; carbsGrams: string }): MacroValues => ({
   calories: Number(row.calories), proteinGrams: Number(row.proteinGrams), fatGrams: Number(row.fatGrams), carbsGrams: Number(row.carbsGrams),
 });
+/** Saved calculator parameters without body weight; the latest weight entry supplies it. Incomplete or legacy values yield null fields. */
+function storedProfile(owner: typeof s.ownerSettings.$inferSelect, today: string): Partial<Omit<NutritionProfile, "weightKg">> {
+  return {
+    sex: owner.sex === "male" || owner.sex === "female" ? owner.sex : undefined,
+    age: owner.dateOfBirth ? ageOn(owner.dateOfBirth, today) : undefined,
+    heightCm: owner.heightCm ? Number(owner.heightCm) : undefined,
+    activityLevel: owner.activityLevel && owner.activityLevel in ACTIVITY_LEVELS ? owner.activityLevel as NutritionProfile["activityLevel"] : undefined,
+    goalType: owner.goalType in GOALS ? owner.goalType as NutritionProfile["goalType"] : undefined,
+  };
+}
+
+/** One weight measurement per local day: a repeated entry for the same date replaces the earlier one. */
+async function saveDailyWeight(tx: Transaction, ownerId: string, date: string, weightKg: number): Promise<void> {
+  const occurredAt = new Date(date + "T12:00:00Z");
+  const updated = await tx.update(s.weightEntries).set({ weightKg: String(weightKg) }).where(and(eq(s.weightEntries.ownerId, ownerId), eq(s.weightEntries.occurredAt, occurredAt))).returning({ id: s.weightEntries.id });
+  if (!updated.length) await tx.insert(s.weightEntries).values({ ownerId, weightKg: String(weightKg), occurredAt });
+}
+
 const macroStrings = (row: MacroValues) => ({
   calories: String(row.calories), proteinGrams: String(row.proteinGrams), fatGrams: String(row.fatGrams), carbsGrams: String(row.carbsGrams),
 });
@@ -197,7 +216,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted },
+    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today) },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);
@@ -500,7 +519,7 @@ export async function executeCommand(command: AppCommand) {
     switch (command.type) {
       case "settings.save": {
         try { new Intl.DateTimeFormat("ru", { timeZone: command.timeZone }).format(); } catch { throw new AppError(400, "Неизвестный часовой пояс."); }
-        await tx.update(s.ownerSettings).set({ timezone: command.timeZone, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+        await tx.update(s.ownerSettings).set({ timezone: command.timeZone, ...(command.target ? { profileOnboardingCompleted: true } : {}), updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
         const effectiveFrom = dateKey(new Date(), command.timeZone);
         if (command.target) await tx.insert(s.nutritionTargets).values({ ownerId: owner.id, effectiveFrom, ...macroStrings(command.target) }).onConflictDoUpdate({ target: [s.nutritionTargets.ownerId, s.nutritionTargets.effectiveFrom], set: macroStrings(command.target) });
         break;
@@ -512,7 +531,17 @@ export async function executeCommand(command: AppCommand) {
         break;
       }
       case "food.delete": await tx.delete(s.nutritionEntries).where(and(eq(s.nutritionEntries.id, command.id), eq(s.nutritionEntries.ownerId, owner.id))); break;
-      case "weight.save": await tx.insert(s.weightEntries).values({ ownerId: owner.id, weightKg: String(command.weightKg), occurredAt: new Date(command.date + "T12:00:00Z") }); break;
+      case "profile.save": {
+        const { profile, target } = command;
+        const today = dateKey(new Date(), owner.timezone);
+        await tx.update(s.ownerSettings).set({ sex: profile.sex, dateOfBirth: birthDateForAge(profile.age, today), heightCm: String(profile.heightCm), activityLevel: profile.activityLevel, goalType: profile.goalType, profileOnboardingCompleted: true, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+        const [latestWeight] = await tx.select().from(s.weightEntries).where(eq(s.weightEntries.ownerId, owner.id)).orderBy(desc(s.weightEntries.occurredAt)).limit(1);
+        if (!latestWeight || Number(latestWeight.weightKg) !== profile.weightKg) await saveDailyWeight(tx, owner.id, today, profile.weightKg);
+        await tx.insert(s.nutritionTargets).values({ ownerId: owner.id, effectiveFrom: today, ...macroStrings(target) }).onConflictDoUpdate({ target: [s.nutritionTargets.ownerId, s.nutritionTargets.effectiveFrom], set: macroStrings(target) });
+        break;
+      }
+      case "profile.skip": await tx.update(s.ownerSettings).set({ profileOnboardingCompleted: true, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id)); break;
+      case "weight.save": await saveDailyWeight(tx, owner.id, command.date, command.weightKg); break;
       case "account.save": {
         if (command.isDefault) await tx.update(s.financeAccounts).set({ isDefault: false }).where(eq(s.financeAccounts.ownerId, owner.id));
         if (command.id) {
