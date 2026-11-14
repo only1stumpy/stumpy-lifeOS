@@ -25,51 +25,48 @@ export function LifeOSBootSkeleton({ fullscreen = false, safeAreaTop = 0, conten
           <span className={`${styles.block} ${styles.pageTitle}`} />
         </div>
 
-        <section className={styles.overviewCard}>
-          <div className={styles.cardHeading}>
-            <span className={`${styles.block} ${styles.sectionLabel}`} />
-            <span className={`${styles.block} ${styles.smallBadge}`} />
-          </div>
-          <span className={`${styles.block} ${styles.overviewValue}`} />
-          <div className={styles.statGrid}>
-            <div className={styles.stat}>
-              <span className={`${styles.block} ${styles.statLabel}`} />
-              <span className={`${styles.block} ${styles.statValue}`} />
+        <section className={styles.surface}>
+          <div className={styles.todaySection}>
+            <div className={styles.cardHeading}>
+              <span className={`${styles.block} ${styles.sectionLabel}`} />
+              <span className={`${styles.block} ${styles.sectionLink}`} />
             </div>
-            <div className={styles.stat}>
-              <span className={`${styles.block} ${styles.statLabel}`} />
-              <span className={`${styles.block} ${styles.statValue}`} />
+            <div className={styles.bigRow}>
+              <span className={`${styles.block} ${styles.bigNumber}`} />
+              <span className={`${styles.block} ${styles.bigUnit}`} />
             </div>
-            <div className={styles.stat}>
-              <span className={`${styles.block} ${styles.statLabel}`} />
-              <span className={`${styles.block} ${styles.statValue}`} />
+            <div className={styles.progressTrack}><span className={styles.progressFill} /></div>
+            {[0, 1, 2].map((item) => (
+              <div className={styles.macroRow} key={item}>
+                <span className={`${styles.block} ${styles.macroMark}`} />
+                <span className={styles.macroBar} />
+                <span className={`${styles.block} ${styles.macroValue}`} />
+              </div>
+            ))}
+            <div className={styles.footRow}>
+              <span className={`${styles.block} ${styles.footLeft}`} />
+              <span className={`${styles.block} ${styles.footRight}`} />
             </div>
+            <span className={`${styles.block} ${styles.ghostAction}`} />
           </div>
-          <div className={styles.progressTrack}>
-            <span className={styles.progressFill} />
-          </div>
-        </section>
 
-        <section className={styles.secondaryCard}>
-          <div className={styles.cardHeading}>
-            <span className={`${styles.block} ${styles.secondaryTitle}`} />
-            <span className={`${styles.block} ${styles.smallBadge}`} />
-          </div>
-          <div className={styles.secondaryRow}>
-            <span className={`${styles.block} ${styles.rowMark}`} />
-            <div className={styles.rowCopy}>
-              <span className={`${styles.block} ${styles.rowTitle}`} />
-              <span className={`${styles.block} ${styles.rowSubtitle}`} />
+          <div className={styles.todaySection}>
+            <div className={styles.cardHeading}>
+              <span className={`${styles.block} ${styles.sectionLabel}`} />
+              <span className={`${styles.block} ${styles.sectionLink}`} />
             </div>
-            <span className={`${styles.block} ${styles.rowValue}`} />
-          </div>
-          <div className={styles.secondaryRow}>
-            <span className={`${styles.block} ${styles.rowMark}`} />
-            <div className={styles.rowCopy}>
-              <span className={`${styles.block} ${styles.rowTitle}`} />
-              <span className={`${styles.block} ${styles.rowSubtitle}`} />
+            <div className={styles.financeGrid}>
+              <div className={styles.financeCell}>
+                <span className={`${styles.block} ${styles.statLabel}`} />
+                <span className={`${styles.block} ${styles.statLabel}`} />
+                <span className={`${styles.block} ${styles.moneyValue}`} />
+              </div>
+              <div className={styles.financeCell}>
+                <span className={`${styles.block} ${styles.statLabel}`} />
+                <span className={`${styles.block} ${styles.moneyValue}`} />
+              </div>
             </div>
-            <span className={`${styles.block} ${styles.rowValue}`} />
+            <span className={`${styles.block} ${styles.ghostAction}`} />
           </div>
         </section>
       </div>
@@ -85,22 +82,24 @@ export function LifeOSBootSkeleton({ fullscreen = false, safeAreaTop = 0, conten
   );
 }
 
+/** Mirrors the AI providers page: intro text, the limits button and one row per provider. */
 export function ProviderProfilesSkeleton() {
   return (
     <div className={styles.profileList} aria-hidden="true">
-      {[0, 1, 2].map((item) => (
-        <div className={styles.profileCard} key={item}>
-          <div className={styles.profileHeader}>
-            <span className={`${styles.block} ${styles.profileName}`} />
-            <span className={`${styles.block} ${styles.profileStatus}`} />
+      <div className={styles.introLines}>
+        <span className={`${styles.block} ${styles.introLine}`} />
+        <span className={`${styles.block} ${styles.introLine}`} />
+        <span className={`${styles.block} ${styles.introLineShort}`} />
+      </div>
+      <span className={`${styles.block} ${styles.pillButton}`} />
+      {[0, 1, 2, 3].map((item) => (
+        <div className={styles.providerRow} key={item}>
+          <span className={`${styles.block} ${styles.providerLogo}`} />
+          <div className={styles.rowCopy}>
+            <span className={`${styles.block} ${styles.providerName}`} />
+            <span className={`${styles.block} ${styles.providerMeta}`} />
           </div>
-          <span className={`${styles.block} ${styles.profileModel}`} />
-          <span className={`${styles.block} ${styles.profileEndpoint}`} />
-          <span className={`${styles.block} ${styles.profileKey}`} />
-          <div className={styles.profileActions}>
-            <span className={`${styles.block} ${styles.profileAction}`} />
-            <span className={`${styles.block} ${styles.profileActionShort}`} />
-          </div>
+          <span className={`${styles.block} ${styles.providerStatus}`} />
         </div>
       ))}
     </div>
