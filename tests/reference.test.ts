@@ -6,14 +6,14 @@ import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext
 
 const snapshot = {
   localDate: "2026-10-28",
-  settings: { timeZone: "Europe/Chisinau", usdToPrb: "17.5", defaultAccountId: "main", aiOnboardingCompleted: true },
+  settings: { timeZone: "Europe/Chisinau", baseCurrency: "PRB", rates: { USD: "17.5" }, defaultAccountId: "main", aiOnboardingCompleted: true },
   finance: {
     accounts: [
       { id: "main", name: "Зарплатная карта", currency: "PRB", balanceMinor: 74200, openingBalanceMinor: 70000, isDefault: true },
       { id: "usd", name: "Mastercard", currency: "USD", balanceMinor: 12550, openingBalanceMinor: 12000, isDefault: false },
     ],
-    spentTodayPrbMinor: 550,
-    spentMonthPrbMinor: 22000,
+    spentTodayMinor: 550,
+    spentMonthMinor: 22000,
     entries: [],
   },
   reports: { expenseCategories: [], nutritionDays: [], exerciseProgress: [] },
@@ -50,6 +50,6 @@ test("справочные вопросы перехватываются, а о�
 test("справочный контекст содержит агрегаты, но не включает черновики и Telegram ID", () => {
   const context = makeReferenceContext(snapshot);
   assert.match(context, /"balanceMinor":74200/);
-  assert.match(context, /"spentTodayPrbMinor":550/);
+  assert.match(context, /"spentTodayMinor":550/);
   assert.doesNotMatch(context, /"drafts"|telegramUserId|"id":"main"/);
 });

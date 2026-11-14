@@ -3,15 +3,17 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AppSnapshot } from "@/domain/app";
 import { commandSchema, type AppCommand } from "@/domain/commands";
+import { currencyUnit } from "@/domain/currencies";
 import { parseMinor } from "@/domain/math";
 import { ALL_MODULES, LIFE_MODULES, type LifeModule } from "@/domain/modules";
 import { ACTIVITY_LEVELS, GOALS, profileSchema, suggestTargets, type NutritionProfile } from "@/domain/nutrition";
 import { USAGE_MODES, type UsageMode } from "@/domain/notifications";
+import { CurrencyPicker } from "@/components/finance/currency-picker";
 import styles from "./onboarding-flow.module.css";
 
 export type OnboardingCommand = Extract<AppCommand, { type: "onboarding.complete" }>;
 
-type Step = "modules" | "usage" | "profile" | "account" | "ai";
+type Step = "modules" | "usage" | "profile" | "currency" | "balance" | "ai";
 type ProfileForm = { sex: string; age: string; heightCm: string; weightKg: string; activityLevel: string; goalType: string };
 type Props = {
   snapshot: AppSnapshot;
@@ -58,9 +60,8 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
     };
   });
   const [skipProfile, setSkipProfile] = useState(false);
-  const [currency, setCurrency] = useState<"PRB" | "USD">("PRB");
+  const [currency, setCurrency] = useState("");
   const [amount, setAmount] = useState("");
-  const [rate, setRate] = useState(snapshot.settings.usdToPrb ?? "");
   const [skipAccount, setSkipAccount] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -69,10 +70,13 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   const steps = useMemo<Step[]>(() => {
     const list: Step[] = ["modules", "usage"];
     if (modules.includes("nutrition")) list.push("profile");
-    if (modules.includes("finance")) list.push("account");
+    if (modules.includes("finance")) {
+      list.push("currency");
+      if (!skipAccount) list.push("balance");
+    }
     list.push("ai");
     return list;
-  }, [modules]);
+  }, [modules, skipAccount]);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   // The step before the AI one is where the answers are saved.
   const isLastDataStep = stepIndex >= steps.length - 2;
@@ -90,9 +94,6 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
     weightKg: profile.weightKg !== "" && !(num(profile.weightKg) >= 30 && num(profile.weightKg) <= 350),
   };
 
-  const rateValid = /^\d{1,6}([.,]\d{1,6})?$/.test(rate.trim()) && Number(rate.replace(",", ".")) > 0;
-  const rateInvalid = currency === "USD" && rate.trim() !== "" && !rateValid;
-
   function changeProfile(patch: Partial<ProfileForm>) {
     setProfile({ ...profile, ...patch });
   }
@@ -108,11 +109,9 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   const stepBlocked: boolean = (() => {
     if (step === "modules") return modules.length < 1;
     if (step === "profile") return !skipProfile && !parsedProfile;
-    if (step === "account" && !skipAccount) {
-      if (amount.trim() !== "") {
-        try { parseMinor(amount); } catch { return true; }
-      }
-      if (currency === "USD" && !rateValid) return true;
+    if (step === "currency") return currency === "";
+    if (step === "balance" && amount.trim() !== "") {
+      try { parseMinor(amount); } catch { return true; }
     }
     return false;
   })();
@@ -120,9 +119,9 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   function build(skip: { profile?: boolean; account?: boolean }): OnboardingCommand | string {
     const useProfile = modules.includes("nutrition") && !(skip.profile ?? skipProfile) && !!parsedProfile;
     const account = (() => {
-      if (!modules.includes("finance") || (skip.account ?? skipAccount)) return null;
+      if (!modules.includes("finance") || (skip.account ?? skipAccount) || currency === "") return null;
       const openingBalanceMinor = amount.trim() === "" ? 0 : parseMinor(amount);
-      return { currency, openingBalanceMinor, usdToPrb: currency === "USD" ? rate.trim().replace(",", ".") : null };
+      return { currency, openingBalanceMinor };
     })();
     const candidate = {
       type: "onboarding.complete",
@@ -148,26 +147,28 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
 
   function next() {
     if (stepBlocked) return;
-    if (isLastDataStep) void finish({});
+    if (step === "currency") setSkipAccount(false);
+    if (isLastDataStep && !(step === "currency" && skipAccount)) void finish({});
     else { setLocalError(null); setStepIndex((i) => i + 1); }
   }
 
   function skip() {
     if (step === "profile") setSkipProfile(true);
-    if (step === "account") setSkipAccount(true);
-    if (isLastDataStep) void finish(step === "profile" ? { profile: true } : { account: true });
+    if (step === "currency") setSkipAccount(true);
+    // The currency step is always the last data step, and skipping it drops the balance step.
+    if (isLastDataStep || step === "currency") void finish(step === "profile" ? { profile: true } : { account: true });
     else { setLocalError(null); setStepIndex((i) => i + 1); }
   }
 
   function back() {
     setLocalError(null);
     if (step === "profile") setSkipProfile(false);
-    if (step === "account") setSkipAccount(false);
+    if (step === "currency") setSkipAccount(false);
     setStepIndex((i) => Math.max(0, i - 1));
   }
 
   const shownError = localError ?? error;
-  const canSkip = step === "profile" || step === "account";
+  const canSkip = step === "profile" || step === "currency";
 
   return (
     <main className={styles.page} ref={rootRef} style={{ "--ob-safe-top": `${Math.max(0, safeAreaTop) + Math.max(0, contentSafeAreaTop)}px` } as CSSProperties}>
@@ -253,28 +254,19 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
           </section>
         )}
 
-        {step === "account" && (
+        {step === "currency" && (
+          <section className={`${styles.step} ${styles.compact}`} aria-labelledby="ob-title">
+            <h1 id="ob-title">Ваша валюта</h1>
+            <CurrencyPicker value={currency} onChange={setCurrency} legend="Валюта основного счёта" />
+          </section>
+        )}
+
+        {step === "balance" && (
           <section className={styles.step} aria-labelledby="ob-title">
-            <h1 id="ob-title">Сколько сейчас на основном счёте?</h1>
-            <fieldset className={styles.segmented}>
-              <legend className={styles.srOnly}>Валюта счёта</legend>
-              {([["PRB", "Рубли ПМР"], ["USD", "Доллары"]] as const).map(([value, label]) => (
-                <label key={value} className={currency === value ? styles.segmentOn : ""}>
-                  <input type="radio" name="currency" checked={currency === value} onChange={() => setCurrency(value)} />
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-            <div className={styles.fields}>
-              <label className={styles.field}>Сумма
-                <input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              </label>
-              {currency === "USD" && (
-                <label className={styles.field}>Курс: 1 USD = … руб. ПМР
-                  <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} aria-invalid={rateInvalid} />
-                </label>
-              )}
-            </div>
+            <h1 id="ob-title">Сколько сейчас на счёте?</h1>
+            <label className={styles.field}>Сумма, {currencyUnit(currency)}
+              <input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </label>
             <p className={styles.note}>Счёт назовём «Основной», переименовать можно в Финансах.</p>
           </section>
         )}

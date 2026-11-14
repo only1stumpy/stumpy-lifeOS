@@ -1,3 +1,4 @@
+import type { CurrencyCode } from "./currencies";
 export type ModuleKey = "today" | "nutrition" | "finance" | "gym";
 
 export type MacroValues = {
@@ -18,8 +19,8 @@ export type FoodLogEntry = MacroValues & {
 export type MoneyAccount = {
   id: string;
   name: string;
-  /** PRB is an internal app identifier for Transnistrian rubles, not ISO 4217. */
-  currency: "PRB" | "USD";
+  /** Currency code of the account, e.g. USD, EUR or a custom code such as PRB. */
+  currency: CurrencyCode;
   balanceMinor: number;
   openingBalanceMinor: number;
   isDefault: boolean;
@@ -31,7 +32,7 @@ export type MoneyEntry = {
   label: string;
   occurredAt: string;
   amountMinor: number;
-  currency: "PRB" | "USD";
+  currency: CurrencyCode;
   category: string;
   kind: "expense" | "income";
 };
@@ -88,8 +89,9 @@ export type LifeOSSnapshot = {
     weightHistory: { date: string; weightKg: number }[];
   };
   finance: {
-    spentTodayPrbMinor: number;
-    spentMonthPrbMinor: number;
+    /** Expenses of the selected day and month, converted to the owner's base currency. */
+    spentTodayMinor: number;
+    spentMonthMinor: number;
     accounts: MoneyAccount[];
     entries: MoneyEntry[];
     plans: FinancePlan[];

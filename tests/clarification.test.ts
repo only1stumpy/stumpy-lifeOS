@@ -75,6 +75,7 @@ test("контекст суммы баланса создаёт черновик
       clarificationHistory: history ?? undefined,
       now: "2026-10-28T06:33:00.000Z",
       timeZone: "Europe/Chisinau",
+      baseCurrency: "PRB",
     });
 
     assert.deepEqual(kindReply.entries, [{
@@ -99,6 +100,7 @@ test("контекст суммы баланса создаёт черновик
       ],
       now: "2026-10-28T06:34:00.000Z",
       timeZone: "Europe/Chisinau",
+      baseCurrency: "PRB",
     });
 
     assert.deepEqual(knownSourceCategory.entries, [{
@@ -127,6 +129,7 @@ test("контекст суммы баланса создаёт черновик
       ],
       now: "2026-10-28T06:36:00.000Z",
       timeZone: "Europe/Chisinau",
+      baseCurrency: "PRB",
     });
 
     assert.deepEqual(recoveredLegacyReply.entries, [{
@@ -177,6 +180,7 @@ test("неполная или посторонняя история не пер�
       ],
       now: "2026-10-28T06:35:00.000Z",
       timeZone: "Europe/Chisinau",
+      baseCurrency: "PRB",
     });
 
     assert.deepEqual(result.entries, []);

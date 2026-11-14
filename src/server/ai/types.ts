@@ -28,9 +28,9 @@ export type AnalysisFood = {
 
 export type AnalysisMoney = {
   label: string;
-  /** Smallest currency unit: kopecks for PRB, cents for USD. */
+  /** Hundredths of the currency (kopecks, cents). */
   amountMinor: number;
-  currency: "PRB" | "USD";
+  currency: string;
   kind: "expense" | "income";
   category: string | null;
 };
@@ -62,6 +62,8 @@ export type AnalyzeMessageInput = {
   previousDraft?: unknown;
   /** Modules the user enabled; records for other modules must not be produced. */
   enabledModules?: string[];
+  /** Owner's base currency: used when a message names no currency. */
+  baseCurrency?: string;
 };
 
 /** Short, text-only conversation history for an unanswered AI clarification. */

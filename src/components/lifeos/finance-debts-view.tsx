@@ -1,6 +1,6 @@
 "use client";
 
-import { formatMoneyAmount } from "@/domain/math";
+import { formatMoney } from "@/domain/currencies";
 import styles from "./finance-debts-view.module.css";
 
 export type FinanceDebtViewItem = {
@@ -16,14 +16,12 @@ export type FinanceDebtViewItem = {
 
 type FinanceDebtsViewProps = {
   debts: FinanceDebtViewItem[];
+  /** The base currency: debts are always kept in it. */
+  currency: string;
   onAdd(): void;
   onRepay(debt: FinanceDebtViewItem): void;
 };
 
-
-function moneyLabel(amountMinor: number): string {
-  return `${formatMoneyAmount(amountMinor)} р. ПМР`;
-}
 
 function dateLabel(value: string): string {
   const date = new Date(`${value.slice(0, 10)}T12:00:00`);
@@ -35,12 +33,14 @@ function DebtGroup({
   description,
   direction,
   debts,
+  currency,
   onRepay,
 }: {
   title: string;
   description: string;
   direction: FinanceDebtViewItem["direction"];
   debts: FinanceDebtViewItem[];
+  currency: string;
   onRepay(debt: FinanceDebtViewItem): void;
 }) {
   const total = debts.reduce((sum, debt) => sum + debt.remainingAmountMinor, 0);
@@ -52,7 +52,7 @@ function DebtGroup({
           <h3>{title}</h3>
           <p>{description}</p>
         </div>
-        <strong className={styles.groupTotal}>{moneyLabel(total)}</strong>
+        <strong className={styles.groupTotal}>{formatMoney(total, currency)}</strong>
       </header>
       {debts.length ? (
         <ul className={styles.debtList}>
@@ -64,8 +64,8 @@ function DebtGroup({
                   <span>{direction === "i_owe" ? "Я должен" : "Мне должны"}</span>
                 </div>
                 <div className={styles.amounts}>
-                  <strong className={styles.remaining}>{moneyLabel(debt.remainingAmountMinor)}</strong>
-                  <span className={styles.original}>из {moneyLabel(debt.originalAmountMinor)}</span>
+                  <strong className={styles.remaining}>{formatMoney(debt.remainingAmountMinor, currency)}</strong>
+                  <span className={styles.original}>из {formatMoney(debt.originalAmountMinor, currency)}</span>
                 </div>
               </div>
               <div className={styles.debtMeta}>
@@ -85,7 +85,7 @@ function DebtGroup({
   );
 }
 
-export default function FinanceDebtsView({ debts, onAdd, onRepay }: FinanceDebtsViewProps) {
+export default function FinanceDebtsView({ debts, currency, onAdd, onRepay }: FinanceDebtsViewProps) {
   const owedByMe = debts.filter((debt) => debt.direction === "i_owe" && debt.remainingAmountMinor > 0);
   const owedToMe = debts.filter((debt) => debt.direction === "owed_to_me" && debt.remainingAmountMinor > 0);
   const totalOwedByMe = owedByMe.reduce((sum, debt) => sum + debt.remainingAmountMinor, 0);
@@ -107,16 +107,16 @@ export default function FinanceDebtsView({ debts, onAdd, onRepay }: FinanceDebts
       <div className={styles.totals} aria-label="Итоги по долгам">
         <div className={styles.totalCard}>
           <span>Я должен</span>
-          <strong>{moneyLabel(totalOwedByMe)}</strong>
+          <strong>{formatMoney(totalOwedByMe, currency)}</strong>
         </div>
         <div className={styles.totalCard}>
           <span>Мне должны</span>
-          <strong>{moneyLabel(totalOwedToMe)}</strong>
+          <strong>{formatMoney(totalOwedToMe, currency)}</strong>
         </div>
       </div>
 
-      <DebtGroup title="Я должен" description="Мои долги другим людям" direction="i_owe" debts={owedByMe} onRepay={onRepay} />
-      <DebtGroup title="Мне должны" description="Деньги, которые должны вернуть мне" direction="owed_to_me" debts={owedToMe} onRepay={onRepay} />
+      <DebtGroup title="Я должен" description="Мои долги другим людям" direction="i_owe" debts={owedByMe} currency={currency} onRepay={onRepay} />
+      <DebtGroup title="Мне должны" description="Деньги, которые должны вернуть мне" direction="owed_to_me" debts={owedToMe} currency={currency} onRepay={onRepay} />
     </section>
   );
 }

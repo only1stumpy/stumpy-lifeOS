@@ -6,12 +6,14 @@ import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { exerciseCatalog } from "@/domain/exercise-catalog";
+import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { parseMinor } from "@/domain/math";
 import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import { APP_VERSION, releasesSince } from "@/domain/release";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
+import { CurrencyPicker } from "@/components/finance/currency-picker";
 import { useMotionVariants } from "@/components/motion/motion-system";
 
 export type FormValues = Record<string, string[]>;
@@ -120,12 +122,11 @@ function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-function amountLabel(amountMinor: number, currency: "PRB" | "USD"): string {
-  const amount = moneyDecimal.format(Math.abs(amountMinor) / 100);
-  return currency === "USD" ? `${amount} $` : `${amount} р. ПМР`;
+function amountLabel(amountMinor: number, currency: string): string {
+  return formatMoney(Math.abs(amountMinor), currency);
 }
 
-function signedAmountLabel(amountMinor: number, currency: "PRB" | "USD"): string {
+function signedAmountLabel(amountMinor: number, currency: string): string {
   return `${amountMinor < 0 ? "−" : ""}${amountLabel(amountMinor, currency)}`;
 }
 
@@ -164,6 +165,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [exerciseMode, setExerciseMode] = useState<"catalog" | "custom">("catalog");
   const [selectedCatalogId, setSelectedCatalogId] = useState(exerciseCatalog[0]?.id ?? "");
   const [selectedReplacementId, setSelectedReplacementId] = useState<string | null>(null);
+  const [newAccountCurrency, setNewAccountCurrency] = useState("");
+  const [pickedFinanceAccount, setPickedFinanceAccount] = useState<{ form: string; id: string } | null>(null);
+  const baseCurrency = snapshot.settings.baseCurrency;
+  const baseUnit = baseCurrency ? currencyUnit(baseCurrency) : "";
+  const baseAmountLabel = (prefix: string) => (baseUnit ? `${prefix}, ${baseUnit}` : prefix);
+  const baseAccountsFor = () => {
+    const accounts = snapshot.finance.accounts.filter((account) => account.currency === baseCurrency);
+    const preferred = accounts.find((account) => account.id === snapshot.settings.defaultAccountId) ?? accounts.find((account) => account.isDefault) ?? accounts[0];
+    return { accounts, preferred };
+  };
   const [debtOpenedAs, setDebtOpenedAs] = useState<"transfer" | "opening_balance">(editor.kind === "debt-create" ? editor.openedAs ?? "transfer" : "transfer");
 
   useEffect(() => {
@@ -288,6 +299,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       ?? snapshot.finance.accounts.find((account) => account.id === snapshot.settings.defaultAccountId)
       ?? snapshot.finance.accounts[0];
     const initialAccountId = accountForEntry?.id ?? snapshot.settings.defaultAccountId ?? "";
+    const formId = entry?.id ?? "new";
+    const pickedId = pickedFinanceAccount?.form === formId ? pickedFinanceAccount.id : initialAccountId;
+    const pickedAccount = snapshot.finance.accounts.find((account) => account.id === pickedId);
+    const missingRate = pickedAccount && baseCurrency && pickedAccount.currency !== baseCurrency && !snapshot.settings.rates[pickedAccount.currency];
     const entryAccountExists = !entry || snapshot.finance.accounts.some((account) => account.id === entry.accountId);
     return (
       <>
@@ -320,7 +335,13 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               <label>Сумма<input name="amount" type="text" inputMode="decimal" required defaultValue={entry ? moneyDecimal.format(entry.amountMinor / 100) : ""} placeholder="80,00" /></label>
               <label>Тип<select name="kind" defaultValue={entry?.kind ?? "expense"}><option value="expense">Расход</option><option value="income">Доход</option></select></label>
             </div>
-            <label>Счёт<select name="accountId" defaultValue={initialAccountId}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency === "USD" ? "USD" : "руб. ПМР"}</option>)}</select></label>
+            <label>Счёт<select name="accountId" defaultValue={initialAccountId} onChange={(event) => setPickedFinanceAccount({ form: formId, id: event.target.value })}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}</select></label>
+            {missingRate && pickedAccount && (
+              <div>
+                <p role="alert">Сначала задайте курс {pickedAccount.currency} к {baseCurrency}.</p>
+                <button type="button" onClick={() => onChange({ kind: "accounts" })}>Задать курс</button>
+              </div>
+            )}
             <label>Категория<input name="category" maxLength={300} required defaultValue={entry?.category ?? ""} placeholder="Еда, транспорт, подписки" /></label>
             <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
             <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</button></div>
@@ -339,7 +360,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         amountMinor: positiveMinor(requiredText(form, "amount", "Сумма"), "Сумма"),
       }))}>
         <label>Покупка<input name="name" maxLength={300} required defaultValue={plan?.name ?? ""} placeholder="Например, шампунь" /></label>
-        <label>Сумма, рубли ПМР<input name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" /></label>
+        <label>{baseAmountLabel("Сумма")}<input name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" /></label>
         <p>План не меняет баланс и расходы. Сумму можно поправить при фактической покупке.</p>
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{plan ? "Сохранить план" : "Добавить в план"}</button></div>
       </form>
@@ -347,18 +368,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderFinancePlanPurchaseForm(plan: FinancePlan) {
-    const prbAccounts = snapshot.finance.accounts.filter((account) => account.currency === "PRB");
-    const defaultPrbAccount = prbAccounts.find((account) => account.id === snapshot.settings.defaultAccountId)
-      ?? prbAccounts.find((account) => account.isDefault)
-      ?? prbAccounts[0];
+    const { accounts: baseAccounts, preferred: defaultBaseAccount } = baseAccountsFor();
 
-    if (!prbAccounts.length) {
+    if (!baseAccounts.length) {
       return (
         <div>
-          <p role="alert">Для записи расхода нужен активный счёт в рублях ПМР.</p>
+          <p role="alert">Для записи расхода нужен активный счёт в основной валюте ({baseCurrency}).</p>
           <div className="actions">
             <button type="button" disabled={pending} onClick={onClose}>Закрыть</button>
-            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить PRB-счёт</button>
+            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button>
           </div>
         </div>
       );
@@ -371,12 +389,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         label: plan.name,
         actualAmountMinor: positiveMinor(requiredText(form, "actualAmount", "Фактическая сумма"), "Фактическая сумма"),
         occurredAt: new Date().toISOString(),
-        accountId: requiredText(form, "accountId", "Счёт в рублях ПМР"),
+        accountId: requiredText(form, "accountId", "Счёт в основной валюте"),
         category: "Плановая покупка",
       }))}>
         <p>Покупка: <strong>{plan.name}</strong></p>
-        <label>Фактическая сумма, рубли ПМР<input name="actualAmount" type="text" inputMode="decimal" required defaultValue={moneyDecimal.format(plan.amountMinor / 100)} placeholder="220" /></label>
-        <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+        <label>{baseAmountLabel("Фактическая сумма")}<input name="actualAmount" type="text" inputMode="decimal" required defaultValue={moneyDecimal.format(plan.amountMinor / 100)} placeholder="220" /></label>
+        <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
         <p>После подтверждения расход запишется сейчас, а план будет закрыт.</p>
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать расход и закрыть план</button></div>
       </form>
@@ -384,11 +402,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderDebtCreateForm() {
-    const prbAccounts = snapshot.finance.accounts.filter((account) => account.currency === "PRB");
-    const defaultPrbAccount = prbAccounts.find((account) => account.id === snapshot.settings.defaultAccountId)
-      ?? prbAccounts.find((account) => account.isDefault)
-      ?? prbAccounts[0];
-    const hasTransferAccount = debtOpenedAs !== "transfer" || prbAccounts.length > 0;
+    const { accounts: baseAccounts, preferred: defaultBaseAccount } = baseAccountsFor();
+    const hasTransferAccount = debtOpenedAs !== "transfer" || baseAccounts.length > 0;
 
     return (
       <form key="debt-create" onSubmit={(event) => submitForm(event, (form) => ({
@@ -398,7 +413,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         amountMinor: positiveMinor(requiredText(form, "amount", "Сумма долга"), "Сумма долга"),
         openedAs: debtOpenedAs,
         ...(debtOpenedAs === "transfer" ? {
-          accountId: requiredText(form, "accountId", "Счёт в рублях ПМР"),
+          accountId: requiredText(form, "accountId", "Счёт в основной валюте"),
           occurredAt: localTimestamp(recordValue(form, "occurredAt")),
         } : {}),
         dueOn: recordValue(form, "dueOn") || null,
@@ -407,22 +422,22 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         <label>Имя человека<input name="personName" maxLength={300} required placeholder="Например, Андрей" /></label>
         <div className="fields-row">
           <label>Направление<select name="direction" defaultValue="i_owe"><option value="i_owe">Я должен ему/ей</option><option value="owed_to_me">Он/она должен(на) мне</option></select></label>
-          <label>Сумма, рубли ПМР<input name="amount" type="text" inputMode="decimal" required placeholder="500" /></label>
+          <label>{baseAmountLabel("Сумма")}<input name="amount" type="text" inputMode="decimal" required placeholder="500" /></label>
         </div>
         <label>Как учитывать сумму<select value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
           <option value="transfer">Новые переданные деньги</option>
           <option value="opening_balance">Уже существующий остаток</option>
         </select></label>
-        <p>{debtOpenedAs === "transfer" ? "Создаст финансовую операцию по выбранному PRB-счёту." : "Добавит только остаток долга — без операции задним числом."}</p>
-        {debtOpenedAs === "transfer" && (prbAccounts.length ? (
+        <p>{debtOpenedAs === "transfer" ? "Создаст финансовую операцию по выбранному счёту." : "Добавит только остаток долга — без операции задним числом."}</p>
+        {debtOpenedAs === "transfer" && (baseAccounts.length ? (
           <>
-            <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+            <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
             <label>Дата и время передачи<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
           </>
         ) : (
           <div>
-            <p role="alert">Для новой передачи денег сначала добавьте счёт в рублях ПМР.</p>
-            <button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить PRB-счёт</button>
+            <p role="alert">Для новой передачи денег нужен счёт в основной валюте ({baseCurrency}).</p>
+            <button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button>
           </div>
         ))}
         <div className="fields-row">
@@ -435,18 +450,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderDebtRepaymentForm(debt: FinanceDebt) {
-    const prbAccounts = snapshot.finance.accounts.filter((account) => account.currency === "PRB");
-    const defaultPrbAccount = prbAccounts.find((account) => account.id === snapshot.settings.defaultAccountId)
-      ?? prbAccounts.find((account) => account.isDefault)
-      ?? prbAccounts[0];
+    const { accounts: baseAccounts, preferred: defaultBaseAccount } = baseAccountsFor();
 
-    if (!prbAccounts.length) {
+    if (!baseAccounts.length) {
       return (
         <div>
-          <p role="alert">Для записи возврата нужен счёт в рублях ПМР.</p>
+          <p role="alert">Для записи возврата нужен счёт в основной валюте ({baseCurrency}).</p>
           <div className="actions">
             <button type="button" disabled={pending} onClick={onClose}>Закрыть</button>
-            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить PRB-счёт</button>
+            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button>
           </div>
         </div>
       );
@@ -461,14 +473,14 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           type: "debt.repayment.create",
           id: debt.id,
           amountMinor,
-          accountId: requiredText(form, "accountId", "Счёт в рублях ПМР"),
+          accountId: requiredText(form, "accountId", "Счёт в основной валюте"),
           occurredAt: localTimestamp(recordValue(form, "occurredAt")),
         };
       })}>
         <p>{debt.direction === "i_owe" ? "Возврат долга человеку" : "Получение возврата от человека"} · <strong>{debt.personName}</strong></p>
-        <p>Остаток: <strong>{amountLabel(debt.remainingAmountMinor, "PRB")}</strong></p>
-        <label>Сумма {repaymentVerb}, рубли ПМР<input name="amount" type="text" inputMode="decimal" max={debt.remainingAmountMinor / 100} required placeholder={moneyDecimal.format(debt.remainingAmountMinor / 100)} /></label>
-        <label>Счёт в рублях ПМР<select name="accountId" defaultValue={defaultPrbAccount?.id ?? ""} required>{prbAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+        <p>Остаток: <strong>{amountLabel(debt.remainingAmountMinor, baseCurrency)}</strong></p>
+        <label>{baseAmountLabel(`Сумма ${repaymentVerb}`)}<input name="amount" type="text" inputMode="decimal" max={debt.remainingAmountMinor / 100} required placeholder={moneyDecimal.format(debt.remainingAmountMinor / 100)} /></label>
+        <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
         <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать {repaymentVerb}</button></div>
       </form>
@@ -592,11 +604,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderAccountsForm(account?: MoneyAccount) {
+    const rateCurrencies = [...new Set(snapshot.finance.accounts.map((item) => item.currency))].filter((code) => code !== baseCurrency);
     return (
       <>
         <section>
           <h3>Счета</h3>
-          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {item.currency === "USD" ? "USD" : "руб. ПМР"} · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создайте основной счёт, чтобы начать вести операции.</p>}
+          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {item.currency} · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создайте основной счёт, чтобы начать вести операции.</p>}
         </section>
         <hr />
         <h3>{account ? "Изменить счёт" : "Добавить счёт"}</h3>
@@ -608,33 +621,43 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               type: "account.save",
               ...(account ? { id: account.id } : {}),
               name: requiredText(form, "name", "Название счёта"),
-              currency: requiredText(form, "currency", "Валюта") as "PRB" | "USD",
+              currency: account ? account.currency : newAccountCurrency || (() => { throw new Error("Выберите валюту счёта."); })(),
               openingBalanceMinor: recordValue(form, "openingBalance") ? signedMinor(recordValue(form, "openingBalance")) : 0,
               isDefault,
             };
           }, true);
           if (saved && account) onChange({ kind: "accounts" });
+          if (saved && !account) setNewAccountCurrency("");
         }}>
           <label>Название<input name="name" maxLength={300} required defaultValue={account?.name ?? ""} placeholder="Основная карта" /></label>
           <div className="fields-row">
-            {account ? <label>Валюта<input value={account.currency === "PRB" ? "Рубли ПМР" : "Доллары США"} readOnly /><input type="hidden" name="currency" value={account.currency} /></label> : <label>Валюта<select name="currency" defaultValue="PRB"><option value="PRB">Рубли ПМР</option><option value="USD">Доллары США</option></select></label>}
+            {account && <label>Валюта<input value={`${currencyName(account.currency)} (${account.currency})`} readOnly /></label>}
             <label>Начальный остаток<input name="openingBalance" type="text" inputMode="decimal" defaultValue={account ? amountInput(account.openingBalanceMinor) : ""} placeholder="0,00" /></label>
           </div>
+          {!account && <CurrencyPicker value={newAccountCurrency} onChange={setNewAccountCurrency} legend="Валюта счёта" />}
+          {!account && snapshot.finance.accounts.length === 0 && <p>Валюта первого счёта становится основной: в ней считаются итоги, планы и долги.</p>}
           <label className="check-field"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
           <div className="actions"><button type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Отмена</button><button className="submit" type="submit" disabled={pending}>{account ? "Сохранить счёт" : "Добавить счёт"}</button></div>
         </form>
         <hr />
-        <h3>Курс для общего итога</h3>
-        <p>Курс используется для операций в USD с указанной даты. Для операций задним числом можно добавить курс, который действовал тогда.</p>
-        <form key={snapshot.settings.usdToPrb ?? "unset"} onSubmit={(event) => submitForm(event, (form) => ({
-          type: "rate.save",
-          usdToPrb: requiredText(form, "usdToPrb", "Курс").replace(",", "."),
-          effectiveAt: localTimestamp(requiredText(form, "effectiveAt", "Дата начала действия")),
-        }), true)}>
-          <label>1 USD = рублей ПМР<input name="usdToPrb" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.usdToPrb ?? ""} placeholder="Укажите курс" /></label>
-          <label>Действует с<input name="effectiveAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
-          <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить курс</button></div>
-        </form>
+        {rateCurrencies.length > 0 && (
+          <>
+            <h3>Курс для общего итога</h3>
+            <p>Курс используется для операций в этой валюте с указанной даты. Для операций задним числом можно добавить курс, который действовал тогда.</p>
+            {rateCurrencies.map((code) => (
+              <form key={`${code}-${snapshot.settings.rates[code] ?? "unset"}`} onSubmit={(event) => submitForm(event, (form) => ({
+                type: "rate.save",
+                currency: code,
+                rateToBase: requiredText(form, "rate", "Курс").replace(",", "."),
+                effectiveAt: localTimestamp(requiredText(form, "effectiveAt", "Дата начала действия")),
+              }), true)}>
+                <label>1 {code} = … {baseUnit}<input name="rate" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.rates[code] ?? ""} placeholder="Укажите курс" /></label>
+                <label>Действует с<input name="effectiveAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
+                <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить курс {code}</button></div>
+              </form>
+            ))}
+          </>
+        )}
       </>
     );
   }
@@ -675,7 +698,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               <label>Сумма<input name="amount" type="text" inputMode="decimal" required defaultValue={item ? moneyDecimal.format(item.amountMinor / 100) : ""} placeholder="10,00" /></label>
               <label>Период<select name="frequency" defaultValue={item?.frequency ?? "monthly"}><option value="weekly">Еженедельно</option><option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option></select></label>
             </div>
-            <label>Счёт<select name="accountId" defaultValue={item?.accountId ?? snapshot.settings.defaultAccountId ?? snapshot.finance.accounts[0]?.id}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency === "USD" ? "USD" : "руб. ПМР"}</option>)}</select></label>
+            <label>Счёт<select name="accountId" defaultValue={item?.accountId ?? snapshot.settings.defaultAccountId ?? snapshot.finance.accounts[0]?.id}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}</select></label>
             <label>Категория<input name="category" maxLength={300} required defaultValue={item?.category ?? "Подписки"} /></label>
             <label>Следующее списание<input name="nextDueAt" type="date" required defaultValue={item?.nextDueAt.slice(0, 10) ?? ""} /></label>
             <div className="actions"><button className="submit" type="submit" disabled={pending}>{item ? "Сохранить изменения" : "Сохранить напоминание"}</button></div>

@@ -89,6 +89,43 @@ test("recurring payment migration backfills anchors from existing due dates", as
   }
 });
 
+test("multi-currency migration keeps rates and entries and makes PRB the base of existing owners", async () => {
+  const client = new PGlite();
+  try {
+    const migrations = await migrationNames();
+    const last = migrations.findIndex((name) => name.startsWith("0012_"));
+    assert.ok(last > 0);
+    for (const name of migrations.slice(0, last)) await applyMigration(client, name);
+    await client.exec(`
+      INSERT INTO owner_settings (id, telegram_user_id) VALUES
+        ('10000000-0000-4000-8000-000000000001', '111'),
+        ('10000000-0000-4000-8000-000000000002', '222');
+      INSERT INTO finance_accounts (id, owner_id, name, currency) VALUES
+        ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Основной', 'PRB'),
+        ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'Карта', 'USD');
+      INSERT INTO finance_categories (id, owner_id, name, entry_type)
+        VALUES ('70000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Еда', 'expense');
+      INSERT INTO exchange_rates (owner_id, usd_to_prb_rate, effective_at)
+        VALUES ('10000000-0000-4000-8000-000000000001', 16.2, '2026-10-01T00:00:00Z');
+      INSERT INTO finance_entries (owner_id, account_id, category_id, entry_type, name, amount, currency, usd_to_prb_rate, occurred_at) VALUES
+        ('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000002', '70000000-0000-4000-8000-000000000001', 'expense', 'Кофе', 5, 'USD', 16.2, '2026-10-02T00:00:00Z'),
+        ('10000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001', 'expense', 'Хлеб', 20, 'PRB', NULL, '2026-10-02T00:00:00Z');
+    `);
+    await applyMigration(client, migrations[last]!);
+
+    const owners = await client.query("SELECT telegram_user_id, base_currency FROM owner_settings ORDER BY telegram_user_id");
+    assert.deepEqual(owners.rows, [{ telegram_user_id: "111", base_currency: "PRB" }, { telegram_user_id: "222", base_currency: null }]);
+    const rates = await client.query("SELECT currency, rate_to_base::text AS rate FROM exchange_rates");
+    assert.deepEqual(rates.rows, [{ currency: "USD", rate: "16.200000" }]);
+    const entries = await client.query("SELECT currency, rate_to_base::text AS rate FROM finance_entries ORDER BY currency DESC");
+    assert.deepEqual(entries.rows, [{ currency: "USD", rate: "16.200000" }, { currency: "PRB", rate: null }]);
+    await client.exec("INSERT INTO finance_accounts (owner_id, name, currency) VALUES ('10000000-0000-4000-8000-000000000002', 'Евро', 'EUR')");
+    await assert.rejects(client.exec("INSERT INTO finance_accounts (owner_id, name, currency) VALUES ('10000000-0000-4000-8000-000000000002', 'Плохой', 'eur')"));
+  } finally {
+    await client.close();
+  }
+});
+
 test("clarification history is owner-scoped JSON text with a separate expiry timestamp", async () => {
   const client = new PGlite();
   try {
@@ -309,7 +346,7 @@ async function seed(database: ReturnType<typeof drizzle>) {
   await database.insert(schema.financeCategories).values({ id: CATEGORY_UUID, ownerId: OWNER_UUID, name: "Еда", entryType: "expense" });
   await database.insert(schema.exchangeRates).values({
     ownerId: OWNER_UUID,
-    usdToPrbRate: "36.123456",
+    currency: "USD", rateToBase: "36.123456",
     effectiveAt: new Date("2026-10-27T10:00:00.654Z"),
   });
   await database.insert(schema.recurringPayments).values({
@@ -336,7 +373,7 @@ async function seed(database: ReturnType<typeof drizzle>) {
     name: "Кафе",
     amount: "4.2500",
     currency: "USD",
-    usdToPrbRate: "36.123456",
+    rateToBase: "36.123456",
     occurredAt: new Date("2026-10-27T14:00:00.111Z"),
   });
   await database.insert(schema.financeEntries).values({
@@ -349,7 +386,7 @@ async function seed(database: ReturnType<typeof drizzle>) {
     name: "Телефон",
     amount: "125.0000",
     currency: "PRB",
-    usdToPrbRate: null,
+    rateToBase: null,
     occurredAt: new Date("2026-10-27T14:10:12.333Z"),
     source: "recurring",
   });
@@ -372,7 +409,7 @@ async function seed(database: ReturnType<typeof drizzle>) {
     name: "Вернул Ивану",
     amount: "25.0000",
     currency: "PRB",
-    usdToPrbRate: null,
+    rateToBase: null,
     occurredAt: new Date("2026-10-28T14:00:00.000Z"),
     source: "mini_app",
   });

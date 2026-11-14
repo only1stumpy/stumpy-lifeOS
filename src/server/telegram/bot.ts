@@ -5,7 +5,8 @@ import type { MacroValues } from "@/domain/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
-import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
+import { dateKey, sumMacros, convertToBaseMinor } from "@/domain/math";
+import { formatMoneyPlain as formatMoneyShared } from "@/domain/currencies";
 import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
@@ -229,7 +230,7 @@ function getBot(): Bot<Context> {
             const treatment = debtDraft.openedAs === "opening_balance"
               ? "Добавил текущий остаток старого долга"
               : "Записал новый долг и финансовую операцию";
-            const lines = [treatment + ": " + direction + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), "PRB")];
+            const lines = [treatment + ": " + direction + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), owner.baseCurrency ?? "")];
             if (debtDraft.dueOn) lines.push("Срок возврата — " + debtDraft.dueOn + ".");
             await ctx.answerCallbackQuery({ text: "Долг записан." });
             await markMessage(ctx, lines.join("\n"));
@@ -244,12 +245,12 @@ function getBot(): Bot<Context> {
           const remaining = Math.max(0, Math.round(Number(record.originalAmount) * 100) - repayments.reduce((sum, row) => sum + Math.round(Number(row.amount) * 100), 0));
           const actionText = debtDraft.direction === "i_owe" ? "Вернул " + debtDraft.personName : debtDraft.personName + " вернул тебе";
           await ctx.answerCallbackQuery({ text: "Возврат записан." });
-          await markMessage(ctx, "Записал: " + actionText + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), "PRB") + "\nОстаток долга: " + formatMoney(remaining, "PRB"));
+          await markMessage(ctx, "Записал: " + actionText + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), owner.baseCurrency ?? "") + "\nОстаток долга: " + formatMoney(remaining, owner.baseCurrency ?? ""));
           return;
         }
         const confirmation = formatConfirmedRecords({
           food: food ?? null,
-          money: money ? { ...money, entryType: money.entryType as "expense" | "income", currency: money.currency as "PRB" | "USD" } : null,
+          money: money ? { ...money, entryType: money.entryType as "expense" | "income", currency: money.currency } : null,
         });
         await ctx.answerCallbackQuery({ text: confirmation.callbackText });
         await markMessage(ctx, confirmation.messageText);
@@ -318,7 +319,7 @@ function getBot(): Bot<Context> {
         const confirmation = formatRecurringConfirmation({
           ...payment,
           amount: payment.amount,
-          currency: payment.currency as "PRB" | "USD",
+          currency: payment.currency,
         });
         await ctx.answerCallbackQuery({ text: confirmation.callbackText });
         await markMessage(ctx, confirmation.messageText);
@@ -415,7 +416,7 @@ function getBot(): Bot<Context> {
 
         const command = commandSchema.parse({ type: "finance-plan.save", ...plan });
         await executeCommand(command);
-        await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, "PRB")}. Это пока не расход.`);
+        await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, owner.baseCurrency ?? "")}. Это пока не расход.`);
         return;
       }
 
@@ -433,7 +434,7 @@ function getBot(): Bot<Context> {
           }
           const draft = (await loadSnapshot()).drafts.find((item) => item.id === result.draftIds[0]);
           if (!draft) throw new AppError(404, "Черновик долга не найден.");
-          await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+          await ctx.reply(formatDraft(draft, owner.timezone, owner.baseCurrency ?? ""), { reply_markup: draftKeyboard(draft.id) });
           return;
         }
       }
@@ -450,7 +451,7 @@ function getBot(): Bot<Context> {
         const snapshot = await loadSnapshot();
         const draft = snapshot.drafts.find((item) => item.id === previousDraftId);
         if (!draft) throw new AppError(404, "Обновлённый черновик не найден.");
-        await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+        await ctx.reply(formatDraft(draft, owner.timezone, owner.baseCurrency ?? ""), { reply_markup: draftKeyboard(draft.id) });
         return;
       }
 
@@ -494,7 +495,7 @@ function getBot(): Bot<Context> {
         await ctx.reply(formatDraftList(drafts), { reply_markup: bulkDraftKeyboard(updateRowId) });
       } else {
         for (const draft of drafts) {
-          await ctx.reply(formatDraft(draft, owner.timezone), { reply_markup: draftKeyboard(draft.id) });
+          await ctx.reply(formatDraft(draft, owner.timezone, owner.baseCurrency ?? ""), { reply_markup: draftKeyboard(draft.id) });
         }
         if (updateRowId && drafts.length > 1) {
           await ctx.reply(`Черновиков: ${drafts.length}. Можно подтвердить каждый отдельно или все разом.`, { reply_markup: bulkDraftKeyboard(updateRowId) });
@@ -561,7 +562,7 @@ async function sendToday(ctx: Context): Promise<void> {
       }
     }
     if (modules.includes("finance")) {
-      lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")} сегодня · ${formatMoney(snapshot.finance.spentMonthPrbMinor, "PRB")} за месяц`);
+      lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayMinor, snapshot.settings.baseCurrency)} сегодня · ${formatMoney(snapshot.finance.spentMonthMinor, snapshot.settings.baseCurrency)} за месяц`);
     }
     if (modules.includes("gym")) {
       if (snapshot.gym.nextWorkout) {
@@ -635,10 +636,11 @@ function formatDraft(
   draft: {
     occurredAt: string;
     food: { label: string; portionLabel: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number; estimated: boolean } | null;
-    money: { label: string; amountMinor: number; currency: "PRB" | "USD"; kind: "expense" | "income"; category: string | null } | null;
+    money: { label: string; amountMinor: number; currency: string; kind: "expense" | "income"; category: string | null } | null;
     debt: { operation: "create" | "repayment"; personName: string; direction: "i_owe" | "owed_to_me"; amountMinor: number; openedAs: "transfer" | "opening_balance" | null; dueOn: string | null; note: string | null; remainingAmountMinor: number | null } | null;
   },
   timeZone: string,
+  baseCurrency: string,
 ): string {
   let time: string;
   try {
@@ -660,22 +662,22 @@ function formatDraft(
     const debt = draft.debt;
     const direction = debt.direction === "i_owe" ? `ты должен ${debt.personName}` : `${debt.personName} должен тебе`;
     if (debt.operation === "create") {
-      lines.push(`Долг: ${direction} · ${formatMoney(debt.amountMinor, "PRB")}`);
-      lines.push(debt.openedAs === "opening_balance" ? "Это текущий остаток, без записи операции задним числом." : "Создам финансовую операцию на выбранном PRB-счёте.");
+      lines.push(`Долг: ${direction} · ${formatMoney(debt.amountMinor, baseCurrency)}`);
+      lines.push(debt.openedAs === "opening_balance" ? "Это текущий остаток, без записи операции задним числом." : "Создам финансовую операцию на выбранном счёте в основной валюте.");
       if (debt.dueOn) lines.push(`Срок: ${debt.dueOn}`);
       if (debt.note) lines.push(`Заметка: ${debt.note}`);
     } else {
       const verb = debt.direction === "i_owe" ? `Возврат ${debt.personName}` : `Возврат от ${debt.personName}`;
-      lines.push(`${verb}: ${formatMoney(debt.amountMinor, "PRB")}`);
-      if (debt.remainingAmountMinor !== null) lines.push(`Остаток после возврата: ${formatMoney(Math.max(0, debt.remainingAmountMinor - debt.amountMinor), "PRB")}`);
+      lines.push(`${verb}: ${formatMoney(debt.amountMinor, baseCurrency)}`);
+      if (debt.remainingAmountMinor !== null) lines.push(`Остаток после возврата: ${formatMoney(Math.max(0, debt.remainingAmountMinor - debt.amountMinor), baseCurrency)}`);
     }
   }
   return lines.join("\n");
 }
 
-function formatDraftList(drafts: { money: { label: string; amountMinor: number; currency: "PRB" | "USD"; category: string | null } | null }[]): string {
+function formatDraftList(drafts: { money: { label: string; amountMinor: number; currency: string; category: string | null } | null }[]): string {
   const lines = [`Проверь, пожалуйста · позиций: ${drafts.length}`];
-  const totals = new Map<"PRB" | "USD", number>();
+  const totals = new Map<string, number>();
   drafts.forEach((draft, index) => {
     if (!draft.money) return;
     totals.set(draft.money.currency, (totals.get(draft.money.currency) ?? 0) + draft.money.amountMinor);
@@ -700,9 +702,8 @@ function draftKeyboard(id: string) {
     .text("Отменить", `cancel:${id}`);
 }
 
-function formatMoney(amountMinor: number, currency: "PRB" | "USD"): string {
-  const amount = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amountMinor / 100);
-  return currency === "PRB" ? `${amount} руб. ПМР` : `${amount} USD`;
+function formatMoney(amountMinor: number, currency: string): string {
+  return formatMoneyShared(amountMinor, currency);
 }
 
 /** Records today's body weight without AI and compares it with the previous measurement. */
@@ -846,7 +847,7 @@ export async function sendDeduplicatedOwnerNotification(
   });
 }
 
-export async function sendDuePaymentReminder(paymentId: string, name: string, amountMinor: number, currency: "PRB" | "USD", dueOn: string): Promise<boolean> {
+export async function sendDuePaymentReminder(paymentId: string, name: string, amountMinor: number, currency: string, dueOn: string): Promise<boolean> {
   const keyboard = new InlineKeyboard().text("Оплата списана", `pay:${paymentId}`);
   const text = `Похоже, подошёл срок платежа: ${name} · ${formatMoney(amountMinor, currency)} · ${dueOn}. Проверь, списались ли деньги. Расход запишу только после твоего подтверждения.`;
   return sendDeduplicatedOwnerNotification(`payment:${paymentId}:${dueOn}`, text, keyboard);
@@ -859,11 +860,12 @@ export async function sendDueDebtReminder(
   remainingAmountMinor: number,
   dueOn: string,
   localDate: string,
+  baseCurrency: string,
 ): Promise<boolean> {
   const message = direction === "i_owe"
     ? "Сегодня срок возврата долга " + personName
     : "Сегодня срок, когда " + personName + " должен вернуть долг";
-  const text = message + " · остаток " + formatMoney(remainingAmountMinor, "PRB") + " · срок " + dueOn + ".";
+  const text = message + " · остаток " + formatMoney(remainingAmountMinor, baseCurrency) + " · срок " + dueOn + ".";
   return sendDeduplicatedOwnerNotification("debt:" + debtId + ":" + localDate, text);
 }
 
@@ -880,7 +882,7 @@ export async function sendDailySummary(now: Date, timeZone: string): Promise<boo
     lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
     if (nutrition.target) lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
   }
-  if (modules.includes("finance")) lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")}`);
+  if (modules.includes("finance")) lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayMinor, snapshot.settings.baseCurrency)}`);
   const remaining = nutritionOn && nutrition.target ? Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories)) : 0;
   if (remaining > 0) {
     const owner = await ensureOwner();
@@ -1013,10 +1015,11 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
   const loggedDays = new Set(weeklyFoods.map((entry) => dateKey(entry.occurredAt, timeZone)));
   const weeklySpending = money
     .filter((entry) => entry.entryType === "expense" && isThisWeek(entry.occurredAt))
-    .reduce((sum, entry) => sum + convertToLocalMinor(
+    .reduce((sum, entry) => sum + convertToBaseMinor(
       Math.round(Number(entry.amount) * 100),
-      entry.currency === "USD" ? "USD" : "PRB",
-      entry.usdToPrbRate,
+      entry.currency,
+      owner.baseCurrency ?? entry.currency,
+      entry.rateToBase,
     ), 0);
   const completedWorkouts = sessions.filter((session) => session.status === "completed" && session.completedAt && isThisWeek(session.completedAt)).length;
   const completedSets = sets.filter((set) => set.isCompleted && set.completedAt && isThisWeek(set.completedAt)).length;
@@ -1035,7 +1038,7 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
       `Питание: ${Math.round(macros.calories)} ккал · Б ${Math.round(macros.proteinGrams)} · Ж ${Math.round(macros.fatGrams)} · У ${Math.round(macros.carbsGrams)} г суммарно`,
       loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : "Питание: записей за неделю нет",
     ] : []),
-    ...(modules.includes("finance") ? [`Расходы: ${formatMoney(weeklySpending, "PRB")}`] : []),
+    ...(modules.includes("finance") ? [`Расходы: ${formatMoney(weeklySpending, owner.baseCurrency ?? "")}`] : []),
     ...(modules.includes("gym") ? [`Тренировки: ${completedWorkouts} · подходы: ${completedSets}`] : []),
     ...(weightOn ? [weightLine] : []),
   ];
