@@ -103,6 +103,17 @@ function dayKey(value: string, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
 }
 
+function DatePickButton({ className, value, max, label, onChange, children }: { className?: string; value: string; max?: string; label: string; onChange?(value: string): void; children: ReactNode }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  if (!onChange) return <span className={className}>{children}</span>;
+  return (
+    <button type="button" className={className} aria-label={label} style={{ position: "relative" }} onClick={() => { const input = inputRef.current; if (!input) return; try { input.showPicker(); } catch { input.focus(); input.click(); } }}>
+      {children}
+      <input ref={inputRef} type="date" tabIndex={-1} aria-hidden="true" value={value} max={max} onChange={(event) => event.target.value && onChange(event.target.value)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, pointerEvents: "none" }} />
+    </button>
+  );
+}
+
 function shiftDay(value: string, delta: number): string {
   const date = new Date(`${value}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + delta);
@@ -685,11 +696,10 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
         <GlassSurface className={styles.moduleSurface} focus>
           <div className={styles.dayNav} role="group" aria-label="День дневника">
             <button type="button" aria-label="Предыдущий день" onClick={() => onDateChange?.(shiftDay(snapshot.localDate, -1))}>‹</button>
-            <label className={styles.dayNavDate}>
+            <DatePickButton className={styles.dayNavDate} value={snapshot.localDate} max={todayIn(snapshot.settings.timeZone)} label="Выбрать день дневника" onChange={onDateChange}>
               <span className={styles.eyebrow}>Дневник</span>
               <strong>{dateHeading(snapshot.localDate)}</strong>
-              {onDateChange && <input type="date" aria-label="Выбрать день дневника" value={snapshot.localDate} max={todayIn(snapshot.settings.timeZone)} onChange={(event) => event.target.value && onDateChange(event.target.value)} />}
-            </label>
+            </DatePickButton>
             <button type="button" aria-label="Следующий день" disabled={snapshot.localDate >= todayIn(snapshot.settings.timeZone)} onClick={() => onDateChange?.(shiftDay(snapshot.localDate, 1))}>›</button>
           </div>
           {snapshot.localDate !== todayIn(snapshot.settings.timeZone) && <div className={styles.pastBanner} role="status"><span>Вы смотрите не сегодняшний день. Новая запись попадёт в этот день.</span><button type="button" onClick={() => onDateChange?.(todayIn(snapshot.settings.timeZone))}>Сегодня</button></div>}
@@ -908,7 +918,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
       <div className={styles.appFrame}>
         <motion.header className={styles.appHeader} initial={{ opacity: 0, transform: "translateY(-8px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out }}>
           <span className={styles.brand}>LifeOS</span>
-          {snapshot && <label className={styles.dateChip} style={{ position: "relative" }}><time dateTime={snapshot.localDate}>{dateHeading(snapshot.localDate)}</time>{onDateChange && <input type="date" aria-label="Выбрать дату дневника" value={snapshot.localDate} onChange={(event) => onDateChange(event.target.value)} style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer" }} />}</label>}
+          {snapshot && <DatePickButton className={styles.dateChip} value={snapshot.localDate} label="Выбрать дату дневника" onChange={onDateChange}><time dateTime={snapshot.localDate}>{dateHeading(snapshot.localDate)}</time></DatePickButton>}
         </motion.header>
         <main className={styles.main}>
           <AnimatePresence mode="wait">
@@ -923,7 +933,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
             </motion.div>
           </AnimatePresence>
         </main>
-        <motion.nav ref={dockRef} className={styles.dock} style={{ "--dock-items": navItems.length } as CSSProperties} data-lg-role="dock" aria-label="Разделы LifeOS" initial={{ opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
+        <motion.nav ref={dockRef} className={styles.dock} style={{ "--dock-items": navItems.length } as CSSProperties} data-lg-role="dock" aria-label="Разделы LifeOS" initial={prefersReducedMotion ? false : { opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
           <GlassRefraction surfaceRef={dockRef} filterId={dockFilterId} profile="thin" shape="pill" />
           {navItems.map((item) => item.key === activeTab ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
           {navItems.map((item) => (
