@@ -8,6 +8,9 @@ import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverag
 import { parseWeightMessage } from "../src/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "../src/domain/modules";
 import { compareVersions, releasesSince } from "../src/domain/release";
+import { buildWelcomeMessage } from "../src/domain/welcome";
+import { parseDebtMessage } from "../src/domain/debt-message";
+import { parseFinancePlanMessage } from "../src/domain/finance-plans";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
 import { analyzeMessage } from "../src/server/ai/analyze";
@@ -574,4 +577,30 @@ test("modules.save accepts disabled features and rejects unknown or repeated one
   assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.debts", "nutrition.weight"] }).success, true);
   assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.debts", "finance.debts"] }).success, false);
   assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.usd"] }).success, false);
+});
+
+test("welcome message describes only enabled modules and features, with examples the bot understands", () => {
+  const all = buildWelcomeMessage({ modules: ["nutrition", "finance", "gym"], features: ["finance.debts", "finance.plans", "finance.subscriptions", "nutrition.weight"], firstRun: true });
+  for (const heading of ["Как это работает", "Питание", "Финансы", "Зал", "Вопросы", "Команды", "Настройки"]) assert.match(all, new RegExp(`<b>${heading}</b>`));
+  assert.match(all, /Начни с кнопки «Открыть LifeOS»/);
+  assert.ok(all.length < 4000, `message is ${all.length} chars`);
+  assert.equal(all.replace(/<\/?b>/g, "").search(/[<>&]/), -1);
+
+  // The examples promised in the text are really recognized by the parsers.
+  assert.equal(parseWeightMessage("вес 72,4"), 72.4);
+  assert.equal(parseWeightMessage("72,4 кг"), 72.4);
+  for (const text of ["я должен Ивану 500", "Иван должен мне 300", "занял 500 у Ивана", "Иван вернул мне 200"]) {
+    assert.ok(all.includes(`«${text}»`), text);
+    assert.notEqual(parseDebtMessage(text), null, text);
+  }
+  assert.ok(all.includes("«запиши в планы шампунь за 220р»"));
+  assert.notEqual(parseFinancePlanMessage("запиши в планы шампунь за 220р"), null);
+
+  const gymOnly = buildWelcomeMessage({ modules: ["gym"], features: [], firstRun: false });
+  assert.doesNotMatch(gymOnly, /<b>Питание<\/b>|<b>Финансы<\/b>|<b>Вопросы<\/b>|Начни с кнопки/);
+  assert.match(gymOnly, /<b>Зал<\/b>/);
+
+  const noDebts = buildWelcomeMessage({ modules: ["nutrition", "finance"], features: ["finance.plans"], firstRun: false });
+  assert.doesNotMatch(noDebts, /я должен Ивану|вес 72,4|Подписки и регулярные/);
+  assert.match(noDebts, /запиши в планы/);
 });
