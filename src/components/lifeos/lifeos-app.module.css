@@ -1390,8 +1390,9 @@
   bottom: max(14px, var(--lifeos-safe-bottom));
   left: max(18px, calc((100vw - 470px) / 2));
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  width: min(430px, calc(100% - 36px));
+  grid-template-columns: repeat(var(--dock-items, 5), minmax(0, 1fr));
+  /* 86px per icon, as before for five (430px), so the pill shrinks when sections are switched off. */
+  width: min(calc(var(--dock-items, 5) * 86px), calc(100% - 36px));
   min-height: 70px;
   align-items: center;
   margin-inline: auto;

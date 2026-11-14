@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
@@ -11,7 +11,7 @@ import type { EditorState, FormValues } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
 import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
 import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
-import { LifeOSBootSkeleton } from "@/components/loading/loading-skeletons";
+import { LifeOSBootSkeleton, NeutralBootLoader } from "@/components/loading/loading-skeletons";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { PersonalizationPage } from "@/components/settings/personalization-page";
 import { SettingsMenu, SettingsSubpage, type SettingsPage } from "@/components/settings/settings-menu";
@@ -143,6 +143,18 @@ function findWorkout(snapshot: AppSnapshot, workoutId: string): WorkoutDay | nul
     ?? (snapshot.gym.nextWorkout?.id === workoutId ? snapshot.gym.nextWorkout : null);
 }
 
+const RETURNING_KEY = "lifeos:returning";
+
+function readReturning(): boolean {
+  try { return window.localStorage.getItem(RETURNING_KEY) === "1"; } catch { return false; }
+}
+
+function rememberReturning(): void {
+  try { window.localStorage.setItem(RETURNING_KEY, "1"); } catch { /* storage may be blocked; the loader just stays neutral */ }
+}
+
+const subscribeNothing = () => () => undefined;
+
 function editorIdentity(editor: EditorState): string {
   switch (editor.kind) {
     case "food": return `food:${editor.entry?.id ?? "new"}`;
@@ -174,10 +186,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [showAiQuotas, setShowAiQuotas] = useState(false);
   const [showAiProviders, setShowAiProviders] = useState(false);
-  const [guidedAiOnboarding, setGuidedAiOnboarding] = useState(false);
   const [settingsPage, setSettingsPage] = useState<SettingsPage>("menu");
-  const [aiOnboardingQueued, setAiOnboardingQueued] = useState(false);
   const [onboardingActive, setOnboardingActive] = useState(false);
+  // Only a device that already finished onboarding gets the dashboard skeleton; everyone else a neutral loader.
+  const returningDevice = useSyncExternalStore(subscribeNothing, readReturning, () => false);
   const [restoreValues, setRestoreValues] = useState<FormValues | null>(null);
   const formMemoryRef = useRef<FormValues | null>(null);
   const [pending, setPending] = useState(false);
@@ -282,14 +294,11 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         setError(null);
         if (!nextSnapshot.settings.modulesConfigured) {
           setOnboardingActive(true);
-          setAiOnboardingQueued(!nextSnapshot.settings.aiOnboardingCompleted);
-        } else if (!nextSnapshot.settings.aiOnboardingCompleted) {
-          setGuidedAiOnboarding(true);
-          setSettingsPage("ai");
-          setShowAiProviders(true);
         } else if (nextSnapshot.settings.lastSeenVersion !== APP_VERSION && releasesSince(nextSnapshot.settings.lastSeenVersion).length) {
           setEditor({ kind: "whats-new" });
         }
+        // Next time this device shows the dashboard skeleton while loading instead of a neutral loader.
+        if (nextSnapshot.settings.modulesConfigured) rememberReturning();
         setStatus("ready");
       } catch (cause: unknown) {
         if (!mounted) return;
@@ -313,7 +322,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     }
     if (showAiProviders) {
       // Inside a settings page «back» returns to the settings menu; from the menu it leaves settings.
-      if (settingsPage !== "menu" && !guidedAiOnboarding) setSettingsPage("menu");
+      if (settingsPage !== "menu") setSettingsPage("menu");
       else setShowAiProviders(false);
       return;
     }
@@ -323,7 +332,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       return;
     }
     appBackHandlerRef.current?.();
-  }, [editor, guidedAiOnboarding, settingsPage, showAiProviders, showAiQuotas]);
+  }, [editor, settingsPage, showAiProviders, showAiQuotas]);
 
   useEffect(() => {
     telegramBackHandlerRef.current = handleTelegramBack;
@@ -449,18 +458,14 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     setEditor(nextEditor);
   }, []);
 
-  // First run: the onboarding page comes first, AI setup opens once it is finished.
-  if (!editor && !onboardingActive && aiOnboardingQueued) {
-    setAiOnboardingQueued(false);
-    setGuidedAiOnboarding(true);
-    setSettingsPage("ai");
-    setShowAiProviders(true);
-  }
+  // Every settings screen opens from the top.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [settingsPage, showAiProviders]);
 
   const closeAiQuotas = useCallback(() => setShowAiQuotas(false), []);
   const closeAiProviders = useCallback(() => {
     setShowAiProviders(false);
-    setGuidedAiOnboarding(false);
     setSettingsPage("menu");
   }, []);
   const savePersonalization = useCallback(async (commands: AppCommand[]): Promise<boolean> => {
@@ -558,7 +563,9 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         <MotionProvider>
           <main className="lifeos-boot-loading" aria-busy="true">
             <span className="visually-hidden" role="status" aria-live="polite">Загружаю LifeOS.</span>
-            <LifeOSBootSkeleton fullscreen={telegramFullscreen} safeAreaTop={telegramSafeAreaTop} contentSafeAreaTop={telegramContentSafeAreaTop} />
+            {returningDevice
+              ? <LifeOSBootSkeleton fullscreen={telegramFullscreen} safeAreaTop={telegramSafeAreaTop} contentSafeAreaTop={telegramContentSafeAreaTop} />
+              : <NeutralBootLoader />}
           </main>
         </MotionProvider>
       );
@@ -588,14 +595,18 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           snapshot={snapshot}
           pending={pending}
           error={error}
-          onSubmit={async (command) => {
-            const done = await sendCommand(command, true);
-            if (done) {
-              window.scrollTo(0, 0);
-              setOnboardingActive(false);
-            }
-            return done;
-          }}
+          safeAreaTop={telegramSafeAreaTop}
+          contentSafeAreaTop={telegramContentSafeAreaTop}
+          onSubmit={(command) => sendCommand(command, true)}
+          renderAiStep={() => initData ? (
+            <AiProvidersPanel
+              key="ai-onboarding"
+              initData={initData}
+              guidedOnboarding
+              embedded
+              onClose={() => { window.scrollTo({ top: 0 }); rememberReturning(); setOnboardingActive(false); }}
+            />
+          ) : null}
         />
       </MotionProvider>
     );
@@ -611,20 +622,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         <LifeOSApp
           snapshot={snapshot}
           onAction={handleAction}
-          onOpenAiProviders={() => {
-            // Until AI is set up the gear leads straight into the guided setup, afterwards to the settings menu.
-            const guided = !snapshot?.settings.aiOnboardingCompleted;
-            setGuidedAiOnboarding(guided);
-            setSettingsPage(guided ? "ai" : "menu");
-            setShowAiProviders(true);
-          }}
+          onOpenAiProviders={() => { setSettingsPage("menu"); setShowAiProviders(true); }}
           onCloseAiProviders={closeAiProviders}
           aiSettingsActive={showAiProviders}
           aiSettingsContent={showAiProviders && initData ? (
             settingsPage === "menu" ? <SettingsMenu onOpen={setSettingsPage} />
               : settingsPage === "personalization" ? <SettingsSubpage onBack={() => setSettingsPage("menu")}><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} /></SettingsSubpage>
-              : guidedAiOnboarding ? <AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setGuidedAiOnboarding(false); setShowAiQuotas(true); }} />
-              : <SettingsSubpage onBack={() => setSettingsPage("menu")}><AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding={false} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => { setShowAiProviders(false); setSettingsPage("menu"); setShowAiQuotas(true); }} /></SettingsSubpage>
+              : <SettingsSubpage onBack={() => setSettingsPage("menu")}><AiProvidersPanel key="ai-providers" initData={initData} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => { setShowAiProviders(false); setSettingsPage("menu"); setShowAiQuotas(true); }} /></SettingsSubpage>
           ) : null}
           onDateChange={(date) => void changeDate(date)}
           onHaptic={triggerTelegramHaptic}

@@ -202,3 +202,47 @@
     animation: none;
   }
 }
+
+.neutral {
+  display: grid;
+  min-height: 100dvh;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  color: #35272c;
+  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+}
+
+.neutralMark {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.neutralBar {
+  position: relative;
+  width: 72px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #a5899538;
+}
+
+.neutralBar::after {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: #742b45;
+  content: "";
+  animation: neutral-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes neutral-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neutralBar::after { width: 100%; opacity: 0.5; animation: none; }
+}

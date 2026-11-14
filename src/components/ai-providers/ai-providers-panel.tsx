@@ -58,6 +58,8 @@ type AiProvidersPanelProps = {
   onClose(): void;
   onOpenQuotas?(): void;
   guidedOnboarding?: boolean;
+  /** Rendered as a step of the first-run onboarding: starts at the key screen and has no chrome of its own. */
+  embedded?: boolean;
 };
 
 const providerOrder: ProviderId[] = ["gemini", "groq", "cerebras", "openrouter", "custom"];
@@ -267,7 +269,7 @@ function providerStatus(provider: AiProvider): string {
   return "Выключен";
 }
 
-export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboarding = false }: AiProvidersPanelProps) {
+export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboarding = false, embedded = false }: AiProvidersPanelProps) {
   const motionVariants = useMotionVariants();
   const connectRef = useRef<HTMLFormElement>(null);
   const skipConfirmationRef = useRef<HTMLDivElement>(null);
@@ -299,6 +301,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const [wizardFreeConfirmed, setWizardFreeConfirmed] = useState(false);
   const [wizardConnected, setWizardConnected] = useState<{ name: string; models: number; images: boolean } | null>(null);
   const initialScreenChosenRef = useRef(false);
+
+  // Every screen of the panel opens from the top, not from the previous scroll position.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [screen]);
 
   const authorization = `tma ${initData}`;
   const guidedRun = guidedOnboarding && !onboardingCompleted;
@@ -332,7 +339,8 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       if (!initialScreenChosenRef.current) {
         initialScreenChosenRef.current = true;
         // With nothing connected — first run or a return after «Настрою позже» — show the short wizard, not the settings catalog.
-        if (orderedQueue.length === 0 && sorted.every((provider) => provider.accounts.length === 0)) setScreen("intro");
+        if (orderedQueue.length === 0 && sorted.every((provider) => provider.accounts.length === 0)) setScreen(embedded ? "key" : "intro");
+        else if (embedded) setScreen("welcome");
       }
       setLoadState("ready");
       return true;
@@ -342,7 +350,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setLoadState("error");
       return false;
     }
-  }, [authorization, setLegacyProfileCount, setLoadError, setLoadState, setOnboardingCompleted, setProviders, setQueue, setScreen]);
+  }, [authorization, embedded, setLegacyProfileCount, setLoadError, setLoadState, setOnboardingCompleted, setProviders, setQueue, setScreen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -785,9 +793,9 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       <div className={styles.panelContent}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
-            {screen === "key" && <button className={styles.backButton} type="button" onClick={() => { setFormError(""); setScreen("intro"); }} disabled={busyAction !== null}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
+            {screen === "key" && !embedded && <button className={styles.backButton} type="button" onClick={() => { setFormError(""); setScreen("intro"); }} disabled={busyAction !== null}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
             {screen !== "providers" && screen !== "welcome" && screen !== "intro" && screen !== "key" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
-            <p className={styles.eyebrow}>{screen === "intro" ? "Шаг 1 из 3" : screen === "key" ? "Шаг 2 из 3" : screen === "welcome" && wizardConnected ? "Шаг 3 из 3" : screen === "providers" ? "Персональные настройки ИИ" : screen === "queue" ? "Общий порядок использования" : screen === "welcome" ? "Настройка завершена" : "Настройка провайдера"}</p>
+            {!embedded && <p className={styles.eyebrow}>{screen === "intro" ? "Шаг 1 из 3" : screen === "key" ? "Шаг 2 из 3" : screen === "welcome" && wizardConnected ? "Шаг 3 из 3" : screen === "providers" ? "Персональные настройки ИИ" : screen === "queue" ? "Общий порядок использования" : screen === "welcome" ? "Настройка завершена" : "Настройка провайдера"}</p>}
             <h1 id={`${id}-title`}>{screenTitle}</h1>
           </div>
         </header>
@@ -863,7 +871,9 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 {formError && <p className={styles.error} role="alert">{formError}</p>}
                 <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</button>
               </form>
-              <button type="button" className={styles.textButton} onClick={() => { setFormError(""); setScreen("providers"); }} disabled={busyAction !== null}>Расширенные настройки</button>
+              {embedded
+                ? <button type="button" className={styles.textButton} onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>Настрою позже</button>
+                : <button type="button" className={styles.textButton} onClick={() => { setFormError(""); setScreen("providers"); }} disabled={busyAction !== null}>Расширенные настройки</button>}
             </motion.div>
           )}
 
@@ -1096,7 +1106,6 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           <footer className={styles.screenFooter}>
             <button className={styles.primaryAction} type="button" onClick={() => setScreen("key")} disabled={busyAction !== null}>Начать</button>
             <button className={styles.textButton} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : guidedRun ? "Настрою позже" : "Закрыть"}</button>
-            <p className={styles.guidance}>Без ключа дневник, финансы и зал работают вручную. Вернуться можно по шестерёнке внизу.</p>
           </footer>
         )}
 

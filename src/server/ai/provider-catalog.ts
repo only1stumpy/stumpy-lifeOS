@@ -96,8 +96,11 @@ const definitions: AiProviderDefinition[] = [
   },
 ];
 
+/** Providers kept only so old rows and API values stay valid; they are not offered for connection. */
+const RETIRED_PROVIDER_IDS: ReadonlySet<AiProviderId> = new Set<AiProviderId>(["cerebras"]);
+
 export function listAiProviderDefinitions(): AiProviderDefinition[] {
-  return definitions;
+  return definitions.filter((definition) => !RETIRED_PROVIDER_IDS.has(definition.id));
 }
 
 export function getAiProviderDefinition(providerId: AiProviderId): AiProviderDefinition {
