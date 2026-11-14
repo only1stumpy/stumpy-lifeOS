@@ -116,7 +116,7 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-  padding: 20px 24px calc(160px + var(--lifeos-safe-bottom));
+  padding: 20px 24px calc(160px + var(--lifeos-safe-bottom) + var(--lifeos-keyboard));
 }
 
 .screenMotion {
