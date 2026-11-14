@@ -468,3 +468,8 @@ button:disabled {
   border-color: #a3261f55;
   color: #a3261f;
 }
+
+.editor [aria-invalid="true"] {
+  border-color: #a3261f;
+  outline: 2px solid #a3261f33;
+}
