@@ -3,11 +3,6 @@ import type { AppSnapshot } from "@/domain/app";
 import { ALL_FEATURES, normalizeModules, type LifeFeature } from "@/domain/modules";
 import { dateKey } from "@/domain/math";
 
-const moneyFormat = new Intl.NumberFormat("ru-RU", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
 function normalize(value: string): string {
   return value.toLocaleLowerCase("ru-RU").replaceAll("ё", "е").trim();
 }
