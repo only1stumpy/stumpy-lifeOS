@@ -463,3 +463,8 @@ button:disabled {
 .editor .stepper { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; align-items: center; }
 .editor .stepper button { min-width: 44px; min-height: 44px; padding: 0; font-size: 20px; line-height: 1; }
 .editor .stepper input { text-align: center; min-width: 0; }
+
+.editor button.danger {
+  border-color: #a3261f55;
+  color: #a3261f;
+}

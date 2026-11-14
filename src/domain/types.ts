@@ -68,6 +68,7 @@ export type WorkoutExercise = {
   id: string;
   name: string;
   restSeconds: number;
+  targetRepetitions: number | null;
   sets: ExerciseSet[];
   previousPerformance: string | null;
   progressionHint: string | null;
@@ -76,6 +77,7 @@ export type WorkoutExercise = {
 export type WorkoutDay = {
   id: string;
   name: string;
+  weekday: number | null;
   exercises: WorkoutExercise[];
 };
 
