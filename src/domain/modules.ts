@@ -3,7 +3,7 @@ import { z } from "zod";
 /** Life areas a user can switch on or off; disabled ones are hidden and never reach AI or summaries. */
 export const LIFE_MODULES = {
   nutrition: { label: "Питание", description: "КБЖУ еды, вес и норма калорий под вашу цель. Еду можно записывать сообщением боту или вручную." },
-  finance: { label: "Финансы", description: "Счета в рублях ПМР и долларах, расходы и доходы, подписки, долги и планы покупок." },
+  finance: { label: "Финансы", description: "Счета в любых валютах, расходы и доходы, подписки, долги и планы покупок." },
   gym: { label: "Зал", description: "Программа тренировок, упражнения, подходы и таймер отдыха. Ведётся в Mini App." },
 } as const;
 export type LifeModule = keyof typeof LIFE_MODULES;
