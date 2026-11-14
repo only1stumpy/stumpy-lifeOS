@@ -127,3 +127,13 @@ export function AiQuotasSkeleton() {
     </div>
   );
 }
+
+/** Calm loader for a device that has not opened the dashboard yet: no layout that may not match what comes next. */
+export function NeutralBootLoader() {
+  return (
+    <div className={styles.neutral} aria-hidden="true">
+      <span className={styles.neutralMark}>LifeOS</span>
+      <span className={styles.neutralBar} />
+    </div>
+  );
+}

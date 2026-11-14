@@ -8,6 +8,7 @@ import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverag
 import { parseWeightMessage } from "../src/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures, type LifeFeature, type LifeModule } from "../src/domain/modules";
 import { compareVersions, releasesSince } from "../src/domain/release";
+import { getAiProviderDefinition, listAiProviderDefinitions } from "../src/server/ai/provider-catalog";
 import { buildHelpSection, buildStartMessage, helpSections, isHelpSectionId, type HelpSectionId } from "../src/domain/welcome";
 import { parseDebtMessage } from "../src/domain/debt-message";
 import { parseFinancePlanMessage } from "../src/domain/finance-plans";
@@ -641,4 +642,10 @@ test("/help menu lists enabled modules plus general sections, and each section i
   assert.doesNotMatch(buildHelpSection("digest", { modules: ["nutrition"], features: [] }) ?? "", /сколько я потратил/);
   const commands: HelpSectionId = "commands";
   assert.match(buildHelpSection(commands, input) ?? "", /«Записать»[\s\S]*\/today[\s\S]*\/cancel[\s\S]*\/help/);
+});
+
+test("retired AI provider Cerebras is not offered, but old rows still resolve", () => {
+  const offered = listAiProviderDefinitions().map((provider) => provider.id);
+  assert.deepEqual(offered, ["gemini", "groq", "openrouter", "custom"]);
+  assert.equal(getAiProviderDefinition("cerebras").id, "cerebras");
 });

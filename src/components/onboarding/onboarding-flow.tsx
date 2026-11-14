@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AppSnapshot } from "@/domain/app";
 import { commandSchema, type AppCommand } from "@/domain/commands";
 import { parseMinor } from "@/domain/math";
@@ -11,18 +11,20 @@ import styles from "./onboarding-flow.module.css";
 
 export type OnboardingCommand = Extract<AppCommand, { type: "onboarding.complete" }>;
 
-type Step = "modules" | "usage" | "profile" | "account";
+type Step = "modules" | "usage" | "profile" | "account" | "ai";
 type ProfileForm = { sex: string; age: string; heightCm: string; weightKg: string; activityLevel: string; goalType: string };
-type TargetForm = { calories: string; proteinGrams: string; fatGrams: string; carbsGrams: string };
-type Props = { snapshot: AppSnapshot; pending: boolean; error: string | null; onSubmit(command: OnboardingCommand): Promise<boolean> };
-
-const TARGET_FIELDS: { key: keyof TargetForm; label: string }[] = [
-  { key: "calories", label: "Ккал" },
-  { key: "proteinGrams", label: "Белки, г" },
-  { key: "fatGrams", label: "Жиры, г" },
-  { key: "carbsGrams", label: "Углеводы, г" },
-];
-const EMPTY_TARGET: TargetForm = { calories: "", proteinGrams: "", fatGrams: "", carbsGrams: "" };
+type Props = {
+  snapshot: AppSnapshot;
+  pending: boolean;
+  error: string | null;
+  /** Saves the answers. The AI step follows only when this resolves to true. */
+  onSubmit(command: OnboardingCommand): Promise<boolean>;
+  /** Telegram insets, so the first line never sits under the Telegram header. */
+  safeAreaTop?: number;
+  contentSafeAreaTop?: number;
+  /** The last step: connecting an AI key. It ends the onboarding itself. */
+  renderAiStep(): ReactNode;
+};
 
 function num(value: string): number {
   return value.trim() === "" ? Number.NaN : Number(value.replace(",", "."));
@@ -40,13 +42,7 @@ function parseProfile(form: ProfileForm): NutritionProfile | null {
   return parsed.success ? parsed.data : null;
 }
 
-function targetFor(profile: NutritionProfile | null): TargetForm {
-  if (!profile) return EMPTY_TARGET;
-  const t = suggestTargets(profile);
-  return { calories: String(t.calories), proteinGrams: String(t.proteinGrams), fatGrams: String(t.fatGrams), carbsGrams: String(t.carbsGrams) };
-}
-
-export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
+export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop = 0, contentSafeAreaTop = 0, renderAiStep }: Props) {
   const [modules, setModules] = useState<LifeModule[]>(() => (snapshot.settings.enabledModules.length ? [...snapshot.settings.enabledModules] : [...ALL_MODULES]));
   const [usage, setUsage] = useState<UsageMode>("daily");
   const [profile, setProfile] = useState<ProfileForm>(() => {
@@ -61,14 +57,6 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
       goalType: saved.goalType ?? "",
     };
   });
-  const [target, setTarget] = useState<TargetForm>(() => targetFor(parseProfile({
-    sex: snapshot.settings.profile.sex ?? "",
-    age: snapshot.settings.profile.age != null ? String(snapshot.settings.profile.age) : "",
-    heightCm: snapshot.settings.profile.heightCm != null ? String(snapshot.settings.profile.heightCm) : "",
-    weightKg: snapshot.nutrition.bodyWeightKg != null ? String(snapshot.nutrition.bodyWeightKg) : "",
-    activityLevel: snapshot.settings.profile.activityLevel ?? "",
-    goalType: snapshot.settings.profile.goalType ?? "",
-  })));
   const [skipProfile, setSkipProfile] = useState(false);
   const [currency, setCurrency] = useState<"PRB" | "USD">("PRB");
   const [amount, setAmount] = useState("");
@@ -82,10 +70,12 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
     const list: Step[] = ["modules", "usage"];
     if (modules.includes("nutrition")) list.push("profile");
     if (modules.includes("finance")) list.push("account");
+    list.push("ai");
     return list;
   }, [modules]);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
-  const isLast = stepIndex >= steps.length - 1;
+  // The step before the AI one is where the answers are saved.
+  const isLastDataStep = stepIndex >= steps.length - 2;
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -93,19 +83,18 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
   }, [stepIndex]);
 
   const parsedProfile = parseProfile(profile);
-  const profileErrors = {
-    age: profile.age !== "" && !(Number.isInteger(num(profile.age)) && num(profile.age) >= 16 && num(profile.age) <= 90) ? "Возраст: от 16 до 90 лет." : null,
-    heightCm: profile.heightCm !== "" && !(num(profile.heightCm) >= 100 && num(profile.heightCm) <= 250) ? "Рост: от 100 до 250 см." : null,
-    weightKg: profile.weightKg !== "" && !(num(profile.weightKg) >= 30 && num(profile.weightKg) <= 350) ? "Вес: от 30 до 350 кг." : null,
+  const norm = parsedProfile ? suggestTargets(parsedProfile) : null;
+  const invalid = {
+    age: profile.age !== "" && !(Number.isInteger(num(profile.age)) && num(profile.age) >= 16 && num(profile.age) <= 90),
+    heightCm: profile.heightCm !== "" && !(num(profile.heightCm) >= 100 && num(profile.heightCm) <= 250),
+    weightKg: profile.weightKg !== "" && !(num(profile.weightKg) >= 30 && num(profile.weightKg) <= 350),
   };
 
   const rateValid = /^\d{1,6}([.,]\d{1,6})?$/.test(rate.trim()) && Number(rate.replace(",", ".")) > 0;
-  const rateError = currency === "USD" && rate.trim() !== "" && !rateValid ? "Курс: положительное число, до 6 знаков после запятой." : null;
+  const rateInvalid = currency === "USD" && rate.trim() !== "" && !rateValid;
 
   function changeProfile(patch: Partial<ProfileForm>) {
-    const next = { ...profile, ...patch };
-    setProfile(next);
-    setTarget(targetFor(parseProfile(next)));
+    setProfile({ ...profile, ...patch });
   }
 
   function toggleModule(module: LifeModule) {
@@ -115,18 +104,17 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
     });
   }
 
-  const targetFilled = TARGET_FIELDS.every(({ key }) => target[key].trim() !== "" && Number.isFinite(num(target[key])) && num(target[key]) >= 0);
-  // The step's own validity gates "Далее"; skipping is a separate explicit action.
-  const stepBlocker: string | null = (() => {
-    if (step === "modules" && modules.length < 1) return "Оставьте включённым хотя бы один раздел.";
-    if (step === "profile" && !skipProfile && !(parsedProfile && targetFilled)) return "Заполните все поля профиля или нажмите «Пропустить».";
+  // The step's own validity gates "Далее" (the button stays disabled, no explanatory text); skipping is a separate action.
+  const stepBlocked: boolean = (() => {
+    if (step === "modules") return modules.length < 1;
+    if (step === "profile") return !skipProfile && !parsedProfile;
     if (step === "account" && !skipAccount) {
       if (amount.trim() !== "") {
-        try { parseMinor(amount); } catch (e) { return e instanceof Error ? e.message : "Проверьте сумму."; }
+        try { parseMinor(amount); } catch { return true; }
       }
-      if (currency === "USD" && !rateValid) return "Для долларового счёта нужен курс.";
+      if (currency === "USD" && !rateValid) return true;
     }
-    return null;
+    return false;
   })();
 
   function build(skip: { profile?: boolean; account?: boolean }): OnboardingCommand | string {
@@ -141,7 +129,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
       modules,
       usage,
       profile: useProfile ? parsedProfile : null,
-      target: useProfile ? { calories: num(target.calories), proteinGrams: num(target.proteinGrams), fatGrams: num(target.fatGrams), carbsGrams: num(target.carbsGrams) } : null,
+      target: useProfile && norm ? norm : null,
       account,
     };
     const parsed = commandSchema.safeParse(candidate);
@@ -154,19 +142,20 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
     let command: OnboardingCommand | string;
     try { command = build(skip); } catch (e) { command = e instanceof Error ? e.message : "Проверьте введённые данные."; }
     if (typeof command === "string") { setLocalError(command); return; }
-    await onSubmit(command);
+    // Answers are saved first; the AI step is shown only after that, and it cannot be walked back from.
+    if (await onSubmit(command)) setStepIndex(steps.length - 1);
   }
 
   function next() {
-    if (stepBlocker) { setLocalError(stepBlocker); return; }
-    if (isLast) void finish({});
+    if (stepBlocked) return;
+    if (isLastDataStep) void finish({});
     else { setLocalError(null); setStepIndex((i) => i + 1); }
   }
 
   function skip() {
     if (step === "profile") setSkipProfile(true);
     if (step === "account") setSkipAccount(true);
-    if (isLast) void finish(step === "profile" ? { profile: true } : { account: true });
+    if (isLastDataStep) void finish(step === "profile" ? { profile: true } : { account: true });
     else { setLocalError(null); setStepIndex((i) => i + 1); }
   }
 
@@ -181,7 +170,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
   const canSkip = step === "profile" || step === "account";
 
   return (
-    <main className={styles.page} ref={rootRef}>
+    <main className={styles.page} ref={rootRef} style={{ "--ob-safe-top": `${Math.max(0, safeAreaTop) + Math.max(0, contentSafeAreaTop)}px` } as CSSProperties}>
       <div className={styles.inner}>
         <header className={styles.header}>
           <p className={styles.progress}>Шаг {Math.min(stepIndex, steps.length - 1) + 1} из {steps.length}</p>
@@ -224,10 +213,9 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
         )}
 
         {step === "profile" && (
-          <section className={styles.step} aria-labelledby="ob-title">
+          <section className={`${styles.step} ${styles.compact}`} aria-labelledby="ob-title">
             <h1 id="ob-title">Расскажите о себе</h1>
-            <p className={styles.lead}>По этим данным посчитаем стартовую норму на день. Её можно поправить.</p>
-            <div className={styles.fields}>
+            <div className={styles.fieldsTwo}>
               <label className={styles.field}>Пол
                 <select value={profile.sex} onChange={(e) => changeProfile({ sex: e.target.value })}>
                   <option value="" disabled>Выберите</option>
@@ -236,42 +224,32 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
                 </select>
               </label>
               <label className={styles.field}>Возраст
-                <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={!!profileErrors.age} />
-                {profileErrors.age && <small role="alert">{profileErrors.age}</small>}
+                <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={invalid.age} />
               </label>
               <label className={styles.field}>Рост, см
-                <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={!!profileErrors.heightCm} />
-                {profileErrors.heightCm && <small role="alert">{profileErrors.heightCm}</small>}
+                <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={invalid.heightCm} />
               </label>
               <label className={styles.field}>Вес, кг
-                <input inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} aria-invalid={!!profileErrors.weightKg} />
-                {profileErrors.weightKg && <small role="alert">{profileErrors.weightKg}</small>}
+                <input inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} aria-invalid={invalid.weightKg} />
               </label>
-              <label className={styles.field}>Активность
+              <label className={`${styles.field} ${styles.wide}`}>Активность
                 <select value={profile.activityLevel} onChange={(e) => changeProfile({ activityLevel: e.target.value })}>
                   <option value="" disabled>Выберите</option>
                   {Object.entries(ACTIVITY_LEVELS).map(([key, level]) => <option key={key} value={key}>{level.label}</option>)}
                 </select>
               </label>
-              <label className={styles.field}>Цель
+              <label className={`${styles.field} ${styles.wide}`}>Цель
                 <select value={profile.goalType} onChange={(e) => changeProfile({ goalType: e.target.value })}>
                   <option value="" disabled>Выберите</option>
                   {Object.entries(GOALS).map(([key, goal]) => <option key={key} value={key}>{goal.label}</option>)}
                 </select>
               </label>
             </div>
-            {parsedProfile && (
-              <fieldset className={styles.target}>
-                <legend>Норма на день</legend>
-                <div className={styles.targetGrid}>
-                  {TARGET_FIELDS.map(({ key, label }) => (
-                    <label key={key} className={styles.field}>{label}
-                      <input inputMode="numeric" value={target[key]} onChange={(e) => setTarget({ ...target, [key]: e.target.value })} />
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            )}
+            <p className={styles.norm} aria-live="polite">
+              {norm
+                ? <>Норма на день: <strong>{norm.calories.toLocaleString("ru-RU")} ккал</strong> · Б {norm.proteinGrams} · Ж {norm.fatGrams} · У {norm.carbsGrams}. Её можно поправить позже.</>
+                : "Заполните поля, и я посчитаю норму на день."}
+            </p>
           </section>
         )}
 
@@ -293,8 +271,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
               </label>
               {currency === "USD" && (
                 <label className={styles.field}>Курс: 1 USD = … руб. ПМР
-                  <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} aria-invalid={!!rateError} />
-                  {rateError && <small role="alert">{rateError}</small>}
+                  <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} aria-invalid={rateInvalid} />
                 </label>
               )}
             </div>
@@ -302,17 +279,19 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit }: Props) {
           </section>
         )}
 
-        <div className={styles.actions}>
-          {step === "modules" && modules.length < 1 && <p className={styles.hint}>Оставьте включённым хотя бы один раздел.</p>}
-          {shownError && <p className={styles.error} role="alert">{shownError}</p>}
-          <button type="button" className={styles.primary} onClick={next} disabled={pending || (step === "modules" && modules.length < 1)}>
-            {isLast ? "Готово" : "Далее"}
-          </button>
-          <div className={styles.secondaryRow}>
-            {stepIndex > 0 && <button type="button" className={styles.secondary} onClick={back} disabled={pending}>Назад</button>}
-            {canSkip && <button type="button" className={styles.secondary} onClick={skip} disabled={pending}>Пропустить</button>}
+        {step === "ai" && <section className={styles.aiStep} aria-label="Подключение ИИ">{renderAiStep()}</section>}
+
+        {step !== "ai" && (
+          <div className={styles.actions}>
+            {step === "modules" && modules.length < 1 && <p className={styles.hint}>Оставьте включённым хотя бы один раздел.</p>}
+            {shownError && <p className={styles.error} role="alert">{shownError}</p>}
+            <button type="button" className={styles.primary} onClick={next} disabled={pending || stepBlocked}>Далее</button>
+            <div className={styles.secondaryRow}>
+              {stepIndex > 0 && <button type="button" className={styles.secondary} onClick={back} disabled={pending}>Назад</button>}
+              {canSkip && <button type="button" className={styles.secondary} onClick={skip} disabled={pending}>Пропустить</button>}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

@@ -1,13 +1,13 @@
 .page {
   min-height: 100dvh;
-  padding: 32px 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  padding: calc(20px + var(--ob-safe-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
   color: #35272c;
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
 }
 
 .inner {
   display: flex;
-  min-height: calc(100dvh - 64px);
+  min-height: calc(100dvh - 44px - var(--ob-safe-top, 0px));
   max-width: 560px;
   flex-direction: column;
   gap: 28px;
@@ -43,7 +43,7 @@
 
 .fields { display: grid; gap: 14px; }
 .field { display: grid; min-width: 0; gap: 6px; font-size: 13px; font-weight: 550; }
-.field small { color: #912f37; font-size: 12px; font-weight: 400; }
+.field input[aria-invalid="true"] { border-color: #912f37; }
 .field input, .field select {
   width: 100%;
   min-width: 0;
@@ -102,3 +102,14 @@
 @media (prefers-reduced-motion: reduce) {
   .bar span, .card { transition: none; }
 }
+
+/* Profile step: everything fits one screen, so fields sit in two columns and the norm is a single line. */
+.compact { gap: 14px; }
+.fieldsTwo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fieldsTwo .field input, .fieldsTwo .field select { min-height: 48px; padding: 10px 14px; }
+.wide { grid-column: 1 / -1; }
+.norm { margin: 0; color: #6f5f65; font-size: 14px; line-height: 1.5; }
+.norm strong { color: #35272c; font-weight: 600; }
+
+/* The AI step renders the connection wizard inside the same page. */
+.aiStep { min-width: 0; }

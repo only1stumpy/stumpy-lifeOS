@@ -863,7 +863,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
             </motion.div>
           </AnimatePresence>
         </main>
-        <motion.nav ref={dockRef} className={styles.dock} data-lg-role="dock" aria-label="Разделы LifeOS" initial={{ opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
+        <motion.nav ref={dockRef} className={styles.dock} style={{ "--dock-items": navItems.length } as CSSProperties} data-lg-role="dock" aria-label="Разделы LifeOS" initial={{ opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
           <GlassRefraction surfaceRef={dockRef} filterId={dockFilterId} profile="thin" shape="pill" />
           {navItems.map((item) => item.key === activeTab ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={{ type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
           {navItems.map((item) => (

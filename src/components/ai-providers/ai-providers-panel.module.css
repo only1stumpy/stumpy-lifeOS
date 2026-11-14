@@ -1288,8 +1288,6 @@
   flex: 0 0 auto;
   gap: 16px;
   padding: 16px 0 0;
-  border-top: 1px solid rgba(116, 43, 69, 0.11);
-  background: linear-gradient(180deg, rgba(250, 246, 245, 0), rgba(250, 246, 245, 0.4) 28%);
 }
 
 .sheet .screenFooter button.primaryAction {
