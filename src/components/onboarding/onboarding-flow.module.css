@@ -1,6 +1,6 @@
 .page {
   min-height: 100dvh;
-  padding: calc(20px + var(--ob-safe-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: calc(20px + var(--ob-safe-top, 0px)) 16px calc(24px + var(--lifeos-inset-bottom));
   color: #35272c;
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
 }

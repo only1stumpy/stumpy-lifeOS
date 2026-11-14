@@ -15,6 +15,9 @@
 }
 
 :root {
+  /* Safe areas: set from JS inside Telegram (system inset + Telegram controls), env() elsewhere. */
+  --lifeos-inset-top: env(safe-area-inset-top, 0px);
+  --lifeos-inset-bottom: env(safe-area-inset-bottom, 0px);
   --motion-duration-micro: 140ms;
   --motion-duration-state: 180ms;
   --motion-duration-transition: 240ms;
@@ -98,7 +101,7 @@ button:disabled {
   border: 1px solid #fff;
   border-radius: 30px 30px 0 0;
   padding: clamp(24px, 5vw, 36px);
-  padding-bottom: calc(clamp(24px, 5vw, 36px) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(clamp(24px, 5vw, 36px) + var(--lifeos-inset-bottom));
   background: rgba(249, 244, 241, 0.95);
   color: #35272c;
   box-shadow: 0 -10px 60px #742b4520;

@@ -22,7 +22,7 @@ import { APP_VERSION, releasesSince } from "@/domain/release";
 type LifeOSRootProps = { configured: boolean };
 type RootStatus = "checking" | "outside" | "setup" | "loading" | "ready" | "error";
 type TelegramWebAppEvent = "fullscreenChanged" | "fullscreenFailed" | "safeAreaChanged" | "contentSafeAreaChanged";
-type TelegramInset = { top?: number };
+type TelegramInset = { top?: number; bottom?: number };
 type TelegramBackButton = {
   show?(): void;
   hide?(): void;
@@ -53,7 +53,7 @@ type TelegramMiniApp = {
 const finishButtonStyle: CSSProperties = {
   position: "fixed",
   zIndex: 20,
-  bottom: "calc(94px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))))",
+  bottom: "calc(94px + var(--lifeos-inset-bottom))",
   left: "50%",
   transform: "translateX(-50%)",
   minHeight: 44,
@@ -223,6 +223,11 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           setTelegramFullscreen(webApp.isFullscreen === true);
           setTelegramSafeAreaTop(Math.max(0, webApp.safeAreaInset?.top ?? 0));
           setTelegramContentSafeAreaTop(Math.max(0, webApp.contentSafeAreaInset?.top ?? 0));
+          // System inset and Telegram's own controls stack, so the app's inset is their sum.
+          const top = Math.max(0, webApp.safeAreaInset?.top ?? 0) + Math.max(0, webApp.contentSafeAreaInset?.top ?? 0);
+          const bottom = Math.max(0, webApp.safeAreaInset?.bottom ?? 0) + Math.max(0, webApp.contentSafeAreaInset?.bottom ?? 0);
+          document.documentElement.style.setProperty("--lifeos-inset-top", `${top}px`);
+          document.documentElement.style.setProperty("--lifeos-inset-bottom", `max(${bottom}px, env(safe-area-inset-bottom, 0px))`);
         };
         syncTelegramPresentation();
 

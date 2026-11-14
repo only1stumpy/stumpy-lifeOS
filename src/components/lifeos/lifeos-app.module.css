@@ -12,8 +12,8 @@
   --gym-soft: rgba(107, 102, 132, 0.11);
   --glass-alpha: 0.085;
   --surface-radius: 28px;
-  --lifeos-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 0px)), var(--lifeos-telegram-safe-area-top, 0px), var(--lifeos-telegram-content-safe-area-top, 0px));
-  --lifeos-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  --lifeos-safe-top: var(--lifeos-inset-top);
+  --lifeos-safe-bottom: var(--lifeos-inset-bottom);
   position: relative;
   isolation: isolate;
   color-scheme: light;
@@ -84,11 +84,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: max(10px, var(--lifeos-safe-top)) 24px 4px;
+  padding: calc(10px + var(--lifeos-safe-top)) 24px 4px;
 }
 
 .stage[data-fullscreen="true"] .appHeader {
-  padding-top: max(80px, var(--lifeos-safe-top), var(--lifeos-telegram-content-safe-area-top, 0px));
+  padding-top: max(80px, calc(10px + var(--lifeos-safe-top)));
 }
 
 .brand {
