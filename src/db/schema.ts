@@ -201,6 +201,8 @@ export const captureDrafts = pgTable(
     kind: text("kind").notNull(),
     status: text("status").default("pending").notNull(),
     messageText: text("message_text"),
+    /** Id of the bot message showing this draft, so bulk actions can clean it up. */
+    telegramMessageId: integer("telegram_message_id"),
     expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true, mode: "date" }),
     createdAt: createdAt(),

@@ -98,3 +98,25 @@ function capitalize(value: string): string {
 function shortCallbackText(value: string): string {
   return Array.from(value).slice(0, 180).join("");
 }
+
+const SUMMARY_MAX_ITEMS = 12;
+const round1 = (value: number) => Math.round(value * 10) / 10;
+
+export type SummaryDraft = {
+  food: { label: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number } | null;
+  money: { label: string; amountMinor: number; currency: string; kind: "expense" | "income"; category: string | null } | null;
+  debt: { personName: string; amountMinor: number } | null;
+};
+
+/** One message after a bulk save: what was recorded, and what was not. */
+export function formatBulkSummary(drafts: SummaryDraft[], total: number, problems: string[], baseCurrency: string): string {
+  const items: string[] = [];
+  for (const draft of drafts) {
+    if (draft.food) items.push(`• Еда: ${draft.food.label} — ${Math.round(draft.food.calories)} ккал · Б ${round1(draft.food.proteinGrams)} · Ж ${round1(draft.food.fatGrams)} · У ${round1(draft.food.carbsGrams)}`);
+    if (draft.money) items.push(`• ${draft.money.kind === "income" ? "Доход" : "Расход"}: ${draft.money.label} — ${formatMoneyShared(draft.money.amountMinor, draft.money.currency)}${draft.money.category ? ` · ${draft.money.category}` : ""}`);
+    if (draft.debt) items.push(`• Долг: ${draft.debt.personName} — ${formatMoneyShared(draft.debt.amountMinor, baseCurrency)}`);
+  }
+  const shown = items.slice(0, SUMMARY_MAX_ITEMS);
+  if (items.length > shown.length) shown.push(`…и ещё ${items.length - shown.length}`);
+  return [`Записано ${drafts.length} из ${total}`, ...shown, ...problems.map((problem) => `Не записано: ${problem}`)].join("\n");
+}

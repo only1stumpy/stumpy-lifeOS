@@ -126,6 +126,24 @@ test("multi-currency migration keeps rates and entries and makes PRB the base of
   }
 });
 
+test("draft message id column is added empty and accepts a Telegram message id", async () => {
+  const client = new PGlite();
+  try {
+    await migrate(client);
+    await client.exec(`
+      INSERT INTO owner_settings (id, telegram_user_id) VALUES ('10000000-0000-4000-8000-000000000009', '999');
+      INSERT INTO capture_drafts (id, owner_id, kind) VALUES ('90000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000009', 'finance');
+    `);
+    const before = await client.query("SELECT telegram_message_id FROM capture_drafts");
+    assert.deepEqual(before.rows, [{ telegram_message_id: null }]);
+    await client.exec("UPDATE capture_drafts SET telegram_message_id = 4242");
+    const after = await client.query("SELECT telegram_message_id FROM capture_drafts");
+    assert.deepEqual(after.rows, [{ telegram_message_id: 4242 }]);
+  } finally {
+    await client.close();
+  }
+});
+
 test("clarification history is owner-scoped JSON text with a separate expiry timestamp", async () => {
   const client = new PGlite();
   try {

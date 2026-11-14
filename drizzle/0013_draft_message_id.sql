@@ -1,0 +1,1 @@
+ALTER TABLE "capture_drafts" ADD COLUMN "telegram_message_id" integer;
