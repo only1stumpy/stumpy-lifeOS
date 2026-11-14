@@ -830,9 +830,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderSetForm(dayId: string, exerciseId: string, set: ExerciseSet) {
+    // A fresh set starts from the previous completed set of the same exercise, so repeating a weight is one tap.
+    const sets = snapshot.gym.program.find((day) => day.id === dayId)?.exercises.find((exercise) => exercise.id === exerciseId)?.sets ?? [];
+    const previous = [...sets].reverse().find((item) => item.index < set.index && item.completed);
+    const weightStart = set.weightKg ?? (set.completed ? null : previous?.weightKg ?? null);
+    const repsStart = set.repetitions ?? (set.completed ? null : previous?.repetitions ?? null);
+    const extraFilled = set.durationSeconds !== null || set.distanceMeters !== null;
     return (
       <>
-        <p>Введите фактический результат подхода {set.index}. Пустые показатели останутся незаданными.</p>
+        <p>Результат подхода {set.index}.{previous && !set.completed ? ` Подставлено из подхода ${previous.index}.` : ""}</p>
         <form onSubmit={(event) => submitForm(event, (form) => {
           const weightKg = optionalNumber(form, "weightKg", "Вес");
           const repetitions = optionalNumber(form, "repetitions", "Повторения");
@@ -842,11 +848,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           return { type: "set.save", dayId, exerciseId, setIndex: set.index, weightKg, repetitions, durationSeconds, distanceMeters };
         })}>
           <div className="fields-row">
-            <label>Вес, кг<input name="weightKg" type="number" min="0" max="2000" step="0.1" defaultValue={set.weightKg ?? ""} /></label>
-            <label>Повторения<input name="repetitions" type="number" min="1" max="10000" step="1" defaultValue={set.repetitions ?? ""} /></label>
-            <label>Время, секунд<input name="durationSeconds" type="number" min="1" max="86400" step="1" defaultValue={set.durationSeconds ?? ""} /></label>
-            <label>Дистанция, м<input name="distanceMeters" type="number" min="0.01" max="1000000" step="0.01" defaultValue={set.distanceMeters ?? ""} /></label>
+            <StepField label="Вес, кг" name="weightKg" start={weightStart} step={2.5} min={0} max={2000} />
+            <StepField label="Повторения" name="repetitions" start={repsStart} step={1} min={0} max={10000} />
           </div>
+          <details open={extraFilled}>
+            <summary>Время и дистанция</summary>
+            <div className="fields-row">
+              <label>Время, секунд<input name="durationSeconds" type="number" inputMode="numeric" min="1" max="86400" step="1" defaultValue={set.durationSeconds ?? ""} /></label>
+              <label>Дистанция, м<input name="distanceMeters" type="number" inputMode="decimal" min="0.01" max="1000000" step="0.01" defaultValue={set.distanceMeters ?? ""} /></label>
+            </div>
+          </details>
           <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить результат</button></div>
         </form>
       </>
@@ -912,6 +923,27 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       </AnimatePresence>
       {renderEditorContent()}
     </motion.dialog>
+  );
+}
+
+/** A number field with − / + buttons: weight and repetitions change by one tap instead of typing. */
+function StepField({ label, name, start, step, min, max }: { label: string; name: string; start: number | null; step: number; min: number; max: number }) {
+  const [value, setValue] = useState(start === null ? "" : String(start).replace(".", ","));
+  const bump = (delta: number) => {
+    const current = Number(value.replace(",", "."));
+    const base = value.trim() !== "" && Number.isFinite(current) ? current : 0;
+    const next = Math.min(max, Math.max(min, Math.round((base + delta) * 100) / 100));
+    setValue(String(next).replace(".", ","));
+  };
+  return (
+    <div className="step-field">
+      <label htmlFor={`step-${name}`}>{label}</label>
+      <div className="stepper">
+        <button type="button" aria-label={`${label}: меньше`} onClick={() => bump(-step)}>−</button>
+        <input id={`step-${name}`} name={name} type="text" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} />
+        <button type="button" aria-label={`${label}: больше`} onClick={() => bump(step)}>+</button>
+      </div>
+    </div>
   );
 }
 

@@ -583,6 +583,16 @@ test("конвертация между двумя не-USD валютами и�
   assert.throws(() => convertToBaseMinor(1_000, "EUR", "MDL", null), /EUR/);
 });
 
+test("personalization.save keeps modules, features and notifications in one command", () => {
+  const base = { type: "personalization.save", modules: ["finance"], disabledFeatures: [], settings: { dailySummary: true, weeklySummary: false, weightReminder: false, summaryTime: "19:30" } };
+  assert.equal(commandSchema.safeParse(base).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, modules: [] }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: "25:00" } }).success, false);
+  const withoutFeatures: Record<string, unknown> = { ...base };
+  delete withoutFeatures.disabledFeatures;
+  assert.equal(commandSchema.safeParse(withoutFeatures).success, false);
+});
+
 test("what's new lists every release missed since the last visit", () => {
   const history = [
     { version: "0.10.0", notes: ["c"] },

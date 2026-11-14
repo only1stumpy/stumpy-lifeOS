@@ -17,6 +17,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("profile.save"), profile: profileSchema, target: macrosSchema }),
   z.object({ type: z.literal("profile.skip") }),
   z.object({ type: z.literal("notifications.save"), settings: notificationSettingsSchema }),
+  z.object({ type: z.literal("personalization.save"), modules: enabledModulesSchema, disabledFeatures: disabledFeaturesSchema, settings: notificationSettingsSchema }),
   z.object({ type: z.literal("version.seen"), version: z.string().min(1).max(20) }),
   z.object({ type: z.literal("modules.save"), modules: enabledModulesSchema, disabledFeatures: disabledFeaturesSchema.optional() }),
   z.object({
