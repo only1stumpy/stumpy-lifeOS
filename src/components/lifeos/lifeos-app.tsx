@@ -3,7 +3,7 @@
 import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { formatMoneyAmount } from "@/domain/math";
 import { GOALS } from "@/domain/nutrition";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { HTMLMotionProps } from "motion/react";
@@ -97,6 +97,20 @@ function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) 
   };
 
   return <svg aria-hidden="true" viewBox="0 0 24 24" {...common} {...props}>{paths[name]}</svg>;
+}
+
+function dayKey(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+}
+
+function shiftDay(value: string, delta: number): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + delta);
+  return date.toISOString().slice(0, 10);
+}
+
+function todayIn(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 function dateHeading(value: string): string {
@@ -260,7 +274,7 @@ function FinanceEntry({ entry, timeZone, onEdit, onDelete }: { entry: MoneyEntry
   return (
     <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} className={styles.entryRow}>
       <div className={styles.entryTime}>{timeLabel(entry.occurredAt, timeZone)}</div>
-      <div className={styles.entryBody}>
+      <div className={styles.entryBody} role="button" tabIndex={0} aria-label={`Изменить: ${entry.label}`} onClick={onEdit} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onEdit(); } }}>
         <strong>{entry.label}</strong>
         <span>{entry.category} · {entry.kind === "income" ? "Доход" : "Расход"}</span>
       </div>
@@ -342,6 +356,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
   const [selectedFinanceView, setFinanceView] = useState<"overview" | "entries" | "plans" | "debts">("overview");
   // A finance tab that was just switched off falls back to the overview.
   const financeView = selectedFinanceView === "plans" && !features.includes("finance.plans") || selectedFinanceView === "debts" && !features.includes("finance.debts") ? "overview" : selectedFinanceView;
+  const [financeLimit, setFinanceLimit] = useState(20);
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -667,7 +682,16 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
     return (
       <motion.div className={styles.screenStack} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         <GlassSurface className={styles.moduleSurface} focus>
-          <div className={styles.sectionTopline}><span className={styles.eyebrow}>Дневник</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
+          <div className={styles.dayNav} role="group" aria-label="День дневника">
+            <button type="button" aria-label="Предыдущий день" onClick={() => onDateChange?.(shiftDay(snapshot.localDate, -1))}>‹</button>
+            <label className={styles.dayNavDate}>
+              <span className={styles.eyebrow}>Дневник</span>
+              <strong>{dateHeading(snapshot.localDate)}</strong>
+              {onDateChange && <input type="date" aria-label="Выбрать день дневника" value={snapshot.localDate} max={todayIn(snapshot.settings.timeZone)} onChange={(event) => event.target.value && onDateChange(event.target.value)} />}
+            </label>
+            <button type="button" aria-label="Следующий день" disabled={snapshot.localDate >= todayIn(snapshot.settings.timeZone)} onClick={() => onDateChange?.(shiftDay(snapshot.localDate, 1))}>›</button>
+          </div>
+          {snapshot.localDate !== todayIn(snapshot.settings.timeZone) && <div className={styles.pastBanner} role="status"><span>Вы смотрите не сегодняшний день. Новая запись попадёт в этот день.</span><button type="button" onClick={() => onDateChange?.(todayIn(snapshot.settings.timeZone))}>Сегодня</button></div>}
           <CalorieSummary nutrition={snapshot.nutrition} goalLabel={goalLabelOf(snapshot)} />
           <div className={styles.actionRow}>
             <button type="button" className={styles.primaryButton} onClick={(event) => openSheet("nutrition", event.currentTarget)}><Icon name="plus" /> Добавить запись</button>
@@ -690,6 +714,11 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
   const renderFinance = () => {
     if (!snapshot) return <SetupState onAction={onAction} />;
     const entries = [...snapshot.finance.entries].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    const visibleEntries = entries.slice(0, financeLimit);
+    const accountCurrencies = new Set(snapshot.finance.accounts.map((account) => account.currency));
+    const accountsTotal = accountCurrencies.size > 1 && snapshot.finance.accounts.every((account) => account.currency === snapshot.settings.baseCurrency || Number(snapshot.settings.rates[account.currency]) > 0)
+      ? { minor: Math.round(snapshot.finance.accounts.reduce((sum, account) => sum + account.balanceMinor * (account.currency === snapshot.settings.baseCurrency ? 1 : Number(snapshot.settings.rates[account.currency])), 0)) }
+      : null;
     const primaryAccount = snapshot.finance.accounts.find((account) => account.id === snapshot.settings.defaultAccountId)
       ?? snapshot.finance.accounts.find((account) => account.isDefault)
       ?? snapshot.finance.accounts[0];
@@ -738,12 +767,13 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
         ) : financeView === "entries" ? (
           <>
             <GlassSurface className={styles.listSurface}>
-              <div className={styles.listHeading}><div><span className={styles.eyebrow}>Счета</span><h2>Мои счета</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
+              <div className={styles.listHeading}><div><span className={styles.eyebrow}>Счета</span><h2>Мои счета</h2>{accountsTotal && <span className={styles.accountsTotal}>Всего: {moneyLabel(accountsTotal.minor, snapshot.settings.baseCurrency)}</span>}</div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
               <AnimatePresence mode="wait">{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{currencyName(account.currency)}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
             </GlassSurface>
             <GlassSurface className={styles.listSurface}>
               <div className={styles.listHeading}><div><span className={styles.eyebrow}>Движение денег</span><h2>Операции</h2></div><button type="button" className={styles.textLink} onClick={() => openSheet("finance")}><Icon name="plus" />Добавить</button></div>
-              <AnimatePresence mode="wait">{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FinanceEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
+              <AnimatePresence mode="wait">{entries.length ? <motion.ul key="money-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{visibleEntries.map((entry, index) => { const day = dayKey(entry.occurredAt, snapshot.settings.timeZone); const header = index === 0 || day !== dayKey(visibleEntries[index - 1].occurredAt, snapshot.settings.timeZone); return <Fragment key={entry.id}>{header && <li className={styles.dayHeader} aria-hidden="true">{dateHeading(day)}</li>}<FinanceEntry entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "finance.edit", id: entry.id })} onDelete={() => onAction({ type: "finance.delete", id: entry.id })} /></Fragment>; })}</motion.ul> : <motion.p key="money-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Операций пока нет.</motion.p>}</AnimatePresence>
+              {entries.length > financeLimit && <button type="button" className={styles.secondaryButton} onClick={() => setFinanceLimit((value) => value + 20)}>Показать ещё ({entries.length - financeLimit})</button>}
             </GlassSurface>
           </>
         ) : financeView === "plans" ? (
@@ -887,7 +917,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
-                  {snapshot && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} currency={snapshot.settings.baseCurrency} /></motion.div>}
+                  {snapshot && !(section === "finance" && financeView !== "overview") && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} currency={snapshot.settings.baseCurrency} /></motion.div>}
                 </>}
             </motion.div>
           </AnimatePresence>

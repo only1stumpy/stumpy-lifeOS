@@ -168,6 +168,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [exerciseMode, setExerciseMode] = useState<"catalog" | "custom">("catalog");
   const [selectedCatalogId, setSelectedCatalogId] = useState(exerciseCatalog[0]?.id ?? "");
   const [selectedReplacementId, setSelectedReplacementId] = useState<string | null>(null);
+  const [foodPrefill, setFoodPrefill] = useState<AppSnapshot["templates"][number] | null>(null);
   const [weightDate, setWeightDate] = useState(snapshot.localDate);
   const [weightValue, setWeightValue] = useState("");
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
@@ -270,7 +271,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
             <hr />
           </>
         )}
-        <form key={entry?.id ?? "new"} onSubmit={(event) => submitForm(event, (form) => ({
+        {!entry && snapshot.templates.length > 0 && (
+          <section aria-label="Мои блюда">
+            <h3>Мои блюда</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {snapshot.templates.slice(0, 12).map((template) => <button key={template.id} type="button" aria-pressed={foodPrefill?.id === template.id} onClick={() => setFoodPrefill(template)}>{template.name}</button>)}
+            </div>
+          </section>
+        )}
+        <form key={entry?.id ?? `new-${foodPrefill?.id ?? ""}`} onSubmit={(event) => submitForm(event, (form) => ({
           type: "food.save",
           ...(entry ? { id: entry.id } : {}),
           label: requiredText(form, "label", "Название блюда"),
@@ -282,12 +291,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           fatGrams: requiredNumber(form, "fatGrams", "Жиры"),
           carbsGrams: requiredNumber(form, "carbsGrams", "Углеводы"),
         }))}>
-          <label>Блюдо<input name="label" maxLength={300} required defaultValue={entry?.label ?? ""} placeholder="Например, гречка с говядиной" /></label>
-          <label>Обычная порция<input name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" /></label>
+          <label>Блюдо<input name="label" maxLength={300} required defaultValue={entry?.label ?? foodPrefill?.name ?? ""} placeholder="Например, гречка с говядиной" /></label>
+          <label>Обычная порция<input name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? foodPrefill?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" /></label>
           <div className="fields-row">
             <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
           </div>
-          <MacroFields values={entry} />
+          <MacroFields values={entry ?? foodPrefill} />
           <label className="checkbox-row"><input name="estimated" type="checkbox" defaultChecked={entry?.estimated ?? false} /><span>КБЖУ указаны приблизительно</span></label>
           <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</button></div>
         </form>
