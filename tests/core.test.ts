@@ -151,6 +151,11 @@ test("денежный ввод переводит десятичную сумм
   assert.equal(parseMinor(" 80 "), 8_000);
   assert.equal(parseMinor("12,3"), 1_230);
   assert.equal(parseMinor("0.01"), 1);
+  // Spaces between groups, also the non-breaking ones the app prints: «5 913,34» must read back as typed.
+  assert.equal(parseMinor("5\u00a0913,34"), 591_334);
+  assert.equal(parseMinor("20 000"), 2_000_000);
+  assert.equal(parseMinor("20000"), 2_000_000);
+  assert.throws(() => parseMinor("1,234"), /числом/);
   assert.throws(() => parseMinor("-1"));
   assert.throws(() => parseMinor("1.001"));
   assert.throws(() => parseMinor("1e3"));

@@ -35,7 +35,8 @@ export type EditorState =
   | { kind: "set"; dayId: string; exerciseId: string; set: ExerciseSet }
   | { kind: "delete-food"; id: string; label: string }
   | { kind: "delete-money"; id: string; label: string }
-  | { kind: "delete-finance-plan"; id: string; label: string };
+  | { kind: "delete-finance-plan"; id: string; label: string }
+  | { kind: "finish-session"; sessionId: string; done: number; total: number };
 
 type EditorDialogProps = {
   editor: EditorState;
@@ -52,6 +53,8 @@ type EditorDialogProps = {
 };
 
 const moneyDecimal = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Form fields get plain «5913,34»: grouping spaces would make the prefilled value look different from what the user types.
+const moneyField = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
 
 function recordValue(form: FormData, name: string): string {
   const value = form.get(name);
@@ -131,15 +134,15 @@ function signedAmountLabel(amountMinor: number, currency: string): string {
 }
 
 function signedMinor(value: string): number {
-  const normalized = value.trim().replace(",", ".");
-  if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите остаток с точностью до двух знаков.");
+  const normalized = value.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
+  if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите сумму числом, например 1500,50.");
   const negative = normalized.startsWith("-");
   const magnitude = parseMinor(negative ? normalized.slice(1) : normalized);
   return negative ? -magnitude : magnitude;
 }
 
 function amountInput(amountMinor: number): string {
-  const value = moneyDecimal.format(Math.abs(amountMinor) / 100);
+  const value = moneyField.format(Math.abs(amountMinor) / 100);
   return amountMinor < 0 ? `-${value}` : value;
 }
 
@@ -341,6 +344,9 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
                 <p role="alert">Сначала задайте курс {pickedAccount.currency} к {baseCurrency}.</p>
                 <button type="button" onClick={() => onChange({ kind: "accounts" })}>Задать курс</button>
               </div>
+            )}
+            {pickedAccount && baseCurrency && pickedAccount.currency !== baseCurrency && snapshot.settings.rates[pickedAccount.currency] && (
+              <p>Курс: 1 {pickedAccount.currency} = {snapshot.settings.rates[pickedAccount.currency].replace(".", ",").replace(/,?0+$/, "")} {baseUnit}. Для операции раньше первого курса берётся ближайший заданный.</p>
             )}
             <label>Категория<input name="category" maxLength={300} required defaultValue={entry?.category ?? ""} placeholder="Еда, транспорт, подписки" /></label>
             <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
@@ -622,7 +628,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               ...(account ? { id: account.id } : {}),
               name: requiredText(form, "name", "Название счёта"),
               currency: account ? account.currency : newAccountCurrency || (() => { throw new Error("Выберите валюту счёта."); })(),
-              openingBalanceMinor: recordValue(form, "openingBalance") ? signedMinor(recordValue(form, "openingBalance")) : 0,
+              openingBalanceMinor: account
+                // The field shows what is on the account now; the opening balance is shifted by the difference.
+                ? account.openingBalanceMinor + (signedMinor(recordValue(form, "currentBalance") || "0") - account.balanceMinor)
+                : recordValue(form, "openingBalance") ? signedMinor(recordValue(form, "openingBalance")) : 0,
               isDefault,
             };
           }, true);
@@ -632,8 +641,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           <label>Название<input name="name" maxLength={300} required defaultValue={account?.name ?? ""} placeholder="Основная карта" /></label>
           <div className="fields-row">
             {account && <label>Валюта<input value={`${currencyName(account.currency)} (${account.currency})`} readOnly /></label>}
-            <label>Начальный остаток<input name="openingBalance" type="text" inputMode="decimal" defaultValue={account ? amountInput(account.openingBalanceMinor) : ""} placeholder="0,00" /></label>
+            {account
+              ? <label>Сейчас на счёте, {currencyUnit(account.currency)}<input name="currentBalance" type="text" inputMode="decimal" defaultValue={amountInput(account.balanceMinor)} placeholder="0,00" /></label>
+              : <label>Сколько сейчас на счёте<input name="openingBalance" type="text" inputMode="decimal" placeholder="0,00" /></label>}
           </div>
+          {account && <p>Остаток складывается из начального {amountLabel(account.openingBalanceMinor, account.currency)} и операций {signedAmountLabel(account.balanceMinor - account.openingBalanceMinor, account.currency)}. Если поправите сумму, начальный остаток пересчитается сам.</p>}
           {!account && <CurrencyPicker value={newAccountCurrency} onChange={setNewAccountCurrency} legend="Валюта счёта" />}
           {!account && snapshot.finance.accounts.length === 0 && <p>Валюта первого счёта становится основной: в ней считаются итоги, планы и долги.</p>}
           <label className="check-field"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
@@ -860,6 +872,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "delete-food": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "food.delete", id: editor.id })} />;
       case "delete-money": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "money.delete", id: editor.id })} />;
       case "delete-finance-plan": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "finance-plan.delete", id: editor.id })} />;
+      case "finish-session": return (
+        <div>
+          <p>{editor.total === 0 ? "В этой тренировке не было подходов." : editor.done >= editor.total ? `Все подходы выполнены: ${editor.total}.` : `Выполнено подходов: ${editor.done} из ${editor.total}. Остальные не попадут в журнал.`} Завершить тренировку?</p>
+          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Продолжить тренировку</button><button className="submit" type="button" disabled={pending} onClick={() => runCommand({ type: "session.finish", id: editor.sessionId })}>Завершить</button></div>
+        </div>
+      );
     }
   }
 
@@ -932,6 +950,7 @@ function editorTitle(editor: EditorState): string {
     case "delete-food": return "Удалить запись еды";
     case "delete-money": return "Удалить операцию";
     case "delete-finance-plan": return "Удалить план";
+    case "finish-session": return "Завершить тренировку";
   }
 }
 

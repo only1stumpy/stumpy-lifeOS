@@ -869,6 +869,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 </label>
                 <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
                 {formError && <p className={styles.error} role="alert">{formError}</p>}
+                {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметьте галочку выше.</p>}
                 <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</button>
               </form>
               {embedded

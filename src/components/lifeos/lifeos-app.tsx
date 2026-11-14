@@ -2,6 +2,7 @@
 
 import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { formatMoneyAmount } from "@/domain/math";
+import { GOALS } from "@/domain/nutrition";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -212,7 +213,13 @@ function MacroRows({ consumed, target, compact = false }: { consumed: MacroValue
   );
 }
 
-function CalorieSummary({ nutrition, compact = false }: { nutrition: LifeOSSnapshot["nutrition"]; compact?: boolean }) {
+/** The goal chosen in the profile: «Держать вес», «Похудеть» or «Набрать массу»; nothing when no profile exists. */
+function goalLabelOf(snapshot: AppSnapshot): string | null {
+  const goal = snapshot.settings.profile.goalType;
+  return goal && goal in GOALS ? GOALS[goal as keyof typeof GOALS].label : null;
+}
+
+function CalorieSummary({ nutrition, goalLabel = null, compact = false }: { nutrition: LifeOSSnapshot["nutrition"]; goalLabel?: string | null; compact?: boolean }) {
   const prefersReducedMotion = useReducedMotion() !== false;
   const { consumed, target } = nutrition;
   const calorieTarget = target?.calories ?? null;
@@ -225,7 +232,7 @@ function CalorieSummary({ nutrition, compact = false }: { nutrition: LifeOSSnaps
       </div>
       {calorieTarget !== null && <div className={styles.calorieTrack} role="progressbar" aria-label="Калории от дневной цели" aria-valuemin={0} aria-valuemax={calorieTarget} aria-valuenow={consumed.calories}><motion.span animate={{ transform: `scaleX(${progress / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} /></div>}
       <MacroRows consumed={consumed} target={target} compact={compact} />
-      {calorieTarget !== null && <p className={styles.remainingLine}>{remainingText(consumed.calories, calorieTarget)} ккал <span>Цель на массу</span></p>}
+      {calorieTarget !== null && <p className={styles.remainingLine}>{remainingText(consumed.calories, calorieTarget)} ккал {goalLabel && <span>{goalLabel}</span>}</p>}
     </>
   );
 }
@@ -565,8 +572,17 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
     onAction({ type: "gym.open-exercise", workoutId: workout.id, exerciseId: exercise.id });
   };
 
+  const isActiveWorkout = (workout: WorkoutDay) => snapshot?.activeSession?.dayId === workout.id;
+  const startLabel = (workout: WorkoutDay) => isActiveWorkout(workout) ? "Продолжить" : "Начать";
+  // First exercise that still has sets to log, so «Продолжить» lands where the user stopped.
+  const firstOpenExercise = (workout: WorkoutDay) => workout.exercises.find((exercise) => exercise.sets.some((set) => !set.completed)) ?? workout.exercises[0];
+
   const startWorkout = (workout: WorkoutDay) => {
     setSelectedWorkoutId(workout.id);
+    if (isActiveWorkout(workout)) {
+      setSelectedExerciseId(firstOpenExercise(workout)?.id ?? null);
+      return;
+    }
     setSelectedExerciseId(workout.exercises[0]?.id ?? null);
     onAction({ type: "gym.start-workout", workoutId: workout.id });
   };
@@ -603,7 +619,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
         <motion.div className={styles.motionContents} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         {modules.includes("nutrition") && (<motion.section className={`${styles.todaySection} ${styles.nutritionTone}`} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
           <ModuleHeading title="Питание" onOpen={() => navigate("nutrition")} />
-          <CalorieSummary nutrition={snapshot.nutrition} compact />
+          <CalorieSummary nutrition={snapshot.nutrition} goalLabel={goalLabelOf(snapshot)} compact />
           {snapshot.nutrition.target === null && <p className={styles.todayHint}>Добавьте параметры и настройте цель на массу.</p>}
           <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "food.add" })}><Icon name="plus" />Записать еду</button>
         </motion.section>)}
@@ -629,7 +645,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           {workout ? (
             <div className={styles.workoutPreview}>
               <div><strong>{workout.name}</strong><span>{workout.exercises.length} {pluralize(workout.exercises.length, "упражнение", "упражнения", "упражнений")}</span></div>
-              <button type="button" className={styles.textLink} onClick={() => startWorkout(workout)}>Начать <Icon name="arrow" /></button>
+              <button type="button" className={styles.textLink} onClick={() => startWorkout(workout)} disabled={workout.exercises.length === 0 && !isActiveWorkout(workout)}>{startLabel(workout)} <Icon name="arrow" /></button>
             </div>
           ) : snapshot.gym.lastWorkout ? (
             <div className={styles.workoutPreview}>
@@ -652,7 +668,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
       <motion.div className={styles.screenStack} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
         <GlassSurface className={styles.moduleSurface} focus>
           <div className={styles.sectionTopline}><span className={styles.eyebrow}>Дневник</span><span className={styles.dateChip}>{dateHeading(snapshot.localDate)}</span></div>
-          <CalorieSummary nutrition={snapshot.nutrition} />
+          <CalorieSummary nutrition={snapshot.nutrition} goalLabel={goalLabelOf(snapshot)} />
           <div className={styles.actionRow}>
             <button type="button" className={styles.primaryButton} onClick={(event) => openSheet("nutrition", event.currentTarget)}><Icon name="plus" /> Добавить запись</button>
             <button type="button" className={styles.secondaryButton} onClick={() => onAction({ type: "food.set-target" })}>Цель КБЖУ</button>
@@ -778,14 +794,25 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
       </ol>
       {exercise.sets.length === 0 && <p className={styles.emptyInline}>Подходы для этого упражнения ещё не заданы.</p>}
       {renderRestTimer(workout, exercise)}
-      <div className={styles.exerciseFooter}><button type="button" className={styles.secondaryButton} onClick={() => onAction({ type: "gym.add-exercise", workoutId: workout.id })}>Следующее упражнение</button></div>
+      {!isActiveWorkout(workout) && (
+        <p className={styles.emptyInline}>Тренировка не начата: подходы сохранятся в журнале только после старта. <button type="button" className={styles.textLink} onClick={() => onAction({ type: "gym.start-workout", workoutId: workout.id })}>Начать тренировку</button></p>
+      )}
+      <div className={styles.exerciseFooter}>
+        {(() => {
+          const next = workout.exercises[workout.exercises.findIndex((item) => item.id === exercise.id) + 1];
+          return next
+            ? <button type="button" className={styles.secondaryButton} onClick={() => setSelectedExerciseId(next.id)}>К следующему: {next.name}</button>
+            : <button type="button" className={styles.secondaryButton} onClick={closeExercise}>Все упражнения</button>;
+        })()}
+      </div>
     </GlassSurface>
   );
 
   const renderWorkout = (workout: WorkoutDay) => (
     <GlassSurface className={styles.moduleSurface} focus>
       <button type="button" className={styles.backButton} onClick={() => { setSelectedWorkoutId(null); setSelectedExerciseId(null); }}><Icon name="back" />К плану</button>
-      <div className={styles.listHeading}><div><span className={styles.eyebrow}>Тренировка</span><h2>{workout.name}</h2></div><button type="button" className={styles.textLink} onClick={() => startWorkout(workout)}>Начать <Icon name="arrow" /></button></div>
+      <div className={styles.listHeading}><div><span className={styles.eyebrow}>Тренировка</span><h2>{workout.name}</h2></div><button type="button" className={styles.textLink} onClick={() => startWorkout(workout)} disabled={workout.exercises.length === 0 && !isActiveWorkout(workout)}>{startLabel(workout)} <Icon name="arrow" /></button></div>
+      {workout.exercises.length === 0 && <p className={styles.emptyInline}>Сначала добавьте упражнения, потом можно начать.</p>}
       {renderRestTimer(workout)}
       {workout.exercises.length ? <ol className={styles.workoutList}>{workout.exercises.map((exercise, index) => (
         <li key={exercise.id} className={styles.workoutExercise}>
@@ -809,7 +836,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <GlassSurface className={styles.moduleSurface} focus>
             <span className={styles.eyebrow}>Сегодня</span>
             <div className={styles.nextWorkoutHeading}><h2>{snapshot.gym.nextWorkout.name}</h2><span>{snapshot.gym.nextWorkout.exercises.length} {pluralize(snapshot.gym.nextWorkout.exercises.length, "упражнение", "упражнения", "упражнений")}</span></div>
-            <button type="button" className={styles.primaryButton} onClick={() => startWorkout(snapshot.gym.nextWorkout!)}>Начать тренировку <Icon name="arrow" /></button>
+            <button type="button" className={styles.primaryButton} onClick={() => startWorkout(snapshot.gym.nextWorkout!)} disabled={snapshot.gym.nextWorkout.exercises.length === 0 && !isActiveWorkout(snapshot.gym.nextWorkout)}>{isActiveWorkout(snapshot.gym.nextWorkout) ? "Продолжить тренировку" : "Начать тренировку"} <Icon name="arrow" /></button>
           </GlassSurface>
         )}
         {snapshot.gym.lastWorkout && !snapshot.gym.trainingDay && (
