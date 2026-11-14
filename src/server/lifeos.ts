@@ -256,7 +256,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
           remainingAmountMinor: linkedDebt ? Math.max(0, toMinor(linkedDebt.originalAmount) - repaidMinor) : null,
         } : null };
     }),
-    templates: templates.map((v) => ({ id: v.id, name: v.name })),
+    templates: templates.map((v) => ({ id: v.id, name: v.name, portionLabel: v.portionLabel, calories: Number(v.calories), proteinGrams: Number(v.proteinGrams), fatGrams: Number(v.fatGrams), carbsGrams: Number(v.carbsGrams) })),
     activeSession: active?.workoutDayId ? { id: active.id, dayId: active.workoutDayId, startedAt: active.startedAt.toISOString() } : null,
   };
 }

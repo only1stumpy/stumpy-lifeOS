@@ -414,7 +414,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const changeDate = useCallback(async (date: string) => {
     if (!configured || !initData || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     setSelectedDate(date);
-    setStatus("loading");
     setError(null);
     try {
       const nextSnapshot = await fetchSnapshot(initData, date);
