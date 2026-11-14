@@ -34,13 +34,20 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
     setList(on ? [...list, value] : list.filter((item) => item !== value));
   };
 
+  const sameList = (left: readonly string[], right: readonly string[]) => left.length === right.length && left.every((item) => right.includes(item));
+  const dirty = !sameList(modules, enabledModules)
+    || !sameList(features, ALL_FEATURES.filter((feature) => !disabledFeatures.includes(feature)))
+    || dailySummary !== notifications.dailySummary
+    || weeklySummary !== notifications.weeklySummary
+    || weightReminder !== notifications.weightReminder
+    || summaryTime !== (notifications.summaryTime ?? "");
+
   async function save() {
     if (pending) return;
     if (!modules.length) { setError("Оставьте хотя бы один раздел."); return; }
     if (summaryTime && !TIME_PATTERN.test(summaryTime)) { setError("Время в формате ЧЧ:ММ."); return; }
     const ok = await onSave([
-      { type: "modules.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)) },
-      { type: "notifications.save", settings: { dailySummary, weeklySummary, weightReminder, summaryTime: summaryTime || null } },
+      { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, weightReminder, summaryTime: summaryTime || null } },
     ]);
     if (ok) setSaved(true);
     else setError("Не удалось сохранить. Проверьте соединение и повторите.");
@@ -96,7 +103,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
       <div className={styles.actions}>
         {error ? <p className={`${styles.status} ${styles.error}`} role="alert">{error}</p> : null}
         {saved ? <p className={`${styles.status} ${styles.ok}`} role="status">Сохранено.</p> : null}
-        <button type="button" className={styles.save} disabled={pending} onClick={() => void save()}>Сохранить</button>
+        <button type="button" className={styles.save} disabled={pending || !dirty} onClick={() => void save()}>Сохранить</button>
       </div>
     </div>
   );

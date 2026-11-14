@@ -276,8 +276,8 @@ function isZero(value: unknown): boolean {
 function messageForTransportError(kind: string): string {
   if (kind === "quota_exceeded") return "провайдер ограничил запрос по бесплатной квоте";
   if (kind === "credits_exhausted") return "провайдер сообщает об исчерпанном балансе";
-  if (kind === "configuration") return "провайдер отклонил ключ, модель или endpoint";
-  if (kind === "unavailable") return "API провайдера временно недоступен";
+  if (kind === "configuration") return "провайдер отклонил ключ. Проверьте, что он скопирован целиком и без пробелов";
+  if (kind === "unavailable") return "API провайдера сейчас недоступен, это не ошибка ключа. Повторите через минуту";
   if (kind === "invalid_response") return "провайдер вернул непонятный ответ";
   return "API провайдера не ответил на проверку";
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte } from "drizzle-orm";
 import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
@@ -128,7 +128,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   const active = sessions.find((v) => v.status === "active");
   const last = sessions.find((v) => v.status === "completed");
   const program: WorkoutDay[] = days.map((day) => ({
-    id: day.id, name: day.name,
+    id: day.id, name: day.name, weekday: day.weekday,
     exercises: dayItems.filter((i) => i.workoutDayId === day.id).map((item) => {
       const exercise = exercises.find((e) => e.id === item.exerciseId)!;
       const activeItem = sessionItems.find((i) => i.sessionId === active?.id && i.workoutDayExerciseId === item.id);
@@ -139,7 +139,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
         ? "В прошлый раз все подходы достигли верхней границы повторений — можно попробовать немного увеличить вес."
         : null;
       return {
-        id: item.id, name: activeItem?.exerciseName ?? exercise?.name ?? "Упражнение", restSeconds: item.restSeconds ?? 90,
+        id: item.id, name: activeItem?.exerciseName ?? exercise?.name ?? "Упражнение", restSeconds: item.restSeconds ?? 90, targetRepetitions: item.targetRepsMax ?? item.targetRepsMin ?? null,
         previousPerformance: previousSets.length ? previousSets.map((v) => v.weightKg !== null ? Number(v.weightKg) + " кг × " + (v.repetitions ?? "—") : (v.durationSeconds ?? 0) + " с").join(", ") : null,
         progressionHint,
         sets: Array.from({ length: item.plannedSets }, (_, i) => {
@@ -256,7 +256,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
           remainingAmountMinor: linkedDebt ? Math.max(0, toMinor(linkedDebt.originalAmount) - repaidMinor) : null,
         } : null };
     }),
-    templates: templates.map((v) => ({ id: v.id, name: v.name })),
+    templates: templates.map((v) => ({ id: v.id, name: v.name, portionLabel: v.portionLabel, calories: Number(v.calories), proteinGrams: Number(v.proteinGrams), fatGrams: Number(v.fatGrams), carbsGrams: Number(v.carbsGrams) })),
     activeSession: active?.workoutDayId ? { id: active.id, dayId: active.workoutDayId, startedAt: active.startedAt.toISOString() } : null,
   };
 }
@@ -456,8 +456,11 @@ async function baseCurrencyOf(tx: Transaction, ownerId: string): Promise<string>
 async function rateAt(tx: Transaction, ownerId: string, currency: string, at: Date) {
   if (currency === await baseCurrencyOf(tx, ownerId)) return null;
   const [rate] = await tx.select().from(s.exchangeRates).where(and(eq(s.exchangeRates.ownerId, ownerId), eq(s.exchangeRates.currency, currency), lte(s.exchangeRates.effectiveAt, at))).orderBy(desc(s.exchangeRates.effectiveAt)).limit(1);
-  if (!rate) throw new AppError(400, `Для операции в ${currency} нужен ручной курс. Сначала задайте курс.`);
-  return rate.rateToBase;
+  if (rate) return rate.rateToBase;
+  // Nothing was in force yet at that time: take the earliest rate that was set afterwards.
+  const [later] = await tx.select().from(s.exchangeRates).where(and(eq(s.exchangeRates.ownerId, ownerId), eq(s.exchangeRates.currency, currency))).orderBy(asc(s.exchangeRates.effectiveAt)).limit(1);
+  if (!later) throw new AppError(400, `Для операции в ${currency} нужен ручной курс. Сначала задайте курс.`);
+  return later.rateToBase;
 }
 /** First account decides the base currency; later accounts leave it unchanged. */
 async function ensureBaseCurrency(tx: Transaction, ownerId: string, currency: string) {
@@ -589,6 +592,11 @@ export async function executeCommand(command: AppCommand) {
         }
         break;
       }
+      case "personalization.save": {
+        const { settings } = command;
+        await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, disabledFeatures: command.disabledFeatures, notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+        break;
+      }
       case "notifications.save": {
         const { settings } = command;
         await tx.update(s.ownerSettings).set({ notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
@@ -609,7 +617,10 @@ export async function executeCommand(command: AppCommand) {
       }
       case "rate.save": {
         if (command.currency === await baseCurrencyOf(tx, owner.id)) throw new AppError(400, "Курс основной валюты к самой себе не задаётся.");
-        await tx.insert(s.exchangeRates).values({ ownerId: owner.id, currency: command.currency, rateToBase: command.rateToBase, effectiveAt: command.effectiveAt ? new Date(command.effectiveAt) : new Date() });
+        // The same moment again (a corrected typo) replaces the earlier value instead of failing.
+        await tx.insert(s.exchangeRates)
+          .values({ ownerId: owner.id, currency: command.currency, rateToBase: command.rateToBase, effectiveAt: command.effectiveAt ? new Date(command.effectiveAt) : new Date() })
+          .onConflictDoUpdate({ target: [s.exchangeRates.ownerId, s.exchangeRates.currency, s.exchangeRates.effectiveAt], set: { rateToBase: command.rateToBase } });
         break;
       }
       case "money.save": {
@@ -720,6 +731,33 @@ export async function executeCommand(command: AppCommand) {
       case "day.save": {
         if (command.id) await tx.update(s.workoutDays).set({ name: command.name, weekday: command.weekday }).where(and(eq(s.workoutDays.id, command.id), eq(s.workoutDays.ownerId, owner.id)));
         else { const days = await tx.select().from(s.workoutDays).where(eq(s.workoutDays.ownerId, owner.id)); await tx.insert(s.workoutDays).values({ ownerId: owner.id, name: command.name, weekday: command.weekday, position: days.length }); }
+        break;
+      }
+      case "day.delete": {
+        const archived = await tx.update(s.workoutDays).set({ isArchived: true }).where(and(eq(s.workoutDays.id, command.id), eq(s.workoutDays.ownerId, owner.id), eq(s.workoutDays.isArchived, false))).returning({ id: s.workoutDays.id });
+        if (!archived.length) throw new AppError(404, "Тренировочный день не найден.");
+        break;
+      }
+      case "exercise.update": {
+        const updated = await tx.update(s.workoutDayExercises).set({ plannedSets: command.targetSets, targetRepsMin: command.targetRepetitions, targetRepsMax: command.targetRepetitions, restSeconds: command.restSeconds })
+          .where(and(eq(s.workoutDayExercises.id, command.dayExerciseId), eq(s.workoutDayExercises.workoutDayId, command.dayId), eq(s.workoutDayExercises.ownerId, owner.id))).returning({ id: s.workoutDayExercises.id });
+        if (!updated.length) throw new AppError(404, "Упражнение в программе не найдено.");
+        break;
+      }
+      case "exercise.remove": {
+        const items = await tx.select().from(s.workoutDayExercises)
+          .where(and(eq(s.workoutDayExercises.ownerId, owner.id), eq(s.workoutDayExercises.workoutDayId, command.dayId)))
+          .orderBy(s.workoutDayExercises.position).for("update");
+        if (!items.some((item) => item.id === command.dayExerciseId)) throw new AppError(404, "Упражнение в программе не найдено.");
+        await tx.update(s.workoutSessionExercises).set({ workoutDayExerciseId: null }).where(and(eq(s.workoutSessionExercises.workoutDayExerciseId, command.dayExerciseId), eq(s.workoutSessionExercises.ownerId, owner.id)));
+        await tx.delete(s.workoutDayExercises).where(and(eq(s.workoutDayExercises.id, command.dayExerciseId), eq(s.workoutDayExercises.ownerId, owner.id)));
+        const rest = items.filter((item) => item.id !== command.dayExerciseId);
+        for (let i = 0; i < rest.length; i++) if (rest[i].position !== i) await tx.update(s.workoutDayExercises).set({ position: i }).where(and(eq(s.workoutDayExercises.id, rest[i].id), eq(s.workoutDayExercises.ownerId, owner.id)));
+        break;
+      }
+      case "weight.delete": {
+        const removed = await tx.delete(s.weightEntries).where(and(eq(s.weightEntries.ownerId, owner.id), eq(s.weightEntries.occurredAt, new Date(command.date + "T12:00:00Z")))).returning({ id: s.weightEntries.id });
+        if (!removed.length) throw new AppError(404, "Замер не найден.");
         break;
       }
       case "day.move": {

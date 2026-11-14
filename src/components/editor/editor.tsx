@@ -35,7 +35,8 @@ export type EditorState =
   | { kind: "set"; dayId: string; exerciseId: string; set: ExerciseSet }
   | { kind: "delete-food"; id: string; label: string }
   | { kind: "delete-money"; id: string; label: string }
-  | { kind: "delete-finance-plan"; id: string; label: string };
+  | { kind: "delete-finance-plan"; id: string; label: string }
+  | { kind: "finish-session"; sessionId: string; done: number; total: number };
 
 type EditorDialogProps = {
   editor: EditorState;
@@ -52,6 +53,8 @@ type EditorDialogProps = {
 };
 
 const moneyDecimal = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Form fields get plain «5913,34»: grouping spaces would make the prefilled value look different from what the user types.
+const moneyField = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
 
 function recordValue(form: FormData, name: string): string {
   const value = form.get(name);
@@ -131,15 +134,15 @@ function signedAmountLabel(amountMinor: number, currency: string): string {
 }
 
 function signedMinor(value: string): number {
-  const normalized = value.trim().replace(",", ".");
-  if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите остаток с точностью до двух знаков.");
+  const normalized = value.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
+  if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите сумму числом, например 1500,50.");
   const negative = normalized.startsWith("-");
   const magnitude = parseMinor(negative ? normalized.slice(1) : normalized);
   return negative ? -magnitude : magnitude;
 }
 
 function amountInput(amountMinor: number): string {
-  const value = moneyDecimal.format(Math.abs(amountMinor) / 100);
+  const value = moneyField.format(Math.abs(amountMinor) / 100);
   return amountMinor < 0 ? `-${value}` : value;
 }
 
@@ -165,6 +168,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [exerciseMode, setExerciseMode] = useState<"catalog" | "custom">("catalog");
   const [selectedCatalogId, setSelectedCatalogId] = useState(exerciseCatalog[0]?.id ?? "");
   const [selectedReplacementId, setSelectedReplacementId] = useState<string | null>(null);
+  const [foodPrefill, setFoodPrefill] = useState<AppSnapshot["templates"][number] | null>(null);
+  const [weightDate, setWeightDate] = useState(snapshot.localDate);
+  const [weightValue, setWeightValue] = useState("");
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [confirmRemoval, setConfirmRemoval] = useState<string | null>(null);
   const [newAccountCurrency, setNewAccountCurrency] = useState("");
   const [pickedFinanceAccount, setPickedFinanceAccount] = useState<{ form: string; id: string } | null>(null);
   const baseCurrency = snapshot.settings.baseCurrency;
@@ -200,16 +208,18 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const title = editorTitle(editor);
   const activeError = formError ?? error;
   const canGoBack = editor.kind === "program" && selectedDayId !== null;
-  const backLabel = selectedReplacementId ? "Назад к упражнениям дня" : "Назад к тренировочным дням";
+  const backLabel = selectedReplacementId || editingExerciseId ? "Назад к упражнениям дня" : "Назад к тренировочным дням";
 
   const goBack = useCallback(() => {
     if (!canGoBack) return;
-    if (selectedReplacementId) {
+    setConfirmRemoval(null);
+    if (selectedReplacementId || editingExerciseId) {
       setSelectedReplacementId(null);
+      setEditingExerciseId(null);
       return;
     }
     setSelectedDayId(null);
-  }, [canGoBack, selectedReplacementId]);
+  }, [canGoBack, selectedReplacementId, editingExerciseId]);
 
   useEffect(() => {
     onRegisterTelegramBackHandler?.(canGoBack ? goBack : null);
@@ -240,12 +250,13 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     }
   }
 
-  async function runCommand(command: AppCommand, keepOpen = false) {
-    if (pending) return;
+  async function runCommand(command: AppCommand, keepOpen = false): Promise<boolean> {
+    if (pending) return false;
     setFormError(null);
     setSaved(false);
     const succeeded = await onCommand(command, keepOpen);
     if (succeeded && keepOpen) setSaved(true);
+    return succeeded;
   }
 
   function renderFoodForm(entry?: FoodLogEntry) {
@@ -260,7 +271,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
             <hr />
           </>
         )}
-        <form key={entry?.id ?? "new"} onSubmit={(event) => submitForm(event, (form) => ({
+        {!entry && snapshot.templates.length > 0 && (
+          <section aria-label="Мои блюда">
+            <h3>Мои блюда</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {snapshot.templates.slice(0, 12).map((template) => <button key={template.id} type="button" aria-pressed={foodPrefill?.id === template.id} onClick={() => setFoodPrefill(template)}>{template.name}</button>)}
+            </div>
+          </section>
+        )}
+        <form key={entry?.id ?? `new-${foodPrefill?.id ?? ""}`} onSubmit={(event) => submitForm(event, (form) => ({
           type: "food.save",
           ...(entry ? { id: entry.id } : {}),
           label: requiredText(form, "label", "Название блюда"),
@@ -272,12 +291,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           fatGrams: requiredNumber(form, "fatGrams", "Жиры"),
           carbsGrams: requiredNumber(form, "carbsGrams", "Углеводы"),
         }))}>
-          <label>Блюдо<input name="label" maxLength={300} required defaultValue={entry?.label ?? ""} placeholder="Например, гречка с говядиной" /></label>
-          <label>Обычная порция<input name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" /></label>
+          <label>Блюдо<input name="label" maxLength={300} required defaultValue={entry?.label ?? foodPrefill?.name ?? ""} placeholder="Например, гречка с говядиной" /></label>
+          <label>Обычная порция<input name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? foodPrefill?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" /></label>
           <div className="fields-row">
             <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
           </div>
-          <MacroFields values={entry} />
+          <MacroFields values={entry ?? foodPrefill} />
           <label className="checkbox-row"><input name="estimated" type="checkbox" defaultChecked={entry?.estimated ?? false} /><span>КБЖУ указаны приблизительно</span></label>
           <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</button></div>
         </form>
@@ -341,6 +360,9 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
                 <p role="alert">Сначала задайте курс {pickedAccount.currency} к {baseCurrency}.</p>
                 <button type="button" onClick={() => onChange({ kind: "accounts" })}>Задать курс</button>
               </div>
+            )}
+            {pickedAccount && baseCurrency && pickedAccount.currency !== baseCurrency && snapshot.settings.rates[pickedAccount.currency] && (
+              <p>Курс: 1 {pickedAccount.currency} = {snapshot.settings.rates[pickedAccount.currency].replace(".", ",").replace(/,?0+$/, "")} {baseUnit}. Для операции раньше первого курса берётся ближайший заданный.</p>
             )}
             <label>Категория<input name="category" maxLength={300} required defaultValue={entry?.category ?? ""} placeholder="Еда, транспорт, подписки" /></label>
             <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
@@ -588,18 +610,34 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderWeightForm() {
+    const history = [...snapshot.nutrition.weightHistory].reverse().slice(0, 14);
+    const existing = snapshot.nutrition.weightHistory.find((entry) => entry.date === weightDate);
     return (
-      <form onSubmit={(event) => submitForm(event, (form) => ({
-        type: "weight.save",
-        date: requiredText(form, "date", "Дата"),
-        weightKg: requiredNumber(form, "weightKg", "Масса тела"),
-      }))}>
-        <div className="fields-row">
-          <label>Дата<input name="date" type="date" required defaultValue={snapshot.localDate} /></label>
-          <label>Масса тела, кг<input name="weightKg" type="number" min="1" max="700" step="0.1" required /></label>
-        </div>
-        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать вес</button></div>
-      </form>
+      <>
+        <form onSubmit={(event) => submitForm(event, (form) => ({
+          type: "weight.save",
+          date: requiredText(form, "date", "Дата"),
+          weightKg: requiredNumber(form, "weightKg", "Масса тела"),
+        }))}>
+          <div className="fields-row">
+            <label>Дата<input name="date" type="date" required value={weightDate} max={snapshot.localDate} onChange={(event) => setWeightDate(event.target.value)} /></label>
+            <label>Масса тела, кг<input name="weightKg" type="number" inputMode="decimal" min="1" max="700" step="0.1" required value={weightValue} onChange={(event) => setWeightValue(event.target.value)} /></label>
+          </div>
+          {existing && <p>За эту дату уже есть {String(existing.weightKg).replace(".", ",")} кг — запись будет заменена.</p>}
+          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать вес</button></div>
+        </form>
+        {history.length > 0 && <>
+          <hr />
+          <h3>История замеров</h3>
+          <ul>{history.map((entry) => <li key={entry.date}>
+            <strong>{entry.date.split("-").reverse().join(".")}</strong> · {String(entry.weightKg).replace(".", ",")} кг
+            <span style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              <button type="button" disabled={pending} onClick={() => { setWeightDate(entry.date); setWeightValue(String(entry.weightKg)); }}>Изменить</button>
+              <button type="button" className="danger" disabled={pending} onClick={() => void runCommand({ type: "weight.delete", date: entry.date }, true)}>Удалить</button>
+            </span>
+          </li>)}</ul>
+        </>}
+      </>
     );
   }
 
@@ -622,7 +660,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               ...(account ? { id: account.id } : {}),
               name: requiredText(form, "name", "Название счёта"),
               currency: account ? account.currency : newAccountCurrency || (() => { throw new Error("Выберите валюту счёта."); })(),
-              openingBalanceMinor: recordValue(form, "openingBalance") ? signedMinor(recordValue(form, "openingBalance")) : 0,
+              openingBalanceMinor: account
+                // The field shows what is on the account now; the opening balance is shifted by the difference.
+                ? account.openingBalanceMinor + (signedMinor(recordValue(form, "currentBalance") || "0") - account.balanceMinor)
+                : recordValue(form, "openingBalance") ? signedMinor(recordValue(form, "openingBalance")) : 0,
               isDefault,
             };
           }, true);
@@ -632,8 +673,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           <label>Название<input name="name" maxLength={300} required defaultValue={account?.name ?? ""} placeholder="Основная карта" /></label>
           <div className="fields-row">
             {account && <label>Валюта<input value={`${currencyName(account.currency)} (${account.currency})`} readOnly /></label>}
-            <label>Начальный остаток<input name="openingBalance" type="text" inputMode="decimal" defaultValue={account ? amountInput(account.openingBalanceMinor) : ""} placeholder="0,00" /></label>
+            {account
+              ? <label>Сейчас на счёте, {currencyUnit(account.currency)}<input name="currentBalance" type="text" inputMode="decimal" defaultValue={amountInput(account.balanceMinor)} placeholder="0,00" /></label>
+              : <label>Сколько сейчас на счёте<input name="openingBalance" type="text" inputMode="decimal" placeholder="0,00" /></label>}
           </div>
+          {account && <p>Остаток складывается из начального {amountLabel(account.openingBalanceMinor, account.currency)} и операций {signedAmountLabel(account.balanceMinor - account.openingBalanceMinor, account.currency)}. Если поправите сумму, начальный остаток пересчитается сам.</p>}
           {!account && <CurrencyPicker value={newAccountCurrency} onChange={setNewAccountCurrency} legend="Валюта счёта" />}
           {!account && snapshot.finance.accounts.length === 0 && <p>Валюта первого счёта становится основной: в ней считаются итоги, планы и долги.</p>}
           <label className="check-field"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
@@ -720,14 +764,67 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           {renderExerciseForm(selectedDay.id, replacing.id)}
         </>
       );
+      const editing = selectedDay.exercises.find((exercise) => exercise.id === editingExerciseId) ?? null;
+      if (editing) return (
+        <>
+          <h3>{editing.name}</h3>
+          <form onSubmit={(event) => submitForm(event, (form) => ({
+            type: "exercise.update",
+            dayId: selectedDay.id,
+            dayExerciseId: editing.id,
+            targetSets: requiredNumber(form, "targetSets", "Подходы"),
+            targetRepetitions: requiredNumber(form, "targetRepetitions", "Повторения"),
+            restSeconds: recordValue(form, "restSeconds") ? requiredNumber(form, "restSeconds", "Отдых") : 0,
+          }), true)}>
+            <div className="fields-row">
+              <label>Подходы<input name="targetSets" type="number" inputMode="numeric" min="1" max="30" step="1" defaultValue={editing.sets.length} required /></label>
+              <label>Повторения<input name="targetRepetitions" type="number" inputMode="numeric" min="1" max="1000" step="1" defaultValue={editing.targetRepetitions ?? 8} required /></label>
+            </div>
+            <label>Отдых, секунд<input name="restSeconds" type="number" inputMode="numeric" min="0" max="3600" step="1" defaultValue={editing.restSeconds} /></label>
+            <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить</button></div>
+          </form>
+          <hr />
+          {confirmRemoval === editing.id ? (
+            <>
+              <p>Убрать «{editing.name}» из дня? История выполненных тренировок сохранится.</p>
+              <div className="actions">
+                <button type="button" disabled={pending} onClick={() => setConfirmRemoval(null)}>Оставить</button>
+                <button type="button" className="danger" disabled={pending} onClick={() => void runCommand({ type: "exercise.remove", dayId: selectedDay.id, dayExerciseId: editing.id }, true).then((ok) => { if (ok) { setConfirmRemoval(null); setEditingExerciseId(null); } })}>Убрать</button>
+              </div>
+            </>
+          ) : <div className="actions"><button type="button" className="danger" disabled={pending} onClick={() => setConfirmRemoval(editing.id)}>Убрать из дня</button></div>}
+        </>
+      );
       return (
         <>
           <h3>{selectedDay.name}</h3>
+          <form onSubmit={(event) => submitForm(event, (form) => ({
+            type: "day.save",
+            id: selectedDay.id,
+            name: requiredText(form, "name", "Название дня"),
+            weekday: recordValue(form, "weekday") ? requiredNumber(form, "weekday", "День недели") : null,
+          }), true)}>
+            <label>Название дня<input name="name" maxLength={300} required defaultValue={selectedDay.name} /></label>
+            <label>День недели<select name="weekday" defaultValue={selectedDay.weekday === null ? "" : String(selectedDay.weekday)}><option value="">Не задан</option><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option><option value="0">Воскресенье</option></select></label>
+            <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить день</button></div>
+          </form>
+          {confirmRemoval === selectedDay.id ? (
+            <>
+              <p>Удалить день «{selectedDay.name}»? Он пропадёт из плана, история тренировок сохранится.</p>
+              <div className="actions">
+                <button type="button" disabled={pending} onClick={() => setConfirmRemoval(null)}>Оставить</button>
+                <button type="button" className="danger" disabled={pending} onClick={() => void runCommand({ type: "day.delete", id: selectedDay.id }, true).then((ok) => { if (ok) { setConfirmRemoval(null); setSelectedDayId(null); } })}>Удалить день</button>
+              </div>
+            </>
+          ) : <div className="actions"><button type="button" className="danger" disabled={pending} onClick={() => setConfirmRemoval(selectedDay.id)}>Удалить день</button></div>}
+          <hr />
+          <h3>Упражнения</h3>
           {selectedDay.exercises.length ? <ol>{selectedDay.exercises.map((exercise, index) => <li key={exercise.id}>
-            <strong>{exercise.name}</strong> · {exercise.sets.length} подходов
+            <strong>{exercise.name}</strong> · {exercise.sets.length} {plural(exercise.sets.length, "подход", "подхода", "подходов")}
             <span role="group" aria-label={`Порядок и замена: ${exercise.name}`} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
               <MoveButton direction="up" label={`Переместить «${exercise.name}» выше`} disabled={pending || index === 0} onClick={() => void runCommand({ type: "exercise.move", dayId: selectedDay.id, dayExerciseId: exercise.id, direction: "up" }, true)} />
               <MoveButton direction="down" label={`Переместить «${exercise.name}» ниже`} disabled={pending || index === selectedDay.exercises.length - 1} onClick={() => void runCommand({ type: "exercise.move", dayId: selectedDay.id, dayExerciseId: exercise.id, direction: "down" }, true)} />
+              <button type="button" disabled={pending} onClick={() => { setConfirmRemoval(null); setEditingExerciseId(exercise.id); }}>Изменить</button>
               <button type="button" disabled={pending} onClick={() => setSelectedReplacementId(exercise.id)}>Заменить</button>
             </span>
           </li>)}</ol> : <p>Упражнений пока нет.</p>}
@@ -740,11 +837,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         <section>
           <h3>Тренировочные дни</h3>
           {days.length ? <ol>{days.map((day, index) => <li key={day.id}>
-            <strong>{day.name}</strong> · {day.exercises.length} упражнений
+            <strong>{day.name}</strong> · {day.exercises.length} {plural(day.exercises.length, "упражнение", "упражнения", "упражнений")}
             <span role="group" aria-label={`Порядок дня: ${day.name}`} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
               <MoveButton direction="up" label={`Переместить день «${day.name}» выше`} disabled={pending || index === 0} onClick={() => void runCommand({ type: "day.move", dayId: day.id, direction: "up" }, true)} />
               <MoveButton direction="down" label={`Переместить день «${day.name}» ниже`} disabled={pending || index === days.length - 1} onClick={() => void runCommand({ type: "day.move", dayId: day.id, direction: "down" }, true)} />
-              <button type="button" onClick={() => { setSelectedReplacementId(null); setSelectedDayId(day.id); }}>Открыть</button>
+              <button type="button" onClick={() => { setSelectedReplacementId(null); setEditingExerciseId(null); setConfirmRemoval(null); setSelectedDayId(day.id); }}>Открыть</button>
             </span>
           </li>)}</ol> : <p>План пуст. Создайте день, затем добавьте выбранные упражнения.</p>}
         </section>
@@ -818,9 +915,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   }
 
   function renderSetForm(dayId: string, exerciseId: string, set: ExerciseSet) {
+    // A fresh set starts from the previous completed set of the same exercise, so repeating a weight is one tap.
+    const sets = snapshot.gym.program.find((day) => day.id === dayId)?.exercises.find((exercise) => exercise.id === exerciseId)?.sets ?? [];
+    const previous = [...sets].reverse().find((item) => item.index < set.index && item.completed);
+    const weightStart = set.weightKg ?? (set.completed ? null : previous?.weightKg ?? null);
+    const repsStart = set.repetitions ?? (set.completed ? null : previous?.repetitions ?? null);
+    const extraFilled = set.durationSeconds !== null || set.distanceMeters !== null;
     return (
       <>
-        <p>Введите фактический результат подхода {set.index}. Пустые показатели останутся незаданными.</p>
+        <p>Результат подхода {set.index}.{previous && !set.completed ? ` Подставлено из подхода ${previous.index}.` : ""}</p>
         <form onSubmit={(event) => submitForm(event, (form) => {
           const weightKg = optionalNumber(form, "weightKg", "Вес");
           const repetitions = optionalNumber(form, "repetitions", "Повторения");
@@ -830,11 +933,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           return { type: "set.save", dayId, exerciseId, setIndex: set.index, weightKg, repetitions, durationSeconds, distanceMeters };
         })}>
           <div className="fields-row">
-            <label>Вес, кг<input name="weightKg" type="number" min="0" max="2000" step="0.1" defaultValue={set.weightKg ?? ""} /></label>
-            <label>Повторения<input name="repetitions" type="number" min="1" max="10000" step="1" defaultValue={set.repetitions ?? ""} /></label>
-            <label>Время, секунд<input name="durationSeconds" type="number" min="1" max="86400" step="1" defaultValue={set.durationSeconds ?? ""} /></label>
-            <label>Дистанция, м<input name="distanceMeters" type="number" min="0.01" max="1000000" step="0.01" defaultValue={set.distanceMeters ?? ""} /></label>
+            <StepField label="Вес, кг" name="weightKg" start={weightStart} step={2.5} min={0} max={2000} />
+            <StepField label="Повторения" name="repetitions" start={repsStart} step={1} min={0} max={10000} />
           </div>
+          <details open={extraFilled}>
+            <summary>Время и дистанция</summary>
+            <div className="fields-row">
+              <label>Время, секунд<input name="durationSeconds" type="number" inputMode="numeric" min="1" max="86400" step="1" defaultValue={set.durationSeconds ?? ""} /></label>
+              <label>Дистанция, м<input name="distanceMeters" type="number" inputMode="decimal" min="0.01" max="1000000" step="0.01" defaultValue={set.distanceMeters ?? ""} /></label>
+            </div>
+          </details>
           <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить результат</button></div>
         </form>
       </>
@@ -860,6 +968,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "delete-food": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "food.delete", id: editor.id })} />;
       case "delete-money": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "money.delete", id: editor.id })} />;
       case "delete-finance-plan": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "finance-plan.delete", id: editor.id })} />;
+      case "finish-session": return (
+        <div>
+          <p>{editor.total === 0 ? "В этой тренировке не было подходов." : editor.done >= editor.total ? `Все подходы выполнены: ${editor.total}.` : `Выполнено подходов: ${editor.done} из ${editor.total}. Остальные не попадут в журнал.`} Завершить тренировку?</p>
+          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Продолжить тренировку</button><button className="submit" type="button" disabled={pending} onClick={() => runCommand({ type: "session.finish", id: editor.sessionId })}>Завершить</button></div>
+        </div>
+      );
     }
   }
 
@@ -894,6 +1008,27 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       </AnimatePresence>
       {renderEditorContent()}
     </motion.dialog>
+  );
+}
+
+/** A number field with − / + buttons: weight and repetitions change by one tap instead of typing. */
+function StepField({ label, name, start, step, min, max }: { label: string; name: string; start: number | null; step: number; min: number; max: number }) {
+  const [value, setValue] = useState(start === null ? "" : String(start).replace(".", ","));
+  const bump = (delta: number) => {
+    const current = Number(value.replace(",", "."));
+    const base = value.trim() !== "" && Number.isFinite(current) ? current : 0;
+    const next = Math.min(max, Math.max(min, Math.round((base + delta) * 100) / 100));
+    setValue(String(next).replace(".", ","));
+  };
+  return (
+    <div className="step-field">
+      <label htmlFor={`step-${name}`}>{label}</label>
+      <div className="stepper">
+        <button type="button" aria-label={`${label}: меньше`} onClick={() => bump(-step)}>−</button>
+        <input id={`step-${name}`} name={name} type="text" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} />
+        <button type="button" aria-label={`${label}: больше`} onClick={() => bump(step)}>+</button>
+      </div>
+    </div>
   );
 }
 
@@ -932,6 +1067,7 @@ function editorTitle(editor: EditorState): string {
     case "delete-food": return "Удалить запись еды";
     case "delete-money": return "Удалить операцию";
     case "delete-finance-plan": return "Удалить план";
+    case "finish-session": return "Завершить тренировку";
   }
 }
 
@@ -939,4 +1075,12 @@ function frequencyLabel(frequency: "weekly" | "monthly" | "yearly"): string {
   if (frequency === "weekly") return "еженедельно";
   if (frequency === "yearly") return "ежегодно";
   return "ежемесячно";
+}
+
+function plural(value: number, one: string, few: string, many: string): string {
+  const absolute = Math.abs(value) % 100;
+  const last = absolute % 10;
+  if (absolute > 10 && absolute < 20) return many;
+  if (last > 1 && last < 5) return few;
+  return last === 1 ? one : many;
 }

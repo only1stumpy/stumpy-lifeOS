@@ -151,6 +151,11 @@ test("денежный ввод переводит десятичную сумм
   assert.equal(parseMinor(" 80 "), 8_000);
   assert.equal(parseMinor("12,3"), 1_230);
   assert.equal(parseMinor("0.01"), 1);
+  // Spaces between groups, also the non-breaking ones the app prints: «5 913,34» must read back as typed.
+  assert.equal(parseMinor("5\u00a0913,34"), 591_334);
+  assert.equal(parseMinor("20 000"), 2_000_000);
+  assert.equal(parseMinor("20000"), 2_000_000);
+  assert.throws(() => parseMinor("1,234"), /числом/);
   assert.throws(() => parseMinor("-1"));
   assert.throws(() => parseMinor("1.001"));
   assert.throws(() => parseMinor("1e3"));
@@ -576,6 +581,28 @@ test("конвертация между двумя не-USD валютами и�
   assert.equal(convertToBaseMinor(1_000, "EUR", "MDL", "19.5"), 19_500);
   assert.equal(convertToBaseMinor(1_000, "MDL", "MDL", null), 1_000);
   assert.throws(() => convertToBaseMinor(1_000, "EUR", "MDL", null), /EUR/);
+});
+
+test("personalization.save keeps modules, features and notifications in one command", () => {
+  const base = { type: "personalization.save", modules: ["finance"], disabledFeatures: [], settings: { dailySummary: true, weeklySummary: false, weightReminder: false, summaryTime: "19:30" } };
+  assert.equal(commandSchema.safeParse(base).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, modules: [] }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: "25:00" } }).success, false);
+  const withoutFeatures: Record<string, unknown> = { ...base };
+  delete withoutFeatures.disabledFeatures;
+  assert.equal(commandSchema.safeParse(withoutFeatures).success, false);
+});
+
+test("gym and weight management commands validate their input", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  assert.equal(commandSchema.safeParse({ type: "day.delete", id }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "day.delete", id: "nope" }).success, false);
+  const update = { type: "exercise.update", dayId: id, dayExerciseId: id, targetSets: 4, targetRepetitions: 10, restSeconds: 120 };
+  assert.equal(commandSchema.safeParse(update).success, true);
+  assert.equal(commandSchema.safeParse({ ...update, targetSets: 0 }).success, false);
+  assert.equal(commandSchema.safeParse({ type: "exercise.remove", dayId: id, dayExerciseId: id }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "weight.delete", date: "2026-11-14" }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "weight.delete", date: "14.11" }).success, false);
 });
 
 test("what's new lists every release missed since the last visit", () => {

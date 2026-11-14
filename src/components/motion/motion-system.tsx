@@ -55,18 +55,19 @@ export function MotionProvider({ children }: PropsWithChildren) {
 }
 
 export const motionVariants = {
+  // Tab switches: the old screen leaves quickly, the new one comes in briskly (they play one after another).
   screen: {
     initial: {
       opacity: 0,
       transform: "translateY(6px)",
-      transition: { type: "tween", duration: motionDuration.transition, ease: motionEase.out },
+      transition: { type: "tween", duration: 0.26, ease: motionEase.out },
     },
     animate: {
       opacity: 1,
       transform: "translateY(0px)",
       transition: {
         type: "tween",
-        duration: motionDuration.transition,
+        duration: 0.26,
         ease: motionEase.out,
         staggerChildren: motionStagger.screen,
         delayChildren: 0.04,
@@ -75,7 +76,7 @@ export const motionVariants = {
     exit: {
       opacity: 0,
       transform: "translateY(6px)",
-      transition: { type: "tween", duration: motionDuration.state, ease: motionEase.out },
+      transition: { type: "tween", duration: 0.12, ease: motionEase.out },
     },
   },
   state: {

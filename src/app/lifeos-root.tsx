@@ -155,6 +155,25 @@ function rememberReturning(): void {
 
 const subscribeNothing = () => () => undefined;
 
+/** A short confirmation for actions whose result is otherwise easy to miss. */
+function noticeFor(command: AppCommand): string | null {
+  switch (command.type) {
+    case "food.save": return "Запись еды сохранена.";
+    case "money.save": return "Операция записана.";
+    case "weight.save": return "Вес записан.";
+    case "food.delete": case "money.delete": case "finance-plan.delete": return "Удалено.";
+    case "finance-plan.save": return "План сохранён.";
+    case "finance-plan.purchase": return "Покупка записана, план закрыт.";
+    case "debt.create": return "Долг записан.";
+    case "debt.repayment.create": return "Возврат записан.";
+    case "profile.save": case "settings.save": return "Цель сохранена.";
+    case "rate.save": return "Курс сохранён.";
+    case "recurring.save": return "Платёж сохранён.";
+    case "session.finish": return "Тренировка завершена. Она в журнале на вкладке «Зал».";
+    default: return null;
+  }
+}
+
 function editorIdentity(editor: EditorState): string {
   switch (editor.kind) {
     case "food": return `food:${editor.entry?.id ?? "new"}`;
@@ -170,6 +189,7 @@ function editorIdentity(editor: EditorState): string {
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
     case "delete-finance-plan": return `delete-finance-plan:${editor.id}`;
+    case "finish-session": return `finish-session:${editor.sessionId}`;
     case "target":
     case "weight":
     case "whats-new":
@@ -194,6 +214,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const formMemoryRef = useRef<FormValues | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A short confirmation after an action («Тренировка завершена»); it fades out by itself.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
   const [telegramSafeAreaTop, setTelegramSafeAreaTop] = useState(0);
   const [telegramContentSafeAreaTop, setTelegramContentSafeAreaTop] = useState(0);
@@ -387,7 +414,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const changeDate = useCallback(async (date: string) => {
     if (!configured || !initData || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     setSelectedDate(date);
-    setStatus("loading");
     setError(null);
     try {
       const nextSnapshot = await fetchSnapshot(initData, date);
@@ -437,10 +463,16 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       triggerTelegramHaptic("success");
 
       try {
-        setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
+        // The server answers a command with a fresh snapshot for today: no second request needed unless another day is open.
+        let fresh: AppSnapshot | null = null;
+        try { fresh = responseSnapshot(payload); } catch { fresh = null; }
+        if (fresh && (!selectedDate || selectedDate === fresh.localDate)) setSnapshot(fresh);
+        else setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
       } catch {
         setError("Изменение принято сервером, но обновить данные не удалось. Повторите загрузку.");
       }
+      const message = noticeFor(parsed.data);
+      if (message) setNotice(message);
       return true;
     } catch (cause) {
       triggerTelegramHaptic("error");
@@ -646,11 +678,12 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}
         </AnimatePresence>
         <AnimatePresence initial={false}>
-          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => setEditor(null)} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
+          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => { if (editor.kind === "whats-new") void sendCommand({ type: "version.seen", version: APP_VERSION }); else setEditor(null); }} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
         </AnimatePresence>
+        {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
         <AnimatePresence>
           {snapshot.activeSession && (
-            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
+            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => { const active = snapshot.activeSession!; const day = snapshot.gym.program.find((item) => item.id === active.dayId); const sets = (day?.exercises ?? []).flatMap((exercise) => exercise.sets); openEditor({ kind: "finish-session", sessionId: active.id, done: sets.filter((set) => set.completed).length, total: sets.length }); }} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
               {pending ? "Сохраняю…" : "Завершить тренировку"}
             </motion.button>
           )}
