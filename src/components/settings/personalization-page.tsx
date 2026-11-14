@@ -12,12 +12,11 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
  * Settings page: which life areas and features are on, and which summaries and reminders the bot sends.
  * One form, one save button; nothing opens in a popup.
  */
-export function PersonalizationPage({ snapshot, pending, onSave, onBack }: {
+export function PersonalizationPage({ snapshot, pending, onSave }: {
   snapshot: AppSnapshot;
   pending: boolean;
   /** Sends the commands one after another and resolves to false as soon as one is rejected. */
   onSave(commands: AppCommand[]): Promise<boolean>;
-  onBack?(): void;
 }) {
   const { enabledModules, disabledFeatures, notifications } = snapshot.settings;
   const [modules, setModules] = useState<LifeModule[]>(enabledModules);
@@ -56,7 +55,6 @@ export function PersonalizationPage({ snapshot, pending, onSave, onBack }: {
 
   return (
     <div className={styles.page}>
-      {onBack && <button type="button" className={styles.back} onClick={onBack}>‹ Назад</button>}
       <h1 className={styles.title}>Персонализация</h1>
       <p className={styles.hint}>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включите снова, и всё будет на месте.</p>
 

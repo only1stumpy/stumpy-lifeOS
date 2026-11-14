@@ -143,15 +143,3 @@
 .ok {
   color: #3d6b4f;
 }
-
-.back {
-  min-height: 44px;
-  align-self: flex-start;
-  border: 0;
-  border-radius: 14px;
-  padding: 0 12px;
-  background: transparent;
-  color: #742b45;
-  font-size: 15px;
-  font-weight: 600;
-}
