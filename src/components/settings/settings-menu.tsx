@@ -23,12 +23,7 @@ export function SettingsMenu({ onOpen }: { onOpen(page: Exclude<SettingsPage, "m
   );
 }
 
-/** A settings page opened from the menu, with a way back. */
-export function SettingsSubpage({ onBack, children }: { onBack(): void; children: ReactNode }) {
-  return (
-    <div className={styles.page}>
-      <button type="button" className={styles.backButton} onClick={onBack}>‹ Настройки</button>
-      {children}
-    </div>
-  );
+/** A settings page opened from the menu. The way back is Telegram's own back button. */
+export function SettingsSubpage({ children }: { children: ReactNode }) {
+  return <div className={styles.page}>{children}</div>;
 }
