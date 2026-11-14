@@ -32,9 +32,13 @@ export function parseMinor(value: string): number {
   const [whole, decimal = ""] = normalized.split(".");
   return Number(BigInt(whole) * 100n + BigInt(decimal.padEnd(2, "0")));
 }
-export function convertToLocalMinor(amountMinor: number, currency: "PRB" | "USD", rate: string | null): number {
-  if (currency === "PRB") return amountMinor;
-  if (!rate || !/^\d+(\.\d{1,6})?$/.test(rate) || Number(rate) <= 0) throw new Error("Для USD нужен ручной курс.");
+/**
+ * Converts an amount to the owner's base currency. Amounts already in the base currency stay as they are;
+ * any other currency needs the manual rate (units of base per one unit of `currency`) captured for it.
+ */
+export function convertToBaseMinor(amountMinor: number, currency: string, baseCurrency: string, rate: string | null): number {
+  if (currency === baseCurrency) return amountMinor;
+  if (!rate || !/^\d+(\.\d{1,6})?$/.test(rate) || Number(rate) <= 0) throw new Error(`Для валюты ${currency} нужен ручной курс.`);
   const [whole, decimal = ""] = rate.split(".");
   const factor = 10n ** BigInt(decimal.length);
   const scaled = BigInt(whole) * factor + BigInt(decimal || "0");

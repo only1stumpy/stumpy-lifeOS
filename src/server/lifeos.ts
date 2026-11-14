@@ -1,10 +1,11 @@
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, desc, eq, isNull, lte } from "drizzle-orm";
 import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import type { FinanceDebt, MacroValues, FoodLogEntry, WorkoutDay } from "@/domain/types";
-import { convertToLocalMinor, dateKey, sumMacros } from "@/domain/math";
+import { currencyUnit } from "@/domain/currencies";
+import { convertToBaseMinor, dateKey, sumMacros } from "@/domain/math";
 import { advanceRecurrenceDate } from "@/domain/recurrence";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { ACTIVITY_LEVELS, GOALS, ageOn, birthDateForAge, type NutritionProfile } from "@/domain/nutrition";
@@ -62,7 +63,6 @@ async function saveDailyWeight(tx: Transaction, ownerId: string, date: string, w
 const macroStrings = (row: MacroValues) => ({
   calories: String(row.calories), proteinGrams: String(row.proteinGrams), fatGrams: String(row.fatGrams), carbsGrams: String(row.carbsGrams),
 });
-const asCurrency = (v: string): "PRB" | "USD" => v === "USD" ? "USD" : "PRB";
 
 export function buildNutritionHistoryDays(
   rows: { occurredAt: Date | string; macros: MacroValues }[],
@@ -160,7 +160,10 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     id: v.id, label: v.name, occurredAt: v.occurredAt.toISOString(), portionLabel: v.portionLabel, estimated: v.estimated, ...macroNumbers(v),
   }));
   const expenses = money.filter((v) => v.entryType === "expense");
-  const totalExpenses = (rows: typeof expenses) => rows.reduce((sum, v) => sum + convertToLocalMinor(toMinor(v.amount), asCurrency(v.currency), v.usdToPrbRate), 0);
+  const baseCurrency = owner.baseCurrency ?? accounts[0]?.currency ?? "USD";
+  const latestRates: Record<string, string> = {};
+  for (const r of rates) if (!(r.currency in latestRates)) latestRates[r.currency] = r.rateToBase;
+  const totalExpenses = (rows: typeof expenses) => rows.reduce((sum, v) => sum + convertToBaseMinor(toMinor(v.amount), v.currency, baseCurrency, v.rateToBase), 0);
   const calendar = Array.from({ length: 31 }, (_, i) => {
     const date = new Date(localDate + "T12:00:00Z");
     date.setUTCDate(date.getUTCDate() - 30 + i);
@@ -201,10 +204,10 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     reports,
     nutrition: { consumed: sumMacros(foodEntries), target: targets[0] ? macroNumbers(targets[0]) : null, entries: foodEntries, bodyWeightKg: weights.length ? Number(weights[weights.length - 1].weightKg) : null, weightHistory: weights.map((v) => ({ date: dateKey(v.occurredAt, owner.timezone), weightKg: Number(v.weightKg) })) },
     finance: {
-      spentTodayPrbMinor: totalExpenses(expenses.filter((v) => dateKey(v.occurredAt, owner.timezone) === localDate)),
-      spentMonthPrbMinor: totalExpenses(monthlyExpenses),
-      accounts: accounts.map((v) => ({ id: v.id, name: v.name, currency: asCurrency(v.currency), openingBalanceMinor: toMinor(v.openingBalance), isDefault: v.isDefault, balanceMinor: toMinor(v.openingBalance) + money.filter((e) => e.accountId === v.id).reduce((sum, e) => sum + (e.entryType === "income" ? 1 : -1) * toMinor(e.amount), 0) })),
-      entries: money.map((v) => ({ id: v.id, accountId: v.accountId, label: v.name, occurredAt: v.occurredAt.toISOString(), amountMinor: toMinor(v.amount), currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "Без категории", kind: v.entryType as "expense" | "income" })),
+      spentTodayMinor: totalExpenses(expenses.filter((v) => dateKey(v.occurredAt, owner.timezone) === localDate)),
+      spentMonthMinor: totalExpenses(monthlyExpenses),
+      accounts: accounts.map((v) => ({ id: v.id, name: v.name, currency: v.currency, openingBalanceMinor: toMinor(v.openingBalance), isDefault: v.isDefault, balanceMinor: toMinor(v.openingBalance) + money.filter((e) => e.accountId === v.id).reduce((sum, e) => sum + (e.entryType === "income" ? 1 : -1) * toMinor(e.amount), 0) })),
+      entries: money.map((v) => ({ id: v.id, accountId: v.accountId, label: v.name, occurredAt: v.occurredAt.toISOString(), amountMinor: toMinor(v.amount), currency: v.currency, category: categories.find((c) => c.id === v.categoryId)?.name ?? "Без категории", kind: v.entryType as "expense" | "income" })),
       plans: plans.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount) })),
       debts: debts.map((v): FinanceDebt => {
         const repaidMinor = repayments
@@ -228,8 +231,8 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
-    recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
+    settings: { timeZone: owner.timezone, baseCurrency, rates: latestRates, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
+    recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: v.currency, category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);
       const entry = moneyDrafts.find((m) => m.captureDraftId === v.id);
@@ -240,7 +243,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
         .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0) : 0;
       return { id: v.id, description: v.messageText ?? "", occurredAt: (food?.occurredAt ?? entry?.occurredAt ?? debt?.occurredAt ?? v.createdAt).toISOString(),
         food: food ? { label: food.name, portionLabel: food.portionLabel, ...macroNumbers(food), estimated: food.estimated } : null,
-        money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: asCurrency(entry.currency), kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
+        money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: entry.currency, kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
         debt: debt ? {
           operation: debt.operation as "create" | "repayment",
           personName: debt.personName,
@@ -284,8 +287,9 @@ async function saveDebtTransfer(
   }).returning();
 
   if (input.openedAs === "transfer") {
-    const chosen = await account(tx, ownerId, input.accountId, "PRB");
-    if (chosen.currency !== "PRB") throw new AppError(400, "Долги учитываются только в рублях ПМР.");
+    const base = await baseCurrencyOf(tx, ownerId);
+    const chosen = await account(tx, ownerId, input.accountId, base);
+    if (chosen.currency !== base) throw new AppError(400, `Долги учитываются только в основной валюте (${base}).`);
     const isIncoming = input.direction === "i_owe";
     const entryType = isIncoming ? "income" : "expense";
     const group = await category(tx, ownerId, isIncoming ? "Получено в долг" : "Выдано в долг", entryType);
@@ -297,8 +301,8 @@ async function saveDebtTransfer(
       name: isIncoming ? `Занял у ${input.personName}` : `Одолжил ${input.personName}`,
       entryType,
       amount: debtAmountFromMinor(input.amountMinor),
-      currency: "PRB",
-      usdToPrbRate: null,
+      currency: chosen.currency,
+      rateToBase: null,
       occurredAt: input.occurredAt,
       source: input.captureDraftId ? "chat" : "mini_app",
     });
@@ -321,8 +325,9 @@ async function saveDebtRepayment(
   if (remainingMinor <= 0) throw new AppError(409, "Этот долг уже закрыт.");
   if (input.amountMinor > remainingMinor) throw new AppError(400, "Сумма возврата больше остатка долга.");
 
-  const chosen = await account(tx, ownerId, input.accountId, "PRB");
-  if (chosen.currency !== "PRB") throw new AppError(400, "Долги учитываются только в рублях ПМР.");
+  const base = await baseCurrencyOf(tx, ownerId);
+  const chosen = await account(tx, ownerId, input.accountId, base);
+  if (chosen.currency !== base) throw new AppError(400, `Долги учитываются только в основной валюте (${base}).`);
   const isOutgoing = debt.direction === "i_owe";
   const entryType = isOutgoing ? "expense" : "income";
   const group = await category(tx, ownerId, isOutgoing ? "Погашение долга" : "Возврат долга", entryType);
@@ -334,8 +339,8 @@ async function saveDebtRepayment(
     name: isOutgoing ? `Вернул ${debt.personName}` : `Получил возврат от ${debt.personName}`,
     entryType,
     amount: debtAmountFromMinor(input.amountMinor),
-    currency: "PRB",
-    usdToPrbRate: null,
+    currency: chosen.currency,
+    rateToBase: null,
     occurredAt: input.occurredAt,
     source: input.captureDraftId ? "chat" : "mini_app",
   }).returning();
@@ -376,12 +381,12 @@ export async function createDebtCaptureDraft(input: {
         .reduce((sum, row) => sum + toMinor(row.amount), 0);
       const remaining = toMinor(debt.originalAmount) - alreadyRepaid;
       if (input.intent.amountMinor > remaining) {
-        return { draftIds: [], clarification: `Сумма возврата больше остатка долга (${decimal(remaining)} руб. ПМР). Проверь сумму и попробуй ещё раз.` };
+        return { draftIds: [], clarification: `Сумма возврата больше остатка долга (${decimal(remaining)} ${currencyUnit(await baseCurrencyOf(tx, owner.id))}). Проверь сумму и попробуй ещё раз.` };
       }
-      const chosen = await account(tx, owner.id, undefined, "PRB");
+      const chosen = await account(tx, owner.id, undefined, await baseCurrencyOf(tx, owner.id));
       accountId = chosen.id;
     } else if (input.intent.openedAs === "transfer") {
-      const chosen = await account(tx, owner.id, undefined, "PRB");
+      const chosen = await account(tx, owner.id, undefined, await baseCurrencyOf(tx, owner.id));
       accountId = chosen.id;
     }
 
@@ -442,11 +447,21 @@ async function account(tx: Transaction, ownerId: string, accountId?: string, cur
   if (!row) throw new AppError(400, "Сначала добавьте счёт в нужной валюте.");
   return row;
 }
+/** Base currency of the owner: the currency of the first account. Null until an account exists. */
+async function baseCurrencyOf(tx: Transaction, ownerId: string): Promise<string> {
+  const [row] = await tx.select({ base: s.ownerSettings.baseCurrency }).from(s.ownerSettings).where(eq(s.ownerSettings.id, ownerId));
+  if (!row?.base) throw new AppError(400, "Сначала добавьте счёт: его валюта станет основной.");
+  return row.base;
+}
 async function rateAt(tx: Transaction, ownerId: string, currency: string, at: Date) {
-  if (currency === "PRB") return null;
-  const [rate] = await tx.select().from(s.exchangeRates).where(and(eq(s.exchangeRates.ownerId, ownerId), lte(s.exchangeRates.effectiveAt, at))).orderBy(desc(s.exchangeRates.effectiveAt)).limit(1);
-  if (!rate) throw new AppError(400, "Для этой USD-операции нужен ручной курс. Сначала задайте курс.");
-  return rate.usdToPrbRate;
+  if (currency === await baseCurrencyOf(tx, ownerId)) return null;
+  const [rate] = await tx.select().from(s.exchangeRates).where(and(eq(s.exchangeRates.ownerId, ownerId), eq(s.exchangeRates.currency, currency), lte(s.exchangeRates.effectiveAt, at))).orderBy(desc(s.exchangeRates.effectiveAt)).limit(1);
+  if (!rate) throw new AppError(400, `Для операции в ${currency} нужен ручной курс. Сначала задайте курс.`);
+  return rate.rateToBase;
+}
+/** First account decides the base currency; later accounts leave it unchanged. */
+async function ensureBaseCurrency(tx: Transaction, ownerId: string, currency: string) {
+  await tx.update(s.ownerSettings).set({ baseCurrency: currency, updatedAt: new Date() }).where(and(eq(s.ownerSettings.id, ownerId), isNull(s.ownerSettings.baseCurrency)));
 }
 async function startSession(tx: Transaction, ownerId: string, dayId: string) {
   const [day] = await tx.select().from(s.workoutDays).where(and(eq(s.workoutDays.id, dayId), eq(s.workoutDays.ownerId, ownerId)));
@@ -486,7 +501,7 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   }
   const providerProfiles = await loadConfiguredAiProviderConfigs(owner.id);
   const modules = normalizeModules(owner.enabledModules);
-  const rawAnalysis = await analyzeMessage({ ...input, enabledModules: modules, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
+  const rawAnalysis = await analyzeMessage({ ...input, enabledModules: modules, baseCurrency: snapshot.settings.baseCurrency, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
     profiles: providerProfiles,
     ownerId: owner.id,
   });
@@ -569,8 +584,8 @@ export async function executeCommand(command: AppCommand) {
           const existing = await tx.select({ id: s.financeAccounts.id }).from(s.financeAccounts).where(eq(s.financeAccounts.ownerId, owner.id)).limit(1);
           if (!existing.length) {
             await tx.insert(s.financeAccounts).values({ ownerId: owner.id, name: "Основной", currency: command.account.currency, isDefault: true, openingBalance: decimal(command.account.openingBalanceMinor) });
+            await ensureBaseCurrency(tx, owner.id, command.account.currency);
           }
-          if (command.account.usdToPrb) await tx.insert(s.exchangeRates).values({ ownerId: owner.id, usdToPrbRate: command.account.usdToPrb, effectiveAt: new Date() });
         }
         break;
       }
@@ -589,17 +604,22 @@ export async function executeCommand(command: AppCommand) {
           if (!existing || existing.currency !== command.currency) throw new AppError(400, "Валюту существующего счёта менять нельзя.");
           await tx.update(s.financeAccounts).set({ name: command.name, isDefault: command.isDefault, openingBalance: decimal(command.openingBalanceMinor) }).where(eq(s.financeAccounts.id, existing.id));
         } else await tx.insert(s.financeAccounts).values({ ownerId: owner.id, name: command.name, currency: command.currency, isDefault: command.isDefault, openingBalance: decimal(command.openingBalanceMinor) });
+        if (!command.id) await ensureBaseCurrency(tx, owner.id, command.currency);
         break;
       }
-      case "rate.save": await tx.insert(s.exchangeRates).values({ ownerId: owner.id, usdToPrbRate: command.usdToPrb, effectiveAt: command.effectiveAt ? new Date(command.effectiveAt) : new Date() }); break;
+      case "rate.save": {
+        if (command.currency === await baseCurrencyOf(tx, owner.id)) throw new AppError(400, "Курс основной валюты к самой себе не задаётся.");
+        await tx.insert(s.exchangeRates).values({ ownerId: owner.id, currency: command.currency, rateToBase: command.rateToBase, effectiveAt: command.effectiveAt ? new Date(command.effectiveAt) : new Date() });
+        break;
+      }
       case "money.save": {
         const chosen = await account(tx, owner.id, command.accountId);
         const group = await category(tx, owner.id, command.category, command.kind);
         const at = new Date(command.occurredAt);
         const [old] = command.id ? await tx.select().from(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id))) : [];
         const sameMinute = old && Math.floor(old.occurredAt.getTime() / 60_000) === Math.floor(at.getTime() / 60_000);
-        const rate = old && old.currency === chosen.currency && sameMinute ? old.usdToPrbRate : await rateAt(tx, owner.id, chosen.currency, at);
-        const values = { ownerId: owner.id, accountId: chosen.id, categoryId: group.id, name: command.label, entryType: command.kind, amount: decimal(command.amountMinor), currency: chosen.currency, usdToPrbRate: rate, occurredAt: at, source: "mini_app" };
+        const rate = old && old.currency === chosen.currency && sameMinute ? old.rateToBase : await rateAt(tx, owner.id, chosen.currency, at);
+        const values = { ownerId: owner.id, accountId: chosen.id, categoryId: group.id, name: command.label, entryType: command.kind, amount: decimal(command.amountMinor), currency: chosen.currency, rateToBase: rate, occurredAt: at, source: "mini_app" };
         if (command.id) {
           if (!old) throw new AppError(404, "Операция не найдена.");
           await tx.update(s.financeEntries).set({ ...values, updatedAt: new Date() }).where(eq(s.financeEntries.id, old.id));
@@ -657,7 +677,8 @@ export async function executeCommand(command: AppCommand) {
         if (!plan) throw new AppError(404, "План покупки не найден.");
 
         const chosen = await account(tx, owner.id, command.accountId);
-        if (chosen.currency !== "PRB") throw new AppError(400, "План покупки можно записать только со счёта в рублях ПМР.");
+        const base = await baseCurrencyOf(tx, owner.id);
+        if (chosen.currency !== base) throw new AppError(400, `План покупки можно записать только со счёта в основной валюте (${base}).`);
         const group = await category(tx, owner.id, command.category, "expense");
         await tx.insert(s.financeEntries).values({
           ownerId: owner.id,
@@ -666,8 +687,8 @@ export async function executeCommand(command: AppCommand) {
           name: command.label,
           entryType: "expense",
           amount: decimal(command.actualAmountMinor),
-          currency: "PRB",
-          usdToPrbRate: null,
+          currency: chosen.currency,
+          rateToBase: null,
           occurredAt: new Date(command.occurredAt),
           source: "mini_app",
         });
@@ -691,7 +712,7 @@ export async function executeCommand(command: AppCommand) {
         const today = dateKey(new Date(), owner.timezone);
         if (payment.nextDueOn > today) throw new AppError(409, "Этот период уже оплачен или ещё не наступил.");
         const rate = await rateAt(tx, owner.id, payment.currency, new Date());
-        await tx.insert(s.financeEntries).values({ ownerId: owner.id, accountId: payment.accountId, categoryId: payment.categoryId, recurringPaymentId: payment.id, name: payment.name, entryType: "expense", amount: payment.amount, currency: payment.currency, usdToPrbRate: rate, occurredAt: new Date(), source: "recurring" });
+        await tx.insert(s.financeEntries).values({ ownerId: owner.id, accountId: payment.accountId, categoryId: payment.categoryId, recurringPaymentId: payment.id, name: payment.name, entryType: "expense", amount: payment.amount, currency: payment.currency, rateToBase: rate, occurredAt: new Date(), source: "recurring" });
         const nextDueOn = advanceRecurrenceDate(payment.nextDueOn, payment.intervalUnit as "day" | "week" | "month" | "year", payment.intervalCount, payment.anchorDay, payment.anchorMonth);
         await tx.update(s.recurringPayments).set({ nextDueOn, lastPaidOn: today }).where(eq(s.recurringPayments.id, payment.id));
         break;
@@ -783,7 +804,7 @@ export async function executeCommand(command: AppCommand) {
           const chosen = await account(tx, owner.id, money.accountId ?? undefined, money.currency);
           const group = money.categoryId ? null : await category(tx, owner.id, money.proposedCategory!, money.entryType as "expense" | "income");
           const rate = await rateAt(tx, owner.id, chosen.currency, money.occurredAt);
-          await tx.insert(s.financeEntries).values({ ownerId: owner.id, captureDraftId: draft.id, accountId: chosen.id, categoryId: money.categoryId ?? group!.id, entryType: money.entryType, name: money.name, amount: money.amount, currency: chosen.currency, usdToPrbRate: rate, occurredAt: money.occurredAt });
+          await tx.insert(s.financeEntries).values({ ownerId: owner.id, captureDraftId: draft.id, accountId: chosen.id, categoryId: money.categoryId ?? group!.id, entryType: money.entryType, name: money.name, amount: money.amount, currency: chosen.currency, rateToBase: rate, occurredAt: money.occurredAt });
         }
         if (debt) {
           if (debt.operation === "create") {

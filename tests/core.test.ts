@@ -3,7 +3,8 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import { commandSchema } from "../src/domain/commands";
-import { convertToLocalMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
+import { currencyUnit, formatMoneyPlain, normalizeCurrencyCode } from "../src/domain/currencies";
+import { convertToBaseMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
 import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverageWeight } from "../src/domain/nutrition";
 import { parseWeightMessage } from "../src/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures, type LifeFeature, type LifeModule } from "../src/domain/modules";
@@ -155,12 +156,12 @@ test("денежный ввод переводит десятичную сумм
   assert.throws(() => parseMinor("1e3"));
 });
 
-test("USD конвертируется с округлением к ближайшей minor unit и требует ручной курс", () => {
-  assert.equal(convertToLocalMinor(100, "USD", "37.125"), 3_713);
-  assert.equal(convertToLocalMinor(1, "USD", "1.5"), 2);
-  assert.equal(convertToLocalMinor(1_234, "PRB", null), 1_234);
-  assert.throws(() => convertToLocalMinor(100, "USD", null), /ручной курс/);
-  assert.throws(() => convertToLocalMinor(100, "USD", "0"), /ручной курс/);
+test("валюта конвертируется в основную с округлением и требует ручной курс", () => {
+  assert.equal(convertToBaseMinor(100, "USD", "PRB", "37.125"), 3_713);
+  assert.equal(convertToBaseMinor(1, "USD", "PRB", "1.5"), 2);
+  assert.equal(convertToBaseMinor(1_234, "PRB", "PRB", null), 1_234);
+  assert.throws(() => convertToBaseMinor(100, "USD", "PRB", null), /ручной курс/);
+  assert.throws(() => convertToBaseMinor(100, "USD", "PRB", "0"), /ручной курс/);
 });
 
 test("новый курс не переоценивает операции с сохранённым курсом каждой операции", () => {
@@ -170,13 +171,13 @@ test("новый курс не переоценивает операции с с
   ];
   const laterManualRate = "40";
   const totalAtSavedRates = entries.reduce(
-    (total, entry) => total + convertToLocalMinor(entry.amountMinor, "USD", entry.savedRate),
+    (total, entry) => total + convertToBaseMinor(entry.amountMinor, "USD", "PRB", entry.savedRate),
     0,
   );
 
   assert.equal(totalAtSavedRates, 44_750);
   assert.notEqual(totalAtSavedRates, entries.reduce(
-    (total, entry) => total + convertToLocalMinor(entry.amountMinor, "USD", laterManualRate),
+    (total, entry) => total + convertToBaseMinor(entry.amountMinor, "USD", "PRB", laterManualRate),
     0,
   ));
 });
@@ -541,12 +542,40 @@ test("disabled modules drop AI records and explain why", () => {
   assert.deepEqual(normalizeModules([]), ["nutrition", "finance", "gym"]);
 });
 
-test("onboarding command requires at least one module and a positive USD rate", () => {
-  const base = { type: "onboarding.complete", modules: ["finance"], usage: "weekly", profile: null, target: null, account: { currency: "USD", openingBalanceMinor: 12_000, usdToPrb: "16.2" } };
+test("onboarding command requires a module and a valid currency code", () => {
+  const base = { type: "onboarding.complete", modules: ["finance"], usage: "weekly", profile: null, target: null, account: { currency: "EUR", openingBalanceMinor: 12_000 } };
   assert.equal(commandSchema.safeParse(base).success, true);
   assert.equal(commandSchema.safeParse({ ...base, modules: [] }).success, false);
   assert.equal(commandSchema.safeParse({ ...base, modules: ["finance", "finance"] }).success, false);
-  assert.equal(commandSchema.safeParse({ ...base, account: { ...base.account, usdToPrb: "0" } }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, account: { ...base.account, currency: "евро" } }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, account: { ...base.account, currency: "us" } }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, account: { ...base.account, currency: "prb" } }).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, account: null }).success, true);
+});
+
+test("rate.save принимает любую валюту и положительный курс до шести знаков", () => {
+  const rate = { type: "rate.save", currency: "EUR", rateToBase: "98.5" };
+  assert.equal(commandSchema.safeParse(rate).success, true);
+  assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "0" }).success, false);
+  assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "1,5" }).success, false);
+  assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "1.1234567" }).success, false);
+  assert.equal(commandSchema.safeParse({ ...rate, currency: "E" }).success, false);
+});
+
+test("форматирование валют: известные единицы и неизвестный код как есть", () => {
+  assert.equal(currencyUnit("USD"), "$");
+  assert.equal(currencyUnit("PRB"), "р. ПМР");
+  assert.equal(currencyUnit("XYZ"), "XYZ");
+  assert.equal(normalizeCurrencyCode(" eur "), "EUR");
+  assert.equal(normalizeCurrencyCode("рубль"), null);
+  assert.equal(formatMoneyPlain(8_500, "PRB"), "85,00 руб. ПМР");
+  assert.equal(formatMoneyPlain(1_000, "EUR"), "10,00 EUR");
+});
+
+test("конвертация между двумя не-USD валютами идёт через курс к основной", () => {
+  assert.equal(convertToBaseMinor(1_000, "EUR", "MDL", "19.5"), 19_500);
+  assert.equal(convertToBaseMinor(1_000, "MDL", "MDL", null), 1_000);
+  assert.throws(() => convertToBaseMinor(1_000, "EUR", "MDL", null), /EUR/);
 });
 
 test("what's new lists every release missed since the last visit", () => {

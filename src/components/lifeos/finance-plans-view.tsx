@@ -1,6 +1,6 @@
 "use client";
 
-import { formatMoneyAmount } from "@/domain/math";
+import { formatMoney } from "@/domain/currencies";
 import styles from "./finance-plans-view.module.css";
 
 export type FinancePlanViewItem = {
@@ -11,16 +11,14 @@ export type FinancePlanViewItem = {
 
 type FinancePlansViewProps = {
   plans: FinancePlanViewItem[];
+  /** The base currency: plans are always kept in it. */
+  currency: string;
   onAdd(): void;
   onEdit(plan: FinancePlanViewItem): void;
   onDelete(id: string): void;
   onPurchase(plan: FinancePlanViewItem): void;
 };
 
-
-function moneyLabel(amountMinor: number): string {
-  return `${formatMoneyAmount(amountMinor)} р. ПМР`;
-}
 
 function PlusIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>;
@@ -34,7 +32,7 @@ function DeleteIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 7h15M9 7V4.5h6V7M7 7l.8 13h8.4L17 7M10 10.5v6M14 10.5v6" /></svg>;
 }
 
-export default function FinancePlansView({ plans, onAdd, onEdit, onDelete, onPurchase }: FinancePlansViewProps) {
+export default function FinancePlansView({ plans, currency, onAdd, onEdit, onDelete, onPurchase }: FinancePlansViewProps) {
   const total = plans.reduce((sum, plan) => sum + Math.abs(plan.amountMinor), 0);
 
   return (
@@ -54,14 +52,14 @@ export default function FinancePlansView({ plans, onAdd, onEdit, onDelete, onPur
         <div className={styles.planCollection}>
           <div className={styles.totalLine}>
             <span>Всего запланировано</span>
-            <strong>{moneyLabel(total)}</strong>
+            <strong>{formatMoney(total, currency)}</strong>
           </div>
           <ul className={styles.planList}>
             {plans.map((plan) => (
               <li className={styles.planRow} key={plan.id}>
                 <div className={styles.planDetails}>
                   <strong className={styles.planName}>{plan.name}</strong>
-                  <span className={styles.planAmount}>{moneyLabel(plan.amountMinor)}</span>
+                  <span className={styles.planAmount}>{formatMoney(plan.amountMinor, currency)}</span>
                 </div>
                 <div className={styles.actions}>
                   <button

@@ -1,3 +1,4 @@
+import { formatMoneyPlain as formatMoney } from "@/domain/currencies";
 import type { AppSnapshot } from "@/domain/app";
 import { ALL_FEATURES, normalizeModules, type LifeFeature } from "@/domain/modules";
 import { dateKey } from "@/domain/math";
@@ -11,10 +12,6 @@ function normalize(value: string): string {
   return value.toLocaleLowerCase("ru-RU").replaceAll("ё", "е").trim();
 }
 
-function formatMoney(amountMinor: number, currency: "PRB" | "USD"): string {
-  const amount = moneyFormat.format(amountMinor / 100);
-  return currency === "PRB" ? `${amount} руб. ПМР` : `${amount} USD`;
-}
 
 /** Handles personal facts locally so money and nutrition values never come from model arithmetic. */
 export function answerKnownReferenceQuestion(question: string, snapshot: AppSnapshot): string | null {
@@ -47,10 +44,10 @@ export function answerKnownReferenceQuestion(question: string, snapshot: AppSnap
 
   const isExpenseQuestion = /потрат|расход|трат|ушло|ушли/.test(query);
   if (isExpenseQuestion && /сегодня|сейчас/.test(query)) {
-    return `Сегодня записано расходов на ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")}.`;
+    return `Сегодня записано расходов на ${formatMoney(snapshot.finance.spentTodayMinor, snapshot.settings.baseCurrency)}.`;
   }
   if (isExpenseQuestion && /месяц/.test(query)) {
-    return `За этот месяц записано расходов на ${formatMoney(snapshot.finance.spentMonthPrbMinor, "PRB")}.`;
+    return `За этот месяц записано расходов на ${formatMoney(snapshot.finance.spentMonthMinor, snapshot.settings.baseCurrency)}.`;
   }
 
   const asksMacros = /кбжу|калори|белк|жир|углевод/.test(query);
@@ -113,8 +110,8 @@ export function makeReferenceContext(snapshot: AppSnapshot): string {
     timezone: snapshot.settings.timeZone,
     finance: {
       accounts: snapshot.finance.accounts.map(({ name, currency, balanceMinor, isDefault }) => ({ name, currency, balanceMinor, isDefault })),
-      spentTodayPrbMinor: snapshot.finance.spentTodayPrbMinor,
-      spentMonthPrbMinor: snapshot.finance.spentMonthPrbMinor,
+      spentTodayMinor: snapshot.finance.spentTodayMinor,
+      spentMonthMinor: snapshot.finance.spentMonthMinor,
       recentMonthEntries: recentFinance.slice(0, 30),
       categories: snapshot.reports.expenseCategories.slice(0, 20),
       recurring: snapshot.recurring.slice(0, 30).map(({ name, amountMinor, currency, category, frequency, nextDueAt }) => ({ name, amountMinor, currency, category, frequency, nextDueAt: nextDueAt.slice(0, 10) })),
@@ -148,8 +145,8 @@ export function makeReferenceContext(snapshot: AppSnapshot): string {
     timezone: snapshot.settings.timeZone,
     finance: {
       accounts: snapshot.finance.accounts.slice(0, 20).map(({ name, currency, balanceMinor, isDefault }) => ({ name: name.slice(0, 80), currency, balanceMinor, isDefault })),
-      spentTodayPrbMinor: snapshot.finance.spentTodayPrbMinor,
-      spentMonthPrbMinor: snapshot.finance.spentMonthPrbMinor,
+      spentTodayMinor: snapshot.finance.spentTodayMinor,
+      spentMonthMinor: snapshot.finance.spentMonthMinor,
     },
     nutrition: { today: snapshot.nutrition.consumed, target: snapshot.nutrition.target, latestWeightKg: snapshot.nutrition.bodyWeightKg },
     gym: {

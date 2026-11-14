@@ -2,12 +2,13 @@
 
 import { useId, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { formatMoney } from "@/domain/currencies";
 import type { AppReports } from "@/domain/app";
 import type { ModuleKey } from "@/domain/types";
 import { motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 import styles from "./module-reports.module.css";
 
-type ModuleReportsProps = { reports: AppReports; section: ModuleKey };
+type ModuleReportsProps = { reports: AppReports; section: ModuleKey; /** The base currency that report amounts are expressed in. */ currency: string };
 type NutritionMetric = "calories" | "proteinGrams" | "fatGrams" | "carbsGrams";
 type Period = "week" | "month";
 type TrendPoint = { date: string; value: number | null; detail: string };
@@ -15,7 +16,6 @@ type PositionedPoint = TrendPoint & { x: number; y: number | null };
 
 const numberFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
 const calendarKcalFormat = new Intl.NumberFormat("ru-RU", { useGrouping: false, maximumFractionDigits: 0 });
-const moneyFormat = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const metricLabels: Record<NutritionMetric, { label: string; unit: string }> = {
   calories: { label: "Калории", unit: "ккал" },
   proteinGrams: { label: "Белки", unit: "г" },
@@ -66,8 +66,8 @@ function datesEndingAt(value: string, length: number): string[] {
   });
 }
 
-function prbLabel(minor: number): string {
-  return `${moneyFormat.format(Math.abs(minor) / 100)} р. ПМР`;
+function moneyLabel(currency: string, minor: number): string {
+  return formatMoney(Math.abs(minor), currency);
 }
 
 function plural(value: number, one: string, few: string, many: string): string {
@@ -265,7 +265,7 @@ function NutritionReports({ reports }: { reports: AppReports }) {
   );
 }
 
-function ExpenseCategoryRows({ categories }: { categories: AppReports["expenseCategories"] }) {
+function ExpenseCategoryRows({ categories, currency }: { categories: AppReports["expenseCategories"]; currency: string }) {
   const prefersReducedMotion = useReducedMotion() !== false;
   if (categories.length === 0) return <p className={styles.emptyText}>За текущий месяц расходов по категориям пока нет.</p>;
   const rows = [...categories].sort((a, b) => b.amountMinor - a.amountMinor);
@@ -274,7 +274,7 @@ function ExpenseCategoryRows({ categories }: { categories: AppReports["expenseCa
     <ol className={styles.categoryList}>
       {rows.map((category) => (
         <li key={category.name}>
-          <div className={styles.categoryLine}><span>{category.name}</span><strong>{prbLabel(category.amountMinor)}</strong></div>
+          <div className={styles.categoryLine}><span>{category.name}</span><strong>{moneyLabel(currency, category.amountMinor)}</strong></div>
           <div className={styles.barTrack} role="progressbar" aria-label={`Доля категории ${category.name}`} aria-valuemin={0} aria-valuemax={max} aria-valuenow={category.amountMinor}><motion.span initial={{ transform: prefersReducedMotion ? "scaleX(1)" : "scaleX(0)" }} animate={{ transform: `scaleX(${Math.max(2, category.amountMinor / max * 100) / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} /></div>
         </li>
       ))}
@@ -282,16 +282,16 @@ function ExpenseCategoryRows({ categories }: { categories: AppReports["expenseCa
   );
 }
 
-function expenseComparison(current: number, previous: number, previousPeriodEnd: string): string {
+function expenseComparison(currency: string, current: number, previous: number, previousPeriodEnd: string): string {
   const difference = current - previous;
   const date = dayLabel(previousPeriodEnd, { day: "numeric", month: "long" });
   if (difference === 0) return `Столько же, сколько до ${date}.`;
-  if (previous === 0) return difference > 0 ? `Расходы появились; до ${date} расходов не было.` : `Снижение на ${prbLabel(Math.abs(difference))} относительно периода до ${date}.`;
+  if (previous === 0) return difference > 0 ? `Расходы появились; до ${date} расходов не было.` : `Снижение на ${moneyLabel(currency, Math.abs(difference))} относительно периода до ${date}.`;
   const percent = Math.round(Math.abs(difference) / previous * 100);
-  return `${difference > 0 ? "Больше" : "Меньше"} на ${prbLabel(Math.abs(difference))} (${percent}%) относительно периода до ${date}.`;
+  return `${difference > 0 ? "Больше" : "Меньше"} на ${moneyLabel(currency, Math.abs(difference))} (${percent}%) относительно периода до ${date}.`;
 }
 
-function FinanceReports({ reports }: { reports: AppReports }) {
+function FinanceReports({ reports, currency }: { reports: AppReports; currency: string }) {
   const selectedDate = reports.expenseDays.at(-1)?.date;
   const current = reports.monthComparison.currentMinor;
   const previous = reports.monthComparison.previousMinor;
@@ -304,25 +304,25 @@ function FinanceReports({ reports }: { reports: AppReports }) {
       <section className={styles.reportSurface} aria-labelledby="lifeos-finance-comparison-title">
         <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Расходы</p><h2 id="lifeos-finance-comparison-title">Сравнение периода</h2></div>{selectedDate && <span className={styles.periodLabel}>по {dayLabel(selectedDate, { day: "numeric", month: "short" })}</span>}</div>
         <div className={styles.comparisonValues}>
-          <div><span>Текущий месяц · по {selectedDate ? dayLabel(selectedDate, { day: "numeric", month: "short" }) : "выбранную дату"}</span><strong>{prbLabel(current)}</strong></div>
+          <div><span>Текущий месяц · по {selectedDate ? dayLabel(selectedDate, { day: "numeric", month: "short" }) : "выбранную дату"}</span><strong>{moneyLabel(currency, current)}</strong></div>
           <span className={styles.comparisonMark} aria-hidden="true">к</span>
-          <div><span>Прошлый месяц · по {dayLabel(reports.monthComparison.previousPeriodEnd, { day: "numeric", month: "short" })}</span><strong>{prbLabel(previous)}</strong></div>
+          <div><span>Прошлый месяц · по {dayLabel(reports.monthComparison.previousPeriodEnd, { day: "numeric", month: "short" })}</span><strong>{moneyLabel(currency, previous)}</strong></div>
         </div>
-        <p className={`${styles.comparisonNote} ${difference > 0 ? styles.negative : difference < 0 ? styles.positive : ""}`}>{expenseComparison(current, previous, reports.monthComparison.previousPeriodEnd)}</p>
+        <p className={`${styles.comparisonNote} ${difference > 0 ? styles.negative : difference < 0 ? styles.positive : ""}`}>{expenseComparison(currency, current, previous, reports.monthComparison.previousPeriodEnd)}</p>
       </section>
       <section className={styles.reportSurface} aria-labelledby="lifeos-expense-categories-title">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Текущий месяц</p><h2 id="lifeos-expense-categories-title">По категориям</h2></div>{categoriesTotal > 0 && <span className={styles.periodLabel}>{prbLabel(categoriesTotal)}</span>}</div>
-        <ExpenseCategoryRows categories={reports.expenseCategories} />
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Текущий месяц</p><h2 id="lifeos-expense-categories-title">По категориям</h2></div>{categoriesTotal > 0 && <span className={styles.periodLabel}>{moneyLabel(currency, categoriesTotal)}</span>}</div>
+        <ExpenseCategoryRows categories={reports.expenseCategories} currency={currency} />
       </section>
       <section className={styles.reportSurface} aria-labelledby="lifeos-purchases-title">
         <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Покупки</p><h2 id="lifeos-purchases-title">Куда уходят деньги</h2></div></div>
         <div className={styles.purchaseGroup}>
           <h3>Крупнейшие покупки за месяц</h3>
-          {largest.length ? <ol className={styles.purchaseList}>{largest.map((item, index) => <li key={`${item.occurredAt}-${item.name}-${index}`}><span><strong>{item.name}</strong><small>{dayLabel(item.occurredAt, { day: "numeric", month: "long" })}</small></span><strong>{prbLabel(item.amountMinor)}</strong></li>)}</ol> : <p className={styles.emptyText}>Пока нет покупок за этот месяц.</p>}
+          {largest.length ? <ol className={styles.purchaseList}>{largest.map((item, index) => <li key={`${item.occurredAt}-${item.name}-${index}`}><span><strong>{item.name}</strong><small>{dayLabel(item.occurredAt, { day: "numeric", month: "long" })}</small></span><strong>{moneyLabel(currency, item.amountMinor)}</strong></li>)}</ol> : <p className={styles.emptyText}>Пока нет покупок за этот месяц.</p>}
         </div>
         <div className={styles.purchaseGroup}>
           <h3>Повторяющиеся покупки</h3>
-          {repeats.length ? <ol className={styles.purchaseList}>{repeats.map((item) => <li key={item.name}><span><strong>{item.name}</strong><small>{item.count} {plural(item.count, "раз", "раза", "раз")}</small></span><strong>{prbLabel(item.amountMinor)}</strong></li>)}</ol> : <p className={styles.emptyText}>Повторяющихся покупок пока нет.</p>}
+          {repeats.length ? <ol className={styles.purchaseList}>{repeats.map((item) => <li key={item.name}><span><strong>{item.name}</strong><small>{item.count} {plural(item.count, "раз", "раза", "раз")}</small></span><strong>{moneyLabel(currency, item.amountMinor)}</strong></li>)}</ol> : <p className={styles.emptyText}>Повторяющихся покупок пока нет.</p>}
         </div>
       </section>
     </div>
@@ -362,9 +362,9 @@ function GymReports({ reports }: { reports: AppReports }) {
   );
 }
 
-export function ModuleReports({ reports, section }: ModuleReportsProps) {
+export function ModuleReports({ reports, section, currency }: ModuleReportsProps) {
   if (section === "today") return null;
   if (section === "nutrition") return <NutritionReports reports={reports} />;
-  if (section === "finance") return <FinanceReports reports={reports} />;
+  if (section === "finance") return <FinanceReports reports={reports} currency={currency} />;
   return <GymReports reports={reports} />;
 }

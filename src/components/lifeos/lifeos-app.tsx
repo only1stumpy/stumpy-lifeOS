@@ -1,5 +1,6 @@
 "use client";
 
+import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { formatMoneyAmount } from "@/domain/math";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
@@ -109,14 +110,13 @@ function timeLabel(value: string, timeZone: string): string {
   return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone }).format(parsed);
 }
 
-function moneyLabel(minor: number, currency: "PRB" | "USD", signed = false): string {
+function moneyLabel(minor: number, currency: string, signed = false): string {
   const prefix = minor < 0 ? "−" : signed && minor > 0 ? "+" : "";
-  const amount = formatMoneyAmount(minor);
-  return currency === "USD" ? `${prefix}${amount} $` : `${prefix}${amount} р. ПМР`;
+  return `${prefix}${formatMoney(Math.abs(minor), currency)}`;
 }
 
-function moneyAmountLabel(minor: number, currency: "PRB" | "USD"): string {
-  return moneyLabel(minor, currency).replace(currency === "USD" ? " $" : " р. ПМР", "");
+function moneyAmountLabel(minor: number): string {
+  return formatMoneyAmount(minor);
 }
 
 function macroValue(value: number): string {
@@ -611,13 +611,13 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <ModuleHeading title="Финансы" onOpen={() => navigate("finance")} />
           <motion.div className={styles.financeSummary} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
             <Stat
-              value={primaryAccount ? <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor), primaryAccount.currency)} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} /> : "—"}
-              unit={primaryAccount ? primaryAccount.currency === "USD" ? "$" : "р. ПМР" : undefined}
+              value={primaryAccount ? <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor))} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} /> : "—"}
+              unit={primaryAccount ? currencyUnit(primaryAccount.currency) : undefined}
               label="Основной счёт"
               detail={primaryAccount ? primaryAccount.name.trim() || "Основной счёт" : "Счёт не настроен"}
               tone="amber"
             />
-            <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB")} />} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
+            <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayMinor} format={(minor) => moneyAmountLabel(Math.round(minor))} ariaLabel={moneyLabel(snapshot.finance.spentTodayMinor, snapshot.settings.baseCurrency)} />} unit={currencyUnit(snapshot.settings.baseCurrency)} label="Потрачено сегодня" tone="amber" />
           </motion.div>
           <div className={styles.financeActions}>
             {!primaryAccount && <button type="button" className={styles.inlineEntry} onClick={() => onAction({ type: "finance.manage-accounts" })}><Icon name="plus" />Настроить счёт</button>}
@@ -695,10 +695,10 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
                 <div className={styles.financeBalance}>
                   <span className={styles.financeBalanceLabel}>Текущий баланс</span>
                   <strong className={styles.financeBalanceValue}>
-                    <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor), primaryAccount.currency)} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} />
-                    <small>{primaryAccount.currency === "USD" ? "$" : "р. ПМР"}</small>
+                    <AnimatedNumber value={primaryAccount.balanceMinor} format={(minor) => moneyAmountLabel(Math.round(minor))} ariaLabel={moneyLabel(primaryAccount.balanceMinor, primaryAccount.currency)} />
+                    <small>{currencyUnit(primaryAccount.currency)}</small>
                   </strong>
-                  <span className={styles.financeBalanceAccount}>{primaryAccount.name.trim() || "Основной счёт"} · {primaryAccount.currency === "USD" ? "доллары США" : "рубли ПМР"}</span>
+                  <span className={styles.financeBalanceAccount}>{primaryAccount.name.trim() || "Основной счёт"} · {currencyName(primaryAccount.currency)}</span>
                 </div>
               ) : (
                 <div className={styles.financeEmptyBalance}>
@@ -708,8 +708,8 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
                 </div>
               )}
               <motion.div className={styles.financeSummary} variants={motionVariants.staggerGroup} initial="initial" animate="animate">
-                <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentTodayPrbMinor, "PRB")} />} unit="р. ПМР" label="Потрачено сегодня" tone="amber" />
-                <Stat value={<AnimatedNumber value={snapshot.finance.spentMonthPrbMinor} format={(minor) => moneyAmountLabel(Math.round(minor), "PRB")} ariaLabel={moneyLabel(snapshot.finance.spentMonthPrbMinor, "PRB")} />} unit="р. ПМР" label="За месяц" tone="amber" />
+                <Stat value={<AnimatedNumber value={snapshot.finance.spentTodayMinor} format={(minor) => moneyAmountLabel(Math.round(minor))} ariaLabel={moneyLabel(snapshot.finance.spentTodayMinor, snapshot.settings.baseCurrency)} />} unit={currencyUnit(snapshot.settings.baseCurrency)} label="Потрачено сегодня" tone="amber" />
+                <Stat value={<AnimatedNumber value={snapshot.finance.spentMonthMinor} format={(minor) => moneyAmountLabel(Math.round(minor))} ariaLabel={moneyLabel(snapshot.finance.spentMonthMinor, snapshot.settings.baseCurrency)} />} unit={currencyUnit(snapshot.settings.baseCurrency)} label="За месяц" tone="amber" />
               </motion.div>
             </div>
             {!primaryAccount && <div className={styles.financeOverviewActions}>
@@ -723,7 +723,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <>
             <GlassSurface className={styles.listSurface}>
               <div className={styles.listHeading}><div><span className={styles.eyebrow}>Счета</span><h2>Мои счета</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "finance.manage-accounts" })}>Управлять <Icon name="arrow" /></button></div>
-              <AnimatePresence mode="wait">{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{account.currency === "USD" ? "Доллары США" : "Рубли ПМР"}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
+              <AnimatePresence mode="wait">{snapshot.finance.accounts.length ? <motion.ul key="accounts" layout className={styles.accountList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{snapshot.finance.accounts.map((account) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={account.id} className={styles.accountRow}><div><strong>{account.name}</strong><span>{currencyName(account.currency)}</span></div><strong><AnimatedNumber value={account.balanceMinor} format={(minor) => moneyLabel(Math.round(minor), account.currency)} ariaLabel={moneyLabel(account.balanceMinor, account.currency)} /></strong></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="accounts-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Счета ещё не добавлены.</motion.p>}</AnimatePresence>
             </GlassSurface>
             <GlassSurface className={styles.listSurface}>
               <div className={styles.listHeading}><div><span className={styles.eyebrow}>Движение денег</span><h2>Операции</h2></div><button type="button" className={styles.textLink} onClick={() => openSheet("finance")}><Icon name="plus" />Добавить</button></div>
@@ -734,6 +734,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <GlassSurface className={styles.listSurface}>
             <FinancePlansView
               plans={snapshot.finance.plans}
+              currency={snapshot.settings.baseCurrency}
               onAdd={() => openPlan()}
               onEdit={(plan) => openPlan(plan)}
               onDelete={(id) => onAction({ type: "finance.plan.delete", id })}
@@ -744,6 +745,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <GlassSurface className={styles.listSurface}>
             <FinanceDebtsView
               debts={snapshot.finance.debts}
+              currency={snapshot.settings.baseCurrency}
               onAdd={() => openDebt()}
               onRepay={(debt) => openDebt(debt)}
             />
@@ -858,7 +860,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
-                  {snapshot && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} /></motion.div>}
+                  {snapshot && <motion.div variants={motionVariants.staggerItem}><ModuleReports reports={snapshot.reports} section={section} currency={snapshot.settings.baseCurrency} /></motion.div>}
                 </>}
             </motion.div>
           </AnimatePresence>
@@ -929,7 +931,7 @@ function ActionSheet({
       description: "Операцию можно быстро записать обычным сообщением в чате.",
       options: [
         { label: "Добавить операцию", detail: "Расход или доход", action: { type: "finance.add" } },
-        { label: "Управлять счетами", detail: "Рубли ПМР и доллары США", action: { type: "finance.manage-accounts" } },
+        { label: "Управлять счетами", detail: "Счета в любых валютах", action: { type: "finance.manage-accounts" } },
         ...(features.includes("finance.subscriptions") ? [{ label: "Регулярные платежи", detail: "Подписки и напоминания", action: { type: "finance.manage-recurring" as const } }] : []),
       ],
     },

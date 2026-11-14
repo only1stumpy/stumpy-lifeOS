@@ -1,3 +1,4 @@
+import { formatMoneyPlain as formatMoneyShared } from "@/domain/currencies";
 type FoodRecord = {
   name: string;
   portionLabel: string;
@@ -11,7 +12,7 @@ type MoneyRecord = {
   name: string;
   entryType: "expense" | "income";
   amount: number | string;
-  currency: "PRB" | "USD";
+  currency: string;
 };
 
 type ConfirmedRecords = {
@@ -78,9 +79,8 @@ export function formatRecurringConfirmation(payment: Pick<MoneyRecord, "name" | 
   };
 }
 
-function formatMoney(amount: number | string, currency: "PRB" | "USD"): string {
-  const formatted = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount));
-  return currency === "PRB" ? `${formatted} руб. ПМР` : `${formatted} USD`;
+function formatMoney(amount: number | string, currency: string): string {
+  return formatMoneyShared(Math.round(Number(amount) * 100), currency);
 }
 
 function formatQuantity(value: number | string): string {

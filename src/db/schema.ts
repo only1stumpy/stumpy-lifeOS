@@ -48,6 +48,8 @@ export const ownerSettings = pgTable(
     enabledModules: text("enabled_modules").array().default(sql`ARRAY['nutrition','finance','gym']::text[]`).notNull(),
     modulesConfigured: boolean("modules_configured").default(false).notNull(),
     disabledFeatures: text("disabled_features").array().default(sql`ARRAY[]::text[]`).notNull(),
+    /** Currency of the first account; totals, plans and debts are kept in it. Null until the first account. */
+    baseCurrency: text("base_currency"),
     financeConfirmationRequired: boolean("finance_confirmation_required").default(true).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -338,7 +340,7 @@ export const financeAccounts = pgTable(
     ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     openingBalance: numeric("opening_balance", { precision: 18, scale: 2 }).default("0").notNull(),
-    /** Internal currency identifiers; PRB is not an ISO 4217 code. */
+    /** ISO 4217 or custom code, 3-5 uppercase Latin letters (PRB is not ISO). */
     currency: text("currency").notNull(),
     isDefault: boolean("is_default").default(false).notNull(),
     isArchived: boolean("is_archived").default(false).notNull(),
@@ -349,7 +351,7 @@ export const financeAccounts = pgTable(
     uniqueIndex("finance_accounts_owner_name_unique").on(table.ownerId, table.name),
     unique("finance_accounts_id_owner_currency_unique").on(table.id, table.ownerId, table.currency),
     uniqueIndex("finance_accounts_one_default_per_owner").on(table.ownerId).where(sql`${table.isDefault}`),
-    check("finance_accounts_currency_valid", sql`${table.currency} in ('PRB', 'USD')`),
+    check("finance_accounts_currency_valid", sql`${table.currency} ~ '^[A-Z]{3,5}$'`),
   ],
 );
 
@@ -377,13 +379,15 @@ export const exchangeRates = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
-    usdToPrbRate: numeric("usd_to_prb_rate", { precision: 12, scale: 6 }).notNull(),
+    currency: text("currency").notNull(),
+    rateToBase: numeric("rate_to_base", { precision: 12, scale: 6 }).notNull(),
     effectiveAt: timestamp("effective_at", { withTimezone: true, mode: "date" }).notNull(),
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex("exchange_rates_owner_effective_at_unique").on(table.ownerId, table.effectiveAt),
-    check("exchange_rates_rate_positive", sql`${table.usdToPrbRate} > 0`),
+    uniqueIndex("exchange_rates_owner_currency_effective_at_unique").on(table.ownerId, table.currency, table.effectiveAt),
+    check("exchange_rates_rate_positive", sql`${table.rateToBase} > 0`),
+    check("exchange_rates_currency_valid", sql`${table.currency} ~ '^[A-Z]{3,5}$'`),
   ],
 );
 
@@ -423,7 +427,7 @@ export const recurringPayments = pgTable(
     }).onDelete("restrict"),
     index("recurring_payments_owner_due_idx").on(table.ownerId, table.isActive, table.nextDueOn),
     check("recurring_payments_amount_positive", sql`${table.amount} > 0`),
-    check("recurring_payments_currency_valid", sql`${table.currency} in ('PRB', 'USD')`),
+    check("recurring_payments_currency_valid", sql`${table.currency} ~ '^[A-Z]{3,5}$'`),
     check("recurring_payments_interval_valid", sql`${table.intervalUnit} in ('day', 'week', 'month', 'year') and ${table.intervalCount} > 0`),
     check("recurring_payments_anchor_day_valid", sql`${table.anchorDay} between 1 and 31`),
     check("recurring_payments_anchor_month_valid", sql`${table.anchorMonth} between 1 and 12`),
@@ -443,7 +447,7 @@ export const moneyDrafts = pgTable(
     name: text("name").notNull(),
     amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
     currency: text("currency").notNull(),
-    usdToPrbRate: numeric("usd_to_prb_rate", { precision: 12, scale: 6 }),
+    rateToBase: numeric("rate_to_base", { precision: 12, scale: 6 }),
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
     createdAt: createdAt(),
   },
@@ -467,12 +471,12 @@ export const moneyDrafts = pgTable(
     index("money_drafts_owner_created_idx").on(table.ownerId, table.createdAt),
     check("money_drafts_entry_type_valid", sql`${table.entryType} in ('expense', 'income')`),
     check("money_drafts_amount_positive", sql`${table.amount} > 0`),
-    check("money_drafts_currency_valid", sql`${table.currency} in ('PRB', 'USD')`),
-    check("money_drafts_rate_positive", sql`${table.usdToPrbRate} is null or ${table.usdToPrbRate} > 0`),
+    check("money_drafts_currency_valid", sql`${table.currency} ~ '^[A-Z]{3,5}$'`),
+    check("money_drafts_rate_positive", sql`${table.rateToBase} is null or ${table.rateToBase} > 0`),
   ],
 );
 
-/** Confirmed income and expenses; USD keeps the rate captured for that operation. */
+/** Confirmed income and expenses; non-base currencies keep the rate captured for that operation. */
 export const financeEntries = pgTable(
   "finance_entries",
   {
@@ -486,7 +490,7 @@ export const financeEntries = pgTable(
     name: text("name").notNull(),
     amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
     currency: text("currency").notNull(),
-    usdToPrbRate: numeric("usd_to_prb_rate", { precision: 12, scale: 6 }),
+    rateToBase: numeric("rate_to_base", { precision: 12, scale: 6 }),
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
     source: text("source").default("chat").notNull(),
     createdAt: createdAt(),
@@ -518,13 +522,13 @@ export const financeEntries = pgTable(
     index("finance_entries_owner_category_occurred_idx").on(table.ownerId, table.categoryId, table.occurredAt),
     check("finance_entries_entry_type_valid", sql`${table.entryType} in ('expense', 'income')`),
     check("finance_entries_amount_positive", sql`${table.amount} > 0`),
-    check("finance_entries_currency_valid", sql`${table.currency} in ('PRB', 'USD')`),
-    check("finance_entries_usd_rate_required", sql`(${table.currency} = 'USD' and ${table.usdToPrbRate} is not null and ${table.usdToPrbRate} > 0) or (${table.currency} = 'PRB' and ${table.usdToPrbRate} is null)`),
+    check("finance_entries_currency_valid", sql`${table.currency} ~ '^[A-Z]{3,5}$'`),
+    check("finance_entries_rate_positive", sql`${table.rateToBase} is null or ${table.rateToBase} > 0`),
     check("finance_entries_source_valid", sql`${table.source} in ('chat', 'mini_app', 'recurring')`),
   ],
 );
 
-/** Planned purchases are separate from actual expenses and use PRB as agreed. */
+/** Planned purchases are separate from actual expenses and are always in the base currency. */
 export const financePlans = pgTable(
   "finance_plans",
   {

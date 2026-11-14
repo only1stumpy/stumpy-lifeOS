@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { currencyCodeSchema } from "./currencies";
 import { disabledFeaturesSchema, enabledModulesSchema } from "./modules";
 import { notificationSettingsSchema, usageModeSchema } from "./notifications";
 import { profileSchema } from "./nutrition";
@@ -25,14 +26,13 @@ export const commandSchema = z.discriminatedUnion("type", [
     profile: profileSchema.nullable(),
     target: macrosSchema.nullable(),
     account: z.object({
-      currency: z.enum(["PRB", "USD"]),
+      currency: currencyCodeSchema,
       openingBalanceMinor: z.number().int().min(-1e12).max(1e12),
-      usdToPrb: z.string().regex(/^\d{1,6}(\.\d{1,6})?$/).refine((v) => Number(v) > 0).nullable(),
     }).nullable(),
   }),
   z.object({ type: z.literal("weight.save"), date: z.string().date(), weightKg: z.number().min(1).max(700) }),
-  z.object({ type: z.literal("account.save"), id: id.optional(), name: text, currency: z.enum(["PRB", "USD"]), openingBalanceMinor: z.number().int().min(-1e12).max(1e12).default(0), isDefault: z.boolean().default(false) }),
-  z.object({ type: z.literal("rate.save"), usdToPrb: z.string().regex(/^\d{1,6}(\.\d{1,6})?$/).refine((v) => Number(v) > 0), effectiveAt: timestamp.optional() }),
+  z.object({ type: z.literal("account.save"), id: id.optional(), name: text, currency: currencyCodeSchema, openingBalanceMinor: z.number().int().min(-1e12).max(1e12).default(0), isDefault: z.boolean().default(false) }),
+  z.object({ type: z.literal("rate.save"), currency: currencyCodeSchema, rateToBase: z.string().regex(/^\d{1,6}(\.\d{1,6})?$/).refine((v) => Number(v) > 0), effectiveAt: timestamp.optional() }),
   z.object({ type: z.literal("money.save"), id: id.optional(), label: text, occurredAt: timestamp, amountMinor: minor, accountId: id, category: text, kind: z.enum(["expense", "income"]) }),
   z.object({ type: z.literal("money.delete"), id }),
   z.object({ type: z.literal("finance-plan.save"), id: id.optional(), name: text, amountMinor: minor }),

@@ -64,7 +64,7 @@ async function runCron(request: Request): Promise<Response> {
             payment.id,
             payment.name,
             Math.round(Number(payment.amount) * 100),
-            payment.currency === "USD" ? "USD" : "PRB",
+            payment.currency,
             payment.nextDueOn,
           );
           if (delivered) sent.push("payment");
@@ -87,7 +87,7 @@ async function runCron(request: Request): Promise<Response> {
             .reduce((sum, repayment) => sum + Math.round(Number(repayment.amount) * 100), 0);
           const remaining = Math.max(0, Math.round(Number(debt.originalAmount) * 100) - repaid);
           if (remaining <= 0 || !debt.dueOn) continue;
-          const delivered = await sendDueDebtReminder(debt.id, debt.personName, debt.direction as "i_owe" | "owed_to_me", remaining, debt.dueOn, localDate);
+          const delivered = await sendDueDebtReminder(debt.id, debt.personName, debt.direction as "i_owe" | "owed_to_me", remaining, debt.dueOn, localDate, owner.baseCurrency ?? "");
           if (delivered) sent.push("debt");
         }
 

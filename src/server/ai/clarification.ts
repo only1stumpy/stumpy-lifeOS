@@ -66,10 +66,11 @@ export function nextClarificationHistory(
 export function resolveMoneyClarification(
   text: string,
   history: ClarificationMessage[] | undefined,
+  defaultCurrency = "USD",
 ): MoneyClarificationResolution | null {
   if (!history?.length) return null;
 
-  const source = findBalanceQuestion(history);
+  const source = findBalanceQuestion(history, defaultCurrency);
   if (!source) return null;
 
   if (source.questionIndex === history.length - 1) {
@@ -121,10 +122,10 @@ type BalanceQuestionContext = {
   questionIndex: number;
   sourceText: string;
   amountMinor: number;
-  currency: "PRB" | "USD";
+  currency: string;
 };
 
-function findBalanceQuestion(history: ClarificationMessage[]): BalanceQuestionContext | null {
+function findBalanceQuestion(history: ClarificationMessage[], defaultCurrency: string): BalanceQuestionContext | null {
   for (let questionIndex = history.length - 1; questionIndex > 0; questionIndex -= 1) {
     const question = history[questionIndex];
     const source = history[questionIndex - 1];
@@ -134,7 +135,7 @@ function findBalanceQuestion(history: ClarificationMessage[]): BalanceQuestionCo
     const asksBalanceVsOperation =
       /(баланс|остаток)/iu.test(assistantText) && /(доход|расход)/iu.test(assistantText);
     const sourceMentionsAccount = /(?:на\s+(?:мо[её]м\s+)?сч[её]т(?:у|е)?|баланс|остат)/iu.test(source.text);
-    const amount = parseExplicitMoneyAmount(source.text);
+    const amount = parseExplicitMoneyAmount(source.text, defaultCurrency);
     if (asksBalanceVsOperation && sourceMentionsAccount && amount) {
       return { questionIndex, sourceText: source.text, ...amount };
     }
@@ -193,7 +194,8 @@ function parseCategoryAnswer(value: string): string | null {
 
 function parseExplicitMoneyAmount(
   value: string,
-): { amountMinor: number; currency: "PRB" | "USD" } | null {
+  defaultCurrency: string,
+): { amountMinor: number; currency: string } | null {
   const number = String.raw`(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[.,]\d{1,2})?`;
   const beforeCurrency = String.raw`(?:\$|USD|доллар(?:а|ов)?|долл\.?)`;
   const afterCurrency = String.raw`(?:USD|доллар(?:а|ов)?|долл\.?|руб(?:ль|ля|лей)?\.?|р\.?)`;
@@ -214,7 +216,7 @@ function parseExplicitMoneyAmount(
   try {
     const minor = BigInt(wholePart!) * 100n + BigInt((fractionPart + "00").slice(0, 2));
     if (minor <= 0n || minor > BigInt(Number.MAX_SAFE_INTEGER)) return null;
-    const currency = /(?:\$|USD|доллар|долл)/iu.test(rawCurrency) ? "USD" : "PRB";
+    const currency = /(?:\$|USD|доллар|долл)/iu.test(rawCurrency) ? "USD" : defaultCurrency;
     return { amountMinor: Number(minor), currency };
   } catch {
     return null;
