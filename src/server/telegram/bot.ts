@@ -969,6 +969,17 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
   return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), recalculation.keyboard);
 }
 
+/** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */
+export async function sendWeightReminder(now: Date, timeZone: string): Promise<boolean> {
+  const localToday = dateKey(now, timeZone);
+  const owner = await ensureOwner();
+  const weights = await getDb().select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id));
+  const week = weeklyAverageWeight(weights.map((entry) => ({ date: dateKey(entry.occurredAt, timeZone), weightKg: Number(entry.weightKg) })), localToday);
+  if (week.weighIns >= MIN_WEEKLY_WEIGH_INS) return false;
+  const text = `Чтобы в воскресенье пересчитать норму КБЖУ по среднему весу, нужно хотя бы ${MIN_WEEKLY_WEIGH_INS} замера за 7 дней, сейчас ${week.weighIns}. Взвесься и напиши, например, «вес 72,4» — или запиши вес в LifeOS.`;
+  return sendDeduplicatedOwnerNotification(`weight-reminder:${localToday}`, text);
+}
+
 /** Weekly target proposal: the profile formula with the 7-day average weight, applied only after a button press. */
 function weeklyTargetRecalculation(
   profile: ReturnType<typeof storedProfile>,

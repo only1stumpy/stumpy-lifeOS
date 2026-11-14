@@ -512,3 +512,11 @@ test("weekly target recalculation uses the 7-day average weight and skips unchan
   assert.equal(targetFromAverage(profile, 80, current), null);
   assert.equal(targetFromAverage({ ...profile, heightCm: undefined }, 78, current), null);
 });
+
+test("notification settings command validates the summary time", () => {
+  const base = { type: "notifications.save", settings: { dailySummary: false, weeklySummary: true, weightReminder: true, summaryTime: "21:15" } };
+  assert.equal(commandSchema.safeParse(base).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: null } }).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: "25:00" } }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: "9:00" } }).success, false);
+});

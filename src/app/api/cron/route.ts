@@ -11,7 +11,9 @@ import {
   sendDuePaymentReminder,
   sendDueDebtReminder,
   sendWeeklySummary,
+  sendWeightReminder,
 } from "@/server/telegram/bot";
+import { minuteOfDay } from "@/domain/notifications";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -86,8 +88,12 @@ async function runCron(request: Request): Promise<Response> {
           if (delivered) sent.push("debt");
         }
 
-        if (localTime.minuteOfDay >= dailyMinute && await sendDailySummary(now, owner.timezone)) sent.push("daily");
-        if (localTime.weekday === 0 && localTime.minuteOfDay >= weeklyMinute && await sendWeeklySummary(now, owner.timezone)) sent.push("weekly");
+        // Summaries follow the user's own notification settings; an explicit summary time overrides the server defaults.
+        const ownDailyMinute = owner.summaryTime ? minuteOfDay(owner.summaryTime) : dailyMinute;
+        const ownWeeklyMinute = owner.summaryTime ? minuteOfDay(owner.summaryTime) : weeklyMinute;
+        if (owner.dailySummaryEnabled && localTime.minuteOfDay >= ownDailyMinute && await sendDailySummary(now, owner.timezone)) sent.push("daily");
+        if (owner.weeklySummaryEnabled && localTime.weekday === 0 && localTime.minuteOfDay >= ownWeeklyMinute && await sendWeeklySummary(now, owner.timezone)) sent.push("weekly");
+        if (owner.weightReminderEnabled && localTime.weekday === 4 && localTime.minuteOfDay >= ownWeeklyMinute && await sendWeightReminder(now, owner.timezone)) sent.push("weight");
       });
     }
 

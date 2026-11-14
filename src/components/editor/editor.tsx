@@ -9,6 +9,8 @@ import { exerciseCatalog } from "@/domain/exercise-catalog";
 import { parseMinor } from "@/domain/math";
 import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
+import { USAGE_MODES, type UsageMode } from "@/domain/notifications";
+import { APP_VERSION, RELEASE_NOTES } from "@/domain/release";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { useMotionVariants } from "@/components/motion/motion-system";
@@ -21,6 +23,8 @@ export type EditorState =
   | { kind: "debt-create"; openedAs?: "transfer" | "opening_balance" }
   | { kind: "debt-repayment"; debt: FinanceDebt }
   | { kind: "target"; firstRun?: boolean }
+  | { kind: "notifications"; firstRun?: boolean }
+  | { kind: "whats-new" }
   | { kind: "weight" }
   | { kind: "accounts"; account?: MoneyAccount }
   | { kind: "recurring"; item?: AppSnapshot["recurring"][number] }
@@ -538,6 +542,62 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     );
   }
 
+  function renderNotificationsForm() {
+    const firstRun = editor.kind === "notifications" && editor.firstRun === true;
+    const current = snapshot.settings.notifications;
+    if (firstRun) {
+      return (
+        <form onSubmit={(event) => submitForm(event, (form) => {
+          const mode = recordValue(form, "usage") as UsageMode;
+          if (!(mode in USAGE_MODES)) throw new Error("Выберите вариант.");
+          const preset = USAGE_MODES[mode];
+          return { type: "notifications.save", settings: { dailySummary: preset.dailySummary, weeklySummary: preset.weeklySummary, weightReminder: preset.weightReminder, summaryTime: null } };
+        })}>
+          <p>Как часто вы планируете пользоваться LifeOS? От этого зависит, будет ли бот присылать сводки и напоминания.</p>
+          {Object.entries(USAGE_MODES).map(([value, mode]) => (
+            <label key={value} className="checkbox-row choice-row">
+              <input type="radio" name="usage" value={value} defaultChecked={value === "daily"} />
+              <span><strong>{mode.label}</strong><br />{mode.hint}</span>
+            </label>
+          ))}
+          <p>Это можно поменять в любой момент на экране с шестерёнкой.</p>
+          <div className="actions"><button className="submit" type="submit" disabled={pending}>Продолжить</button></div>
+        </form>
+      );
+    }
+    return (
+      <form onSubmit={(event) => submitForm(event, (form) => {
+        const time = recordValue(form, "summaryTime");
+        if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error("Время в формате ЧЧ:ММ.");
+        return {
+          type: "notifications.save",
+          settings: {
+            dailySummary: form.get("dailySummary") === "on",
+            weeklySummary: form.get("weeklySummary") === "on",
+            weightReminder: form.get("weightReminder") === "on",
+            summaryTime: time || null,
+          },
+        };
+      })}>
+        <label className="checkbox-row"><input type="checkbox" name="dailySummary" defaultChecked={current.dailySummary} /><span>Дневная сводка: съеденное КБЖУ и остаток</span></label>
+        <label className="checkbox-row"><input type="checkbox" name="weeklySummary" defaultChecked={current.weeklySummary} /><span>Недельная сводка по воскресеньям с пересчётом нормы</span></label>
+        <label className="checkbox-row"><input type="checkbox" name="weightReminder" defaultChecked={current.weightReminder} /><span>Напоминание взвеситься по четвергам, если замеров мало</span></label>
+        <label>Время сводок и напоминаний<input name="summaryTime" type="time" defaultValue={current.summaryTime ?? ""} /></label>
+        <p>Если время не задано, сводки приходят в 19:30 по вашему часовому поясу. Напоминания о платежах и долгах приходят всегда.</p>
+        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить</button></div>
+      </form>
+    );
+  }
+
+  function renderWhatsNew() {
+    return (
+      <>
+        <ul>{RELEASE_NOTES.map((note) => <li key={note}>{note}</li>)}</ul>
+        <div className="actions"><button className="submit" type="button" disabled={pending} onClick={() => void onCommand({ type: "version.seen", version: APP_VERSION })}>Понятно</button></div>
+      </>
+    );
+  }
+
   function renderWeightForm() {
     return (
       <form onSubmit={(event) => submitForm(event, (form) => ({
@@ -790,6 +850,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "debt-create": return renderDebtCreateForm();
       case "debt-repayment": return renderDebtRepaymentForm(editor.debt);
       case "target": return renderTargetForm();
+      case "notifications": return renderNotificationsForm();
+      case "whats-new": return renderWhatsNew();
       case "weight": return renderWeightForm();
       case "accounts": return renderAccountsForm(editor.account);
       case "recurring": return renderRecurringForm(editor.item);
@@ -862,6 +924,8 @@ function editorTitle(editor: EditorState): string {
     case "debt-create": return "Новый долг";
     case "debt-repayment": return editor.debt.direction === "i_owe" ? "Возврат долга" : "Получение возврата";
     case "target": return editor.firstRun ? "Расскажите о себе" : "Профиль и цель КБЖУ";
+    case "notifications": return editor.firstRun ? "Добро пожаловать" : "Уведомления";
+    case "whats-new": return `Что нового в ${APP_VERSION}`;
     case "weight": return "Масса тела";
     case "accounts": return "Счета и курс";
     case "recurring": return editor.item ? "Изменить платёж" : "Подписки и платежи";
