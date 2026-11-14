@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatConfirmedRecords, formatRecurringConfirmation } from "../src/server/telegram/confirmation";
+import { formatBulkSummary, formatConfirmedRecords, formatRecurringConfirmation } from "../src/server/telegram/confirmation";
 
 const food = {
   name: "Оливье",
@@ -71,4 +71,28 @@ test("текст callback остаётся в ограничении Telegram д
   });
 
   assert.ok(Array.from(result.callbackText).length <= 200);
+});
+
+test("итог после «Записать все» перечисляет записанное и непроведённое", () => {
+  const drafts = [
+    { food: { label: "раф с сиропом", calories: 250, proteinGrams: 5, fatGrams: 12, carbsGrams: 30 }, money: null, debt: null },
+    { food: null, money: { label: "раф с сиропом", amountMinor: 2900, currency: "PRB", kind: "expense" as const, category: "Кафе и рестораны" }, debt: null },
+  ];
+  assert.equal(
+    formatBulkSummary(drafts, 3, ["нужен ручной курс"], "PRB"),
+    [
+      "Записано 2 из 3",
+      "• Еда: раф с сиропом — 250 ккал · Б 5 · Ж 12 · У 30",
+      "• Расход: раф с сиропом — 29,00 руб. ПМР · Кафе и рестораны",
+      "Не записано: нужен ручной курс",
+    ].join("\n"),
+  );
+});
+
+test("длинный итог обрезается, остаток считается", () => {
+  const many = Array.from({ length: 15 }, (_, i) => ({ food: null, money: { label: `позиция ${i}`, amountMinor: 100, currency: "USD", kind: "expense" as const, category: null }, debt: null }));
+  const lines = formatBulkSummary(many, 15, [], "USD").split("\n");
+  assert.equal(lines[0], "Записано 15 из 15");
+  assert.equal(lines.length, 1 + 12 + 1);
+  assert.equal(lines.at(-1), "…и ещё 3");
 });

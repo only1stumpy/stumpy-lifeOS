@@ -18,7 +18,7 @@ import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
-import { formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
+import { formatBulkSummary, formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
 import { currentTelegramUserId, resolveTelegramUserId, withTelegramUser } from "@/server/owner-context";
 import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
 
@@ -168,25 +168,45 @@ function getBot(): Bot<Context> {
           await markMessage(ctx, "Все черновики из этого сообщения уже обработаны.");
           return;
         }
+        const messageIds = await getDb()
+          .select({ id: schema.captureDrafts.id, messageId: schema.captureDrafts.telegramMessageId })
+          .from(schema.captureDrafts)
+          .where(and(eq(schema.captureDrafts.ownerId, owner.id), eq(schema.captureDrafts.telegramUpdateRowId, id), eq(schema.captureDrafts.status, "pending")));
+        const messageIdOf = new Map(messageIds.map((row) => [row.id, row.messageId]));
+        // The summary is built before confirming: confirmed drafts leave the snapshot.
+        const snapshot = await loadSnapshot();
+        const described = new Map(snapshot.drafts.filter((draft) => messageIdOf.has(draft.id)).map((draft) => [draft.id, draft]));
+        const baseCurrency = owner.baseCurrency ?? "";
+        const bulkMessageId = ctx.callbackQuery?.message?.message_id;
+        const cleanup = async (draftIds: string[], removeBulk = true) => {
+          const ids = draftIds.map((draftId) => messageIdOf.get(draftId)).filter((value): value is number => typeof value === "number");
+          if (bulkMessageId && removeBulk) ids.push(bulkMessageId);
+          await Promise.all(ids.map((messageId) => ctx.api.deleteMessage(ctx.chat?.id ?? ctx.callbackQuery?.message?.chat.id ?? 0, messageId).catch(() => undefined)));
+        };
+
         if (action === "none") {
           for (const draft of pending) await executeCommand({ type: "draft.reject", id: draft.id });
           await ctx.answerCallbackQuery({ text: "Хорошо, отменил." });
-          await markMessage(ctx, `Отменил черновики: ${pending.length}. Ничего не записывал.`);
+          await ctx.reply(`Отменил черновики: ${pending.length}. Ничего не записывал.`);
+          await cleanup(pending.map((draft) => draft.id));
           return;
         }
-        let saved = 0;
+        const savedIds: string[] = [];
         const problems: string[] = [];
         for (const draft of pending) {
           try {
             await executeCommand({ type: "draft.confirm", id: draft.id });
-            saved += 1;
+            savedIds.push(draft.id);
           } catch (error) {
             if (!(error instanceof AppError) || error.status >= 500) throw error;
             if (!problems.includes(error.message)) problems.push(error.message);
           }
         }
-        await ctx.answerCallbackQuery({ text: `Записал: ${saved} из ${pending.length}.` });
-        await markMessage(ctx, [`Записал: ${saved} из ${pending.length}.`, ...problems.map((problem) => `Не записано: ${problem}`)].join("\n"));
+        await ctx.answerCallbackQuery({ text: `Записал: ${savedIds.length} из ${pending.length}.` });
+        await ctx.reply(formatBulkSummary(savedIds.map((draftId) => described.get(draftId)).filter((draft): draft is NonNullable<typeof draft> => !!draft), pending.length, problems, baseCurrency));
+        // Drafts that failed keep their own message so they can still be fixed.
+        // With failures the bulk message stays: its buttons still apply to the drafts that were not saved.
+        await cleanup(savedIds, problems.length === 0);
         return;
       }
 
@@ -434,7 +454,7 @@ function getBot(): Bot<Context> {
           }
           const draft = (await loadSnapshot()).drafts.find((item) => item.id === result.draftIds[0]);
           if (!draft) throw new AppError(404, "Черновик долга не найден.");
-          await ctx.reply(formatDraft(draft, owner.timezone, owner.baseCurrency ?? ""), { reply_markup: draftKeyboard(draft.id) });
+          await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
           return;
         }
       }
@@ -451,7 +471,7 @@ function getBot(): Bot<Context> {
         const snapshot = await loadSnapshot();
         const draft = snapshot.drafts.find((item) => item.id === previousDraftId);
         if (!draft) throw new AppError(404, "Обновлённый черновик не найден.");
-        await ctx.reply(formatDraft(draft, owner.timezone, owner.baseCurrency ?? ""), { reply_markup: draftKeyboard(draft.id) });
+        await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
         return;
       }
 
@@ -495,7 +515,7 @@ function getBot(): Bot<Context> {
         await ctx.reply(formatDraftList(drafts), { reply_markup: bulkDraftKeyboard(updateRowId) });
       } else {
         for (const draft of drafts) {
-          await ctx.reply(formatDraft(draft, owner.timezone, owner.baseCurrency ?? ""), { reply_markup: draftKeyboard(draft.id) });
+          await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
         }
         if (updateRowId && drafts.length > 1) {
           await ctx.reply(`Черновиков: ${drafts.length}. Можно подтвердить каждый отдельно или все разом.`, { reply_markup: bulkDraftKeyboard(updateRowId) });
@@ -673,6 +693,12 @@ function formatDraft(
     }
   }
   return lines.join("\n");
+}
+
+async function sendDraftMessage(ctx: Context, draft: Parameters<typeof formatDraft>[0] & { id: string }, timeZone: string, baseCurrency: string): Promise<void> {
+  const sent = await ctx.reply(formatDraft(draft, timeZone, baseCurrency), { reply_markup: draftKeyboard(draft.id) });
+  // Remembered so «Записать все» / «Отменить все» can remove the message later; failure here is harmless.
+  await getDb().update(schema.captureDrafts).set({ telegramMessageId: sent.message_id }).where(eq(schema.captureDrafts.id, draft.id)).catch(() => undefined);
 }
 
 function formatDraftList(drafts: { money: { label: string; amountMinor: number; currency: string; category: string | null } | null }[]): string {

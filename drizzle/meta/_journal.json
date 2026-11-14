@@ -92,6 +92,13 @@
       "when": 1794656074827,
       "tag": "0012_multi_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794659898335,
+      "tag": "0013_draft_message_id",
+      "breakpoints": true
     }
   ]
 }
