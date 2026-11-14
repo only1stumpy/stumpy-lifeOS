@@ -155,6 +155,25 @@ function rememberReturning(): void {
 
 const subscribeNothing = () => () => undefined;
 
+/** A short confirmation for actions whose result is otherwise easy to miss. */
+function noticeFor(command: AppCommand): string | null {
+  switch (command.type) {
+    case "food.save": return "Запись еды сохранена.";
+    case "money.save": return "Операция записана.";
+    case "weight.save": return "Вес записан.";
+    case "food.delete": case "money.delete": case "finance-plan.delete": return "Удалено.";
+    case "finance-plan.save": return "План сохранён.";
+    case "finance-plan.purchase": return "Покупка записана, план закрыт.";
+    case "debt.create": return "Долг записан.";
+    case "debt.repayment.create": return "Возврат записан.";
+    case "profile.save": case "settings.save": return "Цель сохранена.";
+    case "rate.save": return "Курс сохранён.";
+    case "recurring.save": return "Платёж сохранён.";
+    case "session.finish": return "Тренировка завершена. Она в журнале на вкладке «Зал».";
+    default: return null;
+  }
+}
+
 function editorIdentity(editor: EditorState): string {
   switch (editor.kind) {
     case "food": return `food:${editor.entry?.id ?? "new"}`;
@@ -443,13 +462,18 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       const payload = await responseBody(response);
       if (!response.ok || isErrorPayload(payload)) throw new Error(responseError(payload, response.status));
       triggerTelegramHaptic("success");
-      if (parsed.data.type === "session.finish") setNotice("Тренировка завершена. Она в журнале на вкладке «Зал».");
 
       try {
-        setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
+        // The server answers a command with a fresh snapshot for today: no second request needed unless another day is open.
+        let fresh: AppSnapshot | null = null;
+        try { fresh = responseSnapshot(payload); } catch { fresh = null; }
+        if (fresh && (!selectedDate || selectedDate === fresh.localDate)) setSnapshot(fresh);
+        else setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
       } catch {
         setError("Изменение принято сервером, но обновить данные не удалось. Повторите загрузку.");
       }
+      const message = noticeFor(parsed.data);
+      if (message) setNotice(message);
       return true;
     } catch (cause) {
       triggerTelegramHaptic("error");
