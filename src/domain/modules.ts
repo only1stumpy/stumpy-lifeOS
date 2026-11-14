@@ -37,7 +37,7 @@ export function filterEntriesByModules<T extends { food: unknown; money: unknown
 /** Reply for a message that only touched disabled modules. */
 export function disabledModulesMessage(blocked: readonly LifeModule[]): string {
   const names = blocked.map((module) => `«${LIFE_MODULES[module].label}»`).join(" и ");
-  return `${blocked.length > 1 ? "Разделы" : "Раздел"} ${names} ${blocked.length > 1 ? "выключены" : "выключен"}, поэтому я ничего не записал. Включить можно в LifeOS: шестерёнка → «Разделы».`;
+  return `${blocked.length > 1 ? "Разделы" : "Раздел"} ${names} ${blocked.length > 1 ? "выключены" : "выключен"}, поэтому я ничего не записал. Включить можно в LifeOS: шестерёнка → «Персонализация».`;
 }
 
 /** Parts of a module that can be switched off on their own; they work only while their module is on. */
@@ -67,5 +67,5 @@ export function resolveFeatures(modules: readonly LifeModule[], disabled: readon
 
 /** Reply for a chat message that needs a switched-off feature. */
 export function disabledFeatureMessage(feature: LifeFeature): string {
-  return `Функция «${LIFE_FEATURES[feature].label}» выключена, поэтому я ничего не записал. Включить можно в LifeOS: шестерёнка → «Разделы».`;
+  return `Функция «${LIFE_FEATURES[feature].label}» выключена, поэтому я ничего не записал. Включить можно в LifeOS: шестерёнка → «Персонализация».`;
 }

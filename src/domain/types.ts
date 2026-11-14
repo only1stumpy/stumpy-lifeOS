@@ -109,8 +109,6 @@ export type LifeOSAction =
   | { type: "food.delete"; id: string }
   | { type: "food.set-target" }
   | { type: "weight.add" }
-  | { type: "notifications.open" }
-  | { type: "modules.open" }
   | { type: "finance.add" }
   | { type: "finance.edit"; id: string }
   | { type: "finance.delete"; id: string }

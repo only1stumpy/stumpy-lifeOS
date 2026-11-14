@@ -61,7 +61,7 @@ const NAV_ITEMS: { key: AppTab; label: string; icon: IconName }[] = [
   { key: "nutrition", label: "Питание", icon: "nutrition" },
   { key: "finance", label: "Финансы", icon: "finance" },
   { key: "gym", label: "Зал", icon: "gym" },
-  { key: "ai-settings", label: "Настройки ИИ", icon: "settings" },
+  { key: "ai-settings", label: "Настройки", icon: "settings" },
 ];
 
 const numberFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
@@ -854,7 +854,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <AnimatePresence mode="wait">
             <motion.div key={aiSettingsActive ? "ai-settings" : `${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
               {aiSettingsActive
-                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<div className={styles.settingsLinks}><button type="button" className={styles.settingsLink} onClick={() => onAction({ type: "modules.open" })}>Разделы</button><button type="button" className={styles.settingsLink} onClick={() => onAction({ type: "notifications.open" })}>Уведомления и сводки</button></div><p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
+                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>

@@ -13,6 +13,8 @@ import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
 import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
 import { LifeOSBootSkeleton } from "@/components/loading/loading-skeletons";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import { PersonalizationPage } from "@/components/settings/personalization-page";
+import { SettingsMenu, SettingsSubpage, type SettingsPage } from "@/components/settings/settings-menu";
 import { MotionProvider, motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
 import { APP_VERSION, releasesSince } from "@/domain/release";
@@ -156,11 +158,9 @@ function editorIdentity(editor: EditorState): string {
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
     case "delete-finance-plan": return `delete-finance-plan:${editor.id}`;
-    case "notifications": return `notifications:${editor.firstRun ? "first-run" : "settings"}`;
     case "target":
     case "weight":
     case "whats-new":
-    case "modules":
     case "program": return editor.kind;
   }
 }
@@ -175,6 +175,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [showAiQuotas, setShowAiQuotas] = useState(false);
   const [showAiProviders, setShowAiProviders] = useState(false);
   const [guidedAiOnboarding, setGuidedAiOnboarding] = useState(false);
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>("menu");
   const [aiOnboardingQueued, setAiOnboardingQueued] = useState(false);
   const [onboardingActive, setOnboardingActive] = useState(false);
   const [restoreValues, setRestoreValues] = useState<FormValues | null>(null);
@@ -284,6 +285,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           setAiOnboardingQueued(!nextSnapshot.settings.aiOnboardingCompleted);
         } else if (!nextSnapshot.settings.aiOnboardingCompleted) {
           setGuidedAiOnboarding(true);
+          setSettingsPage("ai");
           setShowAiProviders(true);
         } else if (nextSnapshot.settings.lastSeenVersion !== APP_VERSION && releasesSince(nextSnapshot.settings.lastSeenVersion).length) {
           setEditor({ kind: "whats-new" });
@@ -310,7 +312,9 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       return;
     }
     if (showAiProviders) {
-      setShowAiProviders(false);
+      // Inside a settings page «back» returns to the settings menu; from the menu it leaves settings.
+      if (settingsPage !== "menu" && !guidedAiOnboarding) setSettingsPage("menu");
+      else setShowAiProviders(false);
       return;
     }
     if (editor) {
@@ -319,7 +323,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       return;
     }
     appBackHandlerRef.current?.();
-  }, [editor, showAiProviders, showAiQuotas]);
+  }, [editor, guidedAiOnboarding, settingsPage, showAiProviders, showAiQuotas]);
 
   useEffect(() => {
     telegramBackHandlerRef.current = handleTelegramBack;
@@ -449,6 +453,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   if (!editor && !onboardingActive && aiOnboardingQueued) {
     setAiOnboardingQueued(false);
     setGuidedAiOnboarding(true);
+    setSettingsPage("ai");
     setShowAiProviders(true);
   }
 
@@ -456,7 +461,14 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const closeAiProviders = useCallback(() => {
     setShowAiProviders(false);
     setGuidedAiOnboarding(false);
+    setSettingsPage("menu");
   }, []);
+  const savePersonalization = useCallback(async (commands: AppCommand[]): Promise<boolean> => {
+    for (const command of commands) {
+      if (!(await sendCommand(command, true))) return false;
+    }
+    return true;
+  }, [sendCommand]);
   const registerAppBackHandler = useCallback((handler: (() => void) | null) => {
     appBackHandlerRef.current = handler;
     setHasAppBackState(Boolean(handler));
@@ -484,8 +496,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       }
       case "food.set-target": openEditor({ kind: "target" }); return;
       case "weight.add": openEditor({ kind: "weight" }); return;
-      case "notifications.open": openEditor({ kind: "notifications" }); return;
-      case "modules.open": openEditor({ kind: "modules" }); return;
       case "finance.add": openEditor({ kind: "finance" }); return;
       case "finance.edit": {
         const entry = snapshot.finance.entries.find((item) => item.id === action.id);
@@ -601,10 +611,21 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         <LifeOSApp
           snapshot={snapshot}
           onAction={handleAction}
-          onOpenAiProviders={() => { setGuidedAiOnboarding(!snapshot?.settings.aiOnboardingCompleted); setShowAiProviders(true); }}
+          onOpenAiProviders={() => {
+            // Until AI is set up the gear leads straight into the guided setup, afterwards to the settings menu.
+            const guided = !snapshot?.settings.aiOnboardingCompleted;
+            setGuidedAiOnboarding(guided);
+            setSettingsPage(guided ? "ai" : "menu");
+            setShowAiProviders(true);
+          }}
           onCloseAiProviders={closeAiProviders}
           aiSettingsActive={showAiProviders}
-          aiSettingsContent={showAiProviders && initData ? <AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding={guidedAiOnboarding} onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setGuidedAiOnboarding(false); setShowAiQuotas(true); }} /> : null}
+          aiSettingsContent={showAiProviders && initData ? (
+            settingsPage === "menu" ? <SettingsMenu onOpen={setSettingsPage} />
+              : settingsPage === "personalization" ? <SettingsSubpage onBack={() => setSettingsPage("menu")}><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} /></SettingsSubpage>
+              : guidedAiOnboarding ? <AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding onClose={closeAiProviders} onOpenQuotas={() => { setShowAiProviders(false); setGuidedAiOnboarding(false); setShowAiQuotas(true); }} />
+              : <SettingsSubpage onBack={() => setSettingsPage("menu")}><AiProvidersPanel key="ai-providers" initData={initData} guidedOnboarding={false} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => { setShowAiProviders(false); setSettingsPage("menu"); setShowAiQuotas(true); }} /></SettingsSubpage>
+          ) : null}
           onDateChange={(date) => void changeDate(date)}
           onHaptic={triggerTelegramHaptic}
           onRegisterTelegramBackHandler={registerAppBackHandler}
