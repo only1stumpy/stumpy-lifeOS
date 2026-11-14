@@ -10,7 +10,7 @@ import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
-import { disabledModulesMessage, normalizeModules } from "@/domain/modules";
+import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
 import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -310,11 +310,12 @@ function getBot(): Bot<Context> {
 
     try {
       const modules = normalizeModules(owner.enabledModules);
+      const features = resolveFeatures(modules, owner.disabledFeatures);
       const weightKg = photo ? null : parseWeightMessage(text);
       if (weightKg !== null) {
-        await ctx.reply(modules.includes("nutrition")
+        await ctx.reply(features.includes("nutrition.weight")
           ? await saveWeightFromChat(owner.id, owner.timezone, weightKg)
-          : disabledModulesMessage(["nutrition"]));
+          : modules.includes("nutrition") ? disabledFeatureMessage("nutrition.weight") : disabledModulesMessage(["nutrition"]));
         return;
       }
 
@@ -345,6 +346,14 @@ function getBot(): Bot<Context> {
 
       if (!photo && !modules.includes("finance") && (hasFinancePlanMarker(text) || parseDebtMessage(text))) {
         await ctx.reply(disabledModulesMessage(["finance"]));
+        return;
+      }
+      if (!photo && !features.includes("finance.plans") && hasFinancePlanMarker(text)) {
+        await ctx.reply(disabledFeatureMessage("finance.plans"));
+        return;
+      }
+      if (!photo && !features.includes("finance.debts") && parseDebtMessage(text)) {
+        await ctx.reply(disabledFeatureMessage("finance.debts"));
         return;
       }
 
@@ -970,6 +979,7 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     : `Вес: ${round1(Number(weeklyWeights[0].weightKg))} → ${round1(Number(weeklyWeights[weeklyWeights.length - 1].weightKg))} кг (${formatSigned(Number(weeklyWeights[weeklyWeights.length - 1].weightKg) - Number(weeklyWeights[0].weightKg))} кг)`;
   const modules = normalizeModules(owner.enabledModules);
   const nutritionOn = modules.includes("nutrition");
+  const weightOn = resolveFeatures(modules, owner.disabledFeatures).includes("nutrition.weight");
   const text = [
     `Вот как прошла неделя · ${weekStart} — ${localToday}`,
     ...(nutritionOn ? [
@@ -978,7 +988,7 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     ] : []),
     ...(modules.includes("finance") ? [`Расходы: ${formatMoney(weeklySpending, "PRB")}`] : []),
     ...(modules.includes("gym") ? [`Тренировки: ${completedWorkouts} · подходы: ${completedSets}`] : []),
-    ...(nutritionOn ? [weightLine] : []),
+    ...(weightOn ? [weightLine] : []),
   ];
   const [currentTarget] = await getDb().select().from(schema.nutritionTargets)
     .where(and(eq(schema.nutritionTargets.ownerId, owner.id), lte(schema.nutritionTargets.effectiveFrom, localToday)))
@@ -990,8 +1000,8 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     localToday,
     currentTarget ? macroValues(currentTarget) : null,
   );
-  if (nutritionOn && recalculation.line) text.push("", recalculation.line);
-  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), nutritionOn ? recalculation.keyboard : undefined);
+  if (weightOn && recalculation.line) text.push("", recalculation.line);
+  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), weightOn ? recalculation.keyboard : undefined);
 }
 
 /** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */

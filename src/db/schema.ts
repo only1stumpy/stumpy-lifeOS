@@ -47,6 +47,7 @@ export const ownerSettings = pgTable(
     lastSeenVersion: text("last_seen_version"),
     enabledModules: text("enabled_modules").array().default(sql`ARRAY['nutrition','finance','gym']::text[]`).notNull(),
     modulesConfigured: boolean("modules_configured").default(false).notNull(),
+    disabledFeatures: text("disabled_features").array().default(sql`ARRAY[]::text[]`).notNull(),
     financeConfirmationRequired: boolean("finance_confirmation_required").default(true).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

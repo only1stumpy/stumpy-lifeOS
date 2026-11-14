@@ -78,6 +78,13 @@
       "when": 1794645523443,
       "tag": "0010_life_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794651684066,
+      "tag": "0011_module_features",
+      "breakpoints": true
     }
   ]
 }

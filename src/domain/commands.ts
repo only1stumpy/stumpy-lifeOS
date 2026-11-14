@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { enabledModulesSchema } from "./modules";
+import { disabledFeaturesSchema, enabledModulesSchema } from "./modules";
 import { notificationSettingsSchema, usageModeSchema } from "./notifications";
 import { profileSchema } from "./nutrition";
 
@@ -17,7 +17,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("profile.skip") }),
   z.object({ type: z.literal("notifications.save"), settings: notificationSettingsSchema }),
   z.object({ type: z.literal("version.seen"), version: z.string().min(1).max(20) }),
-  z.object({ type: z.literal("modules.save"), modules: enabledModulesSchema }),
+  z.object({ type: z.literal("modules.save"), modules: enabledModulesSchema, disabledFeatures: disabledFeaturesSchema.optional() }),
   z.object({
     type: z.literal("onboarding.complete"),
     modules: enabledModulesSchema,

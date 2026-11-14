@@ -23,6 +23,7 @@ import type { AppSnapshot } from "@/domain/app";
 import { ModuleReports } from "@/components/reports/module-reports";
 import FinancePlansView from "./finance-plans-view";
 import FinanceDebtsView from "./finance-debts-view";
+import { ALL_FEATURES, type LifeFeature } from "@/domain/modules";
 import { AnimatedNumber, motionDuration, motionEase, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
 
 type LifeOSAppProps = {
@@ -60,7 +61,7 @@ const NAV_ITEMS: { key: AppTab; label: string; icon: IconName }[] = [
   { key: "nutrition", label: "Питание", icon: "nutrition" },
   { key: "finance", label: "Финансы", icon: "finance" },
   { key: "gym", label: "Зал", icon: "gym" },
-  { key: "ai-settings", label: "Настройки ИИ", icon: "settings" },
+  { key: "ai-settings", label: "Настройки", icon: "settings" },
 ];
 
 const numberFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
@@ -328,9 +329,12 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
   const motionVariants = useMotionVariants();
   const [selectedSection, setSection] = useState<ModuleKey>(initialSection);
   const modules = snapshot?.settings.enabledModules ?? ["nutrition", "finance", "gym"];
+  const features = snapshot?.settings.enabledFeatures ?? ALL_FEATURES;
   // A section that was just switched off falls back to «Сегодня».
   const section: ModuleKey = selectedSection === "today" || modules.includes(selectedSection) ? selectedSection : "today";
-  const [financeView, setFinanceView] = useState<"overview" | "entries" | "plans" | "debts">("overview");
+  const [selectedFinanceView, setFinanceView] = useState<"overview" | "entries" | "plans" | "debts">("overview");
+  // A finance tab that was just switched off falls back to the overview.
+  const financeView = selectedFinanceView === "plans" && !features.includes("finance.plans") || selectedFinanceView === "debts" && !features.includes("finance.debts") ? "overview" : selectedFinanceView;
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -658,11 +662,11 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>По времени</span><h2>Записи</h2></div><span className={styles.countPill}>{entries.length}</span></div>
           <AnimatePresence mode="wait">{entries.length ? <motion.ul key="food-entries" layout className={styles.entryList} exit="exit" variants={motionVariants.staggerGroup}>{entries.map((entry) => <FoodEntry key={entry.id} entry={entry} timeZone={snapshot.settings.timeZone} onEdit={() => onAction({ type: "food.edit", id: entry.id })} onDelete={() => onAction({ type: "food.delete", id: entry.id })} />)}</motion.ul> : <motion.p key="food-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Записей за этот день пока нет.</motion.p>}</AnimatePresence>
         </GlassSurface>
-        <GlassSurface className={styles.listSurface}>
+        {features.includes("nutrition.weight") && (<GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>Масса тела</span><h2>Вес</h2></div><button type="button" className={styles.textLink} onClick={() => onAction({ type: "weight.add" })}><Icon name="plus" />Добавить</button></div>
           {snapshot.nutrition.bodyWeightKg !== null && <p className={styles.currentWeight}>{decimalFormat.format(snapshot.nutrition.bodyWeightKg)} <small>кг сейчас</small></p>}
           <WeightChart history={snapshot.nutrition.weightHistory} />
-        </GlassSurface>
+        </GlassSurface>)}
       </motion.div>
     );
   };
@@ -680,8 +684,8 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
         <div className={`${styles.actionRow} ${styles.financeTabs}`} role="group" aria-label="Раздел финансов">
           <button type="button" className={financeView === "overview" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "overview"} onClick={() => setFinanceView("overview")}>Обзор</button>
           <button type="button" className={financeView === "entries" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "entries"} onClick={() => setFinanceView("entries")}>Операции</button>
-          <button type="button" className={financeView === "plans" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "plans"} onClick={() => setFinanceView("plans")}>Планы</button>
-          <button type="button" className={financeView === "debts" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "debts"} onClick={() => setFinanceView("debts")}>Долги</button>
+          {features.includes("finance.plans") && <button type="button" className={financeView === "plans" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "plans"} onClick={() => setFinanceView("plans")}>Планы</button>}
+          {features.includes("finance.debts") && <button type="button" className={financeView === "debts" ? styles.primaryButton : styles.secondaryButton} aria-pressed={financeView === "debts"} onClick={() => setFinanceView("debts")}>Долги</button>}
         </div>
         {financeView === "overview" ? (
           <GlassSurface className={styles.moduleSurface} focus>
@@ -850,7 +854,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <AnimatePresence mode="wait">
             <motion.div key={aiSettingsActive ? "ai-settings" : `${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
               {aiSettingsActive
-                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<div className={styles.settingsLinks}><button type="button" className={styles.settingsLink} onClick={() => onAction({ type: "modules.open" })}>Разделы</button><button type="button" className={styles.settingsLink} onClick={() => onAction({ type: "notifications.open" })}>Уведомления и сводки</button></div><p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
+                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
@@ -870,7 +874,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           ))}
         </motion.nav>
         <AnimatePresence>
-          {sheet && <ActionSheet key={sheet} sheet={sheet} snapshot={snapshot} onClose={() => setSheet(null)} onAction={(action) => { setSheet(null); onAction(action); }} panelRef={sheetRef} closeRef={closeSheetRef} />}
+          {sheet && <ActionSheet key={sheet} sheet={sheet} snapshot={snapshot} features={features} onClose={() => setSheet(null)} onAction={(action) => { setSheet(null); onAction(action); }} panelRef={sheetRef} closeRef={closeSheetRef} />}
         </AnimatePresence>
       </div>
     </div>
@@ -895,6 +899,7 @@ function SetupState({ onAction }: { onAction(action: LifeOSAction): void }) {
 function ActionSheet({
   sheet,
   snapshot,
+  features,
   onClose,
   onAction,
   panelRef,
@@ -902,6 +907,7 @@ function ActionSheet({
 }: {
   sheet: SheetKey;
   snapshot: LifeOSSnapshot | null;
+  features: readonly LifeFeature[];
   onClose(): void;
   onAction(action: LifeOSAction): void;
   panelRef: RefObject<HTMLElement | null>;
@@ -914,7 +920,7 @@ function ActionSheet({
       description: "Записи можно добавлять сообщением или фотографией в чате с ботом.",
       options: [
         { label: "Записать еду", detail: "Текст или фото · КБЖУ", action: { type: "food.add" } },
-        { label: "Внести массу тела", detail: "Запись попадёт в историю веса", action: { type: "weight.add" } },
+        ...(features.includes("nutrition.weight") ? [{ label: "Внести массу тела", detail: "Запись попадёт в историю веса", action: { type: "weight.add" as const } }] : []),
         { label: "Настроить цель КБЖУ", detail: "Цель на набор массы", action: { type: "food.set-target" } },
       ],
     },
@@ -924,7 +930,7 @@ function ActionSheet({
       options: [
         { label: "Добавить операцию", detail: "Расход или доход", action: { type: "finance.add" } },
         { label: "Управлять счетами", detail: "Рубли ПМР и доллары США", action: { type: "finance.manage-accounts" } },
-        { label: "Регулярные платежи", detail: "Подписки и напоминания", action: { type: "finance.manage-recurring" } },
+        ...(features.includes("finance.subscriptions") ? [{ label: "Регулярные платежи", detail: "Подписки и напоминания", action: { type: "finance.manage-recurring" as const } }] : []),
       ],
     },
     gym: {
