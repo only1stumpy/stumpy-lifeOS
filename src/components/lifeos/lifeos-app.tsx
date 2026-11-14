@@ -823,7 +823,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <AnimatePresence mode="wait">
             <motion.div key={aiSettingsActive ? "ai-settings" : `${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
               {aiSettingsActive
-                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}</motion.div>
+                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>
