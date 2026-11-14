@@ -11,6 +11,7 @@ import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
+import { buildWelcomeMessages } from "@/domain/welcome";
 import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -35,20 +36,31 @@ function getBot(): Bot<Context> {
   if (!token) throw new AppError(503, "Telegram ещё не настроен.");
 
   const bot = new Bot(token);
-  bot.command("start", async (ctx) => {
-    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
+  const sendWelcome = async (ctx: Context) => {
     const appUrl = getAppUrl();
     if (!appUrl) {
       await ctx.reply("Веб-приложение пока не настроено.");
       return;
     }
-    const keyboard = new InlineKeyboard()
+    const owner = await ensureOwner();
+    const modules = normalizeModules(owner.enabledModules);
+    const messages = buildWelcomeMessages({ modules, features: resolveFeatures(modules, owner.disabledFeatures), firstRun: !owner.modulesConfigured });
+    const keyboard = () => new InlineKeyboard()
       .webApp("Открыть LifeOS", appUrl)
       .row()
       .text("Сводка сегодня", "today");
-    await ctx.reply("Привет! Я Stumpy’s LifeOS: помогу вести КБЖУ, финансы и тренировки. Пиши обычным текстом, что съел или потратил, — я покажу черновик, а запишу только после кнопки «Записать».\n\nЧтобы я понимал сообщения, нужен бесплатный ключ сервиса ИИ. Нажми «Открыть LifeOS» — там три коротких шага, это пара минут.", {
-      reply_markup: keyboard,
-    });
+    // The app button sits under every part, so it stays within reach after the long guide.
+    for (const text of messages) await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard() });
+  };
+
+  bot.command("start", async (ctx) => {
+    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
+    await sendWelcome(ctx);
+  });
+
+  bot.command("help", async (ctx) => {
+    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
+    await sendWelcome(ctx);
   });
 
   bot.command("today", async (ctx) => {
