@@ -7,14 +7,15 @@ import type { AppSnapshot } from "@/domain/app";
 import { commandSchema } from "@/domain/commands";
 import type { AppCommand } from "@/domain/commands";
 import { EditorDialog } from "@/components/editor/editor";
-import type { EditorState } from "@/components/editor/editor";
+import type { EditorState, FormValues } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
 import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
 import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
 import { LifeOSBootSkeleton } from "@/components/loading/loading-skeletons";
+import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { MotionProvider, motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
-import { APP_VERSION, RELEASE_NOTES } from "@/domain/release";
+import { APP_VERSION, releasesSince } from "@/domain/release";
 
 type LifeOSRootProps = { configured: boolean };
 type RootStatus = "checking" | "outside" | "setup" | "loading" | "ready" | "error";
@@ -159,6 +160,7 @@ function editorIdentity(editor: EditorState): string {
     case "target":
     case "weight":
     case "whats-new":
+    case "modules":
     case "program": return editor.kind;
   }
 }
@@ -174,7 +176,9 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [showAiProviders, setShowAiProviders] = useState(false);
   const [guidedAiOnboarding, setGuidedAiOnboarding] = useState(false);
   const [aiOnboardingQueued, setAiOnboardingQueued] = useState(false);
-  const [onboardingQueue, setOnboardingQueue] = useState<EditorState[]>([]);
+  const [onboardingActive, setOnboardingActive] = useState(false);
+  const [restoreValues, setRestoreValues] = useState<FormValues | null>(null);
+  const formMemoryRef = useRef<FormValues | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
@@ -275,26 +279,14 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         setSnapshot(nextSnapshot);
         setSelectedDate(nextSnapshot.localDate);
         setError(null);
-        const firstRunSteps: EditorState[] = [];
-        if (!nextSnapshot.settings.notificationsConfigured) firstRunSteps.push({ kind: "notifications", firstRun: true });
-        if (!nextSnapshot.settings.profileOnboardingCompleted) firstRunSteps.push({ kind: "target", firstRun: true });
-        if (firstRunSteps.length) {
-          setEditor(firstRunSteps[0]);
-          setOnboardingQueue(firstRunSteps.slice(1));
+        if (!nextSnapshot.settings.modulesConfigured) {
+          setOnboardingActive(true);
           setAiOnboardingQueued(!nextSnapshot.settings.aiOnboardingCompleted);
         } else if (!nextSnapshot.settings.aiOnboardingCompleted) {
           setGuidedAiOnboarding(true);
           setShowAiProviders(true);
-        } else if (nextSnapshot.settings.lastSeenVersion !== APP_VERSION && RELEASE_NOTES.length) {
+        } else if (nextSnapshot.settings.lastSeenVersion !== APP_VERSION && releasesSince(nextSnapshot.settings.lastSeenVersion).length) {
           setEditor({ kind: "whats-new" });
-        }
-        // A brand-new user has nothing to compare with: remember the current version silently.
-        if (nextSnapshot.settings.lastSeenVersion === null && !nextSnapshot.settings.notificationsConfigured) {
-          void fetch("/api/commands", {
-            method: "POST",
-            headers: { Authorization: `tma ${rawInitData}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "version.seen", version: APP_VERSION }),
-          }).catch(() => undefined);
         }
         setStatus("ready");
       } catch (cause: unknown) {
@@ -405,6 +397,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     pendingRef.current = true;
     setPending(true);
     setError(null);
+    // Close the panel right away; it comes back with the typed values only if the server rejects the change.
+    const closedEditor = keepOpen ? null : editor;
+    const typedValues = formMemoryRef.current;
+    if (closedEditor) {
+      setRestoreValues(null);
+      setEditor(null);
+    }
     try {
       const response = await fetch("/api/commands", {
         method: "POST",
@@ -419,7 +418,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       if (!response.ok || isErrorPayload(payload)) throw new Error(responseError(payload, response.status));
       triggerTelegramHaptic("success");
 
-      if (!keepOpen) setEditor(null);
       try {
         setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
       } catch {
@@ -429,12 +427,17 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     } catch (cause) {
       triggerTelegramHaptic("error");
       setError(cause instanceof Error ? cause.message : "Не удалось выполнить действие.");
+      if (closedEditor) {
+        setRestoreValues(typedValues);
+        setEditor(closedEditor);
+      }
       return false;
     } finally {
       pendingRef.current = false;
+      formMemoryRef.current = null;
       setPending(false);
     }
-  }, [configured, initData, selectedDate, snapshot]);
+  }, [configured, initData, selectedDate, snapshot, editor]);
 
   const openEditor = useCallback((nextEditor: EditorState) => {
     triggerTelegramHaptic("selection");
@@ -442,11 +445,8 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     setEditor(nextEditor);
   }, []);
 
-  // First run: usage question, then the profile questionnaire, then AI setup once they are closed.
-  if (!editor && onboardingQueue.length) {
-    setEditor(onboardingQueue[0]);
-    setOnboardingQueue(onboardingQueue.slice(1));
-  } else if (!editor && aiOnboardingQueued) {
+  // First run: the onboarding page comes first, AI setup opens once it is finished.
+  if (!editor && !onboardingActive && aiOnboardingQueued) {
     setAiOnboardingQueued(false);
     setGuidedAiOnboarding(true);
     setShowAiProviders(true);
@@ -485,6 +485,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       case "food.set-target": openEditor({ kind: "target" }); return;
       case "weight.add": openEditor({ kind: "weight" }); return;
       case "notifications.open": openEditor({ kind: "notifications" }); return;
+      case "modules.open": openEditor({ kind: "modules" }); return;
       case "finance.add": openEditor({ kind: "finance" }); return;
       case "finance.edit": {
         const entry = snapshot.finance.entries.find((item) => item.id === action.id);
@@ -570,6 +571,26 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     );
   }
 
+  if (onboardingActive) {
+    return (
+      <MotionProvider>
+        <OnboardingFlow
+          snapshot={snapshot}
+          pending={pending}
+          error={error}
+          onSubmit={async (command) => {
+            const done = await sendCommand(command, true);
+            if (done) {
+              window.scrollTo(0, 0);
+              setOnboardingActive(false);
+            }
+            return done;
+          }}
+        />
+      </MotionProvider>
+    );
+  }
+
   const showGlobalError = error && !editor;
   return (
     <MotionProvider>
@@ -595,7 +616,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}
         </AnimatePresence>
         <AnimatePresence initial={false}>
-          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => setEditor(null)} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} />}
+          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => setEditor(null)} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
         </AnimatePresence>
         <AnimatePresence>
           {snapshot.activeSession && (

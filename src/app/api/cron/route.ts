@@ -14,6 +14,7 @@ import {
   sendWeightReminder,
 } from "@/server/telegram/bot";
 import { minuteOfDay } from "@/domain/notifications";
+import { normalizeModules } from "@/domain/modules";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -47,6 +48,8 @@ async function runCron(request: Request): Promise<Response> {
       await withTelegramUser(owner.telegramUserId, async () => {
         const localDate = dateKey(now, owner.timezone);
         const localTime = getLocalTime(now, owner.timezone);
+        const modules = normalizeModules(owner.enabledModules);
+        const financeOn = modules.includes("finance");
         const duePayments = await getDb()
           .select()
           .from(schema.recurringPayments)
@@ -56,7 +59,7 @@ async function runCron(request: Request): Promise<Response> {
             eq(schema.recurringPayments.reminderEnabled, true),
             lte(schema.recurringPayments.nextDueOn, localDate),
           ));
-        for (const payment of duePayments) {
+        for (const payment of financeOn ? duePayments : []) {
           const delivered = await sendDuePaymentReminder(
             payment.id,
             payment.name,
@@ -78,7 +81,7 @@ async function runCron(request: Request): Promise<Response> {
           .select()
           .from(schema.financeDebtRepayments)
           .where(eq(schema.financeDebtRepayments.ownerId, owner.id));
-        for (const debt of dueDebts) {
+        for (const debt of financeOn ? dueDebts : []) {
           const repaid = debtRepayments
             .filter((repayment) => repayment.debtId === debt.id)
             .reduce((sum, repayment) => sum + Math.round(Number(repayment.amount) * 100), 0);
@@ -93,7 +96,7 @@ async function runCron(request: Request): Promise<Response> {
         const ownWeeklyMinute = owner.summaryTime ? minuteOfDay(owner.summaryTime) : weeklyMinute;
         if (owner.dailySummaryEnabled && localTime.minuteOfDay >= ownDailyMinute && await sendDailySummary(now, owner.timezone)) sent.push("daily");
         if (owner.weeklySummaryEnabled && localTime.weekday === 0 && localTime.minuteOfDay >= ownWeeklyMinute && await sendWeeklySummary(now, owner.timezone)) sent.push("weekly");
-        if (owner.weightReminderEnabled && localTime.weekday === 4 && localTime.minuteOfDay >= ownWeeklyMinute && await sendWeightReminder(now, owner.timezone)) sent.push("weight");
+        if (owner.weightReminderEnabled && modules.includes("nutrition") && localTime.weekday === 4 && localTime.minuteOfDay >= ownWeeklyMinute && await sendWeightReminder(now, owner.timezone)) sent.push("weight");
       });
     }
 

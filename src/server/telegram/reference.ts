@@ -1,4 +1,5 @@
 import type { AppSnapshot } from "@/domain/app";
+import { normalizeModules } from "@/domain/modules";
 import { dateKey } from "@/domain/math";
 
 const moneyFormat = new Intl.NumberFormat("ru-RU", {
@@ -138,11 +139,11 @@ export function makeReferenceContext(snapshot: AppSnapshot): string {
       progress: snapshot.reports.exerciseProgress.slice(0, 12).map((exercise) => ({ name: exercise.name, latest: exercise.points.slice(-5) })),
     },
   };
-  const serialized = JSON.stringify(context);
+  const serialized = JSON.stringify(withEnabledModules(context, snapshot.settings.enabledModules));
   if (serialized.length <= 7_500) return serialized;
 
   // Keep the aggregate facts needed for answers when a long personal history exceeds the prompt budget.
-  return JSON.stringify({
+  return JSON.stringify(withEnabledModules({
     date: snapshot.localDate,
     timezone: snapshot.settings.timeZone,
     finance: {
@@ -156,5 +157,17 @@ export function makeReferenceContext(snapshot: AppSnapshot): string {
       nextWorkout: snapshot.gym.nextWorkout ? { name: snapshot.gym.nextWorkout.name.slice(0, 80) } : null,
       lastWorkout: snapshot.gym.lastWorkout,
     },
-  });
+  }, snapshot.settings.enabledModules));
+}
+
+/** Removes the data of disabled modules so it never reaches the AI. */
+function withEnabledModules<T extends { finance?: unknown; nutrition?: unknown; gym?: unknown }>(context: T, stored: readonly string[] | undefined): T & { enabledModules: readonly string[] } {
+  const enabled = normalizeModules(stored);
+  return {
+    ...context,
+    enabledModules: enabled,
+    finance: enabled.includes("finance") ? context.finance : undefined,
+    nutrition: enabled.includes("nutrition") ? context.nutrition : undefined,
+    gym: enabled.includes("gym") ? context.gym : undefined,
+  };
 }
