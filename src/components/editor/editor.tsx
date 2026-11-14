@@ -149,10 +149,10 @@ function amountInput(amountMinor: number): string {
 function MacroFields({ values }: { values?: { calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number } | null }) {
   return (
     <div className="fields-row">
-      <label>Калории, ккал<input name="calories" type="number" min="0" max="100000" step="0.1" required defaultValue={values?.calories ?? ""} /></label>
-      <label>Белки, г<input name="proteinGrams" type="number" min="0" max="100000" step="0.1" required defaultValue={values?.proteinGrams ?? ""} /></label>
-      <label>Жиры, г<input name="fatGrams" type="number" min="0" max="100000" step="0.1" required defaultValue={values?.fatGrams ?? ""} /></label>
-      <label>Углеводы, г<input name="carbsGrams" type="number" min="0" max="100000" step="0.1" required defaultValue={values?.carbsGrams ?? ""} /></label>
+      <label>Калории, ккал<input name="calories" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.calories ?? ""} /></label>
+      <label>Белки, г<input name="proteinGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.proteinGrams ?? ""} /></label>
+      <label>Жиры, г<input name="fatGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.fatGrams ?? ""} /></label>
+      <label>Углеводы, г<input name="carbsGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.carbsGrams ?? ""} /></label>
     </div>
   );
 }
@@ -903,10 +903,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           )}
           {!replacing && <>
             <div className="fields-row">
-              <label>Подходы<input name="targetSets" type="number" min="1" max="30" step="1" defaultValue="3" required /></label>
-              <label>Повторения<input name="targetRepetitions" type="number" min="1" max="1000" step="1" defaultValue="8" required /></label>
+              <label>Подходы<input name="targetSets" type="number" inputMode="decimal" min="1" max="30" step="1" defaultValue="3" required /></label>
+              <label>Повторения<input name="targetRepetitions" type="number" inputMode="decimal" min="1" max="1000" step="1" defaultValue="8" required /></label>
             </div>
-            <label>Отдых, секунд<input name="restSeconds" type="number" min="0" max="3600" step="1" defaultValue="90" /></label>
+            <label>Отдых, секунд<input name="restSeconds" type="number" inputMode="decimal" min="0" max="3600" step="1" defaultValue="90" /></label>
           </>}
           <div className="actions"><button className="submit" type="submit" disabled={pending}>{replacing ? "Заменить упражнение" : "Добавить упражнение"}</button></div>
         </form>

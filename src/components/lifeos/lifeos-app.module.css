@@ -5,6 +5,8 @@
   --wine: #742b45;
   --wine-dark: #582036;
   --nutrition: #66836d;
+  --nutrition-ink: #4f6e57;
+  --finance-ink: #8f5230;
   --nutrition-soft: rgba(102, 131, 109, 0.11);
   --finance: #a96743;
   --finance-soft: rgba(169, 103, 67, 0.11);
@@ -106,7 +108,7 @@
 
 .dateChip {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   letter-spacing: 0;
   text-align: right;
@@ -152,7 +154,7 @@
   display: block;
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.35;
@@ -296,7 +298,7 @@
 .moduleMeta {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .textLink,
@@ -359,7 +361,7 @@
 
 .calorieLine > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -406,18 +408,18 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
 .macroLetter {
-  color: var(--nutrition);
+  color: var(--nutrition-ink);
   font-weight: 680;
 }
 
-.macroLetter.protein { color: #5f765f; }
-.macroLetter.fat { color: #9c7145; }
-.macroLetter.carbs { color: #98706a; }
+.macroLetter.protein { color: #4f654f; }
+.macroLetter.fat { color: #855c34; }
+.macroLetter.carbs { color: #84605a; }
 
 .macroTrack {
   height: 4px;
@@ -438,7 +440,7 @@
 .macroValue {
   color: var(--ink);
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -447,7 +449,7 @@
 .macroValue em {
   color: var(--muted);
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
 }
 
@@ -458,18 +460,18 @@
   gap: 12px;
   margin: 16px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .remainingLine span {
-  color: var(--nutrition);
+  color: var(--nutrition-ink);
   text-align: right;
 }
 
 .todayHint {
   margin: 16px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -535,7 +537,7 @@
 
 .financeBalanceLabel {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 560;
   letter-spacing: 0;
 }
@@ -566,7 +568,7 @@
 
 .financeBalanceAccount {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -587,7 +589,7 @@
 .financeEmptyBalance p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -612,14 +614,14 @@
 
 .statLabel {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.3;
 }
 
 .statDetail {
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -641,7 +643,7 @@
   margin-left: 4px;
   color: var(--muted);
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 480;
   letter-spacing: 0;
   white-space: nowrap;
@@ -681,7 +683,7 @@
 .workoutPreview span,
 .nextWorkoutHeading > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .workoutPreview .textLink {
@@ -692,7 +694,7 @@
   flex: 0 0 auto;
   max-width: 92px;
   color: var(--gym) !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   line-height: 1.3;
   text-align: right;
 }
@@ -803,7 +805,7 @@
   background: rgba(255, 255, 255, 0.28);
   color: var(--muted);
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -835,7 +837,7 @@
   padding-top: 2px;
   color: var(--muted);
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -848,7 +850,7 @@
 .entryBody strong,
 .accountRow strong {
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 560;
   line-height: 1.35;
 }
@@ -857,7 +859,7 @@
 .accountRow span {
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -907,7 +909,7 @@
 .moneyEntryAmount > strong {
   color: #7b4436;
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   text-align: right;
   white-space: nowrap;
@@ -941,7 +943,7 @@
 .accountRow > strong {
   flex: 0 0 auto;
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 520;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -950,7 +952,7 @@
 .emptyInline {
   margin: 8px 0 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -967,7 +969,7 @@
 .singleWeightPoint small {
   color: var(--muted);
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0;
 }
 
@@ -998,7 +1000,7 @@
 .weightTrendLegend {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
 }
 
@@ -1010,13 +1012,13 @@
   margin-top: 4px;
   color: var(--muted);
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
 .chartCaption strong {
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   font-variant-numeric: tabular-nums;
 }
@@ -1067,7 +1069,7 @@
 .previousPerformance {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .setHeader,
@@ -1081,7 +1083,7 @@
 .setHeader {
   padding: 0 0 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .setHeader span:last-child {
@@ -1103,7 +1105,7 @@
 
 .setMetrics {
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -1177,7 +1179,7 @@
 .restTimerDetail {
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1266,7 +1268,7 @@
 .exerciseIndex {
   color: var(--gym);
   font-family: "Medeo Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1292,7 +1294,7 @@
 .exerciseOpen span {
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1347,7 +1349,7 @@
 .programButton span {
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .programButton svg {
@@ -1375,12 +1377,12 @@
 .lastWorkout p {
   margin: 8px 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .lastWorkout > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .dock {
@@ -1524,7 +1526,7 @@
   max-width: 42ch;
   margin: 12px 0 16px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -1574,7 +1576,7 @@
 .sheetOption small {
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -1595,7 +1597,7 @@
   .entryRow { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 4px; }
   .entryActions { gap: 0; }
   .iconAction { width: 44px; height: 44px; }
-  .moneyEntryAmount > strong { font-size: 12px; }
+  .moneyEntryAmount > strong { font-size: 13px; }
   .macroRow { grid-template-columns: 18px minmax(32px, 1fr) minmax(68px, auto); gap: 8px; }
 }
 
@@ -1759,4 +1761,9 @@
   margin-top: 4px;
   color: var(--muted);
   font-size: 14px;
+}
+
+.moneyEntryAmount strong,
+.accountRow > strong {
+  white-space: nowrap;
 }

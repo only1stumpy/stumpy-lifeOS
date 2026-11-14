@@ -143,7 +143,7 @@ export async function discoverFreeModels(
   const models = rows.flatMap((row) => normalizeProviderModel(providerId, row));
   if (models.length === 0) {
     throw new AppError(400, providerId === "custom"
-      ? "Каталог не вернул модели. Проверь совместимость endpoint и путь /models."
+      ? "Каталог не вернул модели. Проверьте совместимость endpoint и путь /models."
       : "У этого ключа пока нет доступных бесплатных моделей из каталога.");
   }
   return models.sort((a, b) => a.name.localeCompare(b.name, "ru"));

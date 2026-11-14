@@ -75,7 +75,7 @@
 .eyebrow {
   margin: 0 0 8px;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
   letter-spacing: 0;
 }
@@ -149,7 +149,7 @@
 .usageSectionHeading > span,
 .usageHeading > div > span {
   color: #806f77;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .providerUsageList {
@@ -191,7 +191,7 @@
   border: 1px solid rgba(116, 43, 69, 0.15);
   border-radius: 999px;
   color: #742b45;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .usageModels {
@@ -219,7 +219,7 @@
   display: block;
   color: #806f77;
   font-family: "Medeo Mono", "Medeo Sans", monospace;
-  font-size: 12px;
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
@@ -241,13 +241,13 @@
 
 .usageStats > div > span {
   color: #806f77;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .usageStats b {
   color: #35272c;
   font-family: "Medeo Mono", "Medeo Sans", monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 520;
   overflow-wrap: anywhere;
 }
@@ -255,7 +255,7 @@
 .usageNote {
   margin: 12px 0 0;
   color: #806f77;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -322,7 +322,7 @@
 .metricHeading > span,
 .footer > span {
   color: #806f77;
-  font-size: 12px;
+  font-size: 13px;
   text-align: right;
 }
 
@@ -345,7 +345,7 @@
 
 .metricValues > span {
   color: #806f77;
-  font-size: 12px;
+  font-size: 13px;
   text-align: right;
 }
 
@@ -370,7 +370,7 @@
 .emptyMetric {
   margin: 8px 0 0;
   color: #6f6067;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .emptyMetric {
@@ -397,7 +397,7 @@
 .note {
   margin: 12px 0 0;
   color: #806f77;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 

@@ -64,7 +64,7 @@ type AiProvidersPanelProps = {
 
 const providerOrder: ProviderId[] = ["gemini", "groq", "cerebras", "openrouter", "custom"];
 const providerCopy: Record<ProviderId, { mark: string | null; description: string }> = {
-  gemini: { mark: null, description: "Google AI Studio · проверь, что ключ использует Free Tier." },
+  gemini: { mark: null, description: "Google AI Studio · проверьте, что ключ использует Free Tier." },
   groq: { mark: null, description: "Быстрые модели с бесплатной квотой." },
   cerebras: { mark: null, description: "Каталог моделей Cerebras." },
   openrouter: { mark: null, description: "Каталог бесплатных моделей с суффиксом :free." },
@@ -93,7 +93,7 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     site: "Google AI Studio",
     steps: [
       "Открой Google AI Studio по кнопке ниже и войди через аккаунт Google.",
-      "Нажми «Create API key» и дождись, пока ключ появится.",
+      "Нажмите «Create API key» и дождись, пока ключ появится.",
       "Скопируй ключ и вернись сюда.",
     ],
   },
@@ -102,7 +102,7 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     site: "OpenRouter",
     steps: [
       "Открой OpenRouter по кнопке ниже и зарегистрируйся по почте.",
-      "Нажми «Create Key», придумай любое название.",
+      "Нажмите «Create Key», придумайте любое название.",
       "Скопируй ключ сразу — второй раз сайт его не покажет — и вернись сюда.",
     ],
   },
@@ -111,7 +111,7 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     site: "Groq Console",
     steps: [
       "Открой Groq Console по кнопке ниже и зарегистрируйся.",
-      "Нажми «Create API Key», придумай любое название.",
+      "Нажмите «Create API Key», придумайте любое название.",
       "Скопируй ключ сразу — второй раз сайт его не покажет — и вернись сюда.",
     ],
   },
@@ -184,13 +184,13 @@ function requestError(response: Response, body: unknown): string {
   if (response.status === 401 || response.status === 403) {
     return "Не удалось подтвердить Telegram-сессию. Закрой Mini App и открой его снова из бота.";
   }
-  if (response.status === 429) return errorMessage(body, "Слишком много запросов подряд. Попробуй ещё раз чуть позже.");
-  if (response.status >= 500) return errorMessage(body, "Сервис провайдера или сервер LifeOS временно недоступен. Попробуй ещё раз позже.");
-  return errorMessage(body, "Не удалось выполнить запрос. Проверь данные и попробуй ещё раз.");
+  if (response.status === 429) return errorMessage(body, "Слишком много запросов подряд. Попробуйте ещё раз чуть позже.");
+  if (response.status >= 500) return errorMessage(body, "Сервис провайдера или сервер LifeOS временно недоступен. Попробуйте ещё раз позже.");
+  return errorMessage(body, "Не удалось выполнить запрос. Проверьте данные и попробуйте ещё раз.");
 }
 
 function readableError(error: unknown, fallback: string): string {
-  if (error instanceof TypeError) return "Не удалось связаться с сервером. Проверь подключение и попробуй ещё раз.";
+  if (error instanceof TypeError) return "Не удалось связаться с сервером. Проверьте подключение и попробуйте ещё раз.";
   return error instanceof Error ? error.message : fallback;
 }
 
@@ -346,7 +346,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return true;
     } catch (error) {
       if (signal?.aborted) return false;
-      setLoadError(readableError(error, "Не удалось загрузить каталог ИИ. Попробуй ещё раз."));
+      setLoadError(readableError(error, "Не удалось загрузить каталог ИИ. Попробуйте ещё раз."));
       setLoadState("error");
       return false;
     }
@@ -401,7 +401,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
     setNotice(`Аккаунт «${accountName}» проверен и подключён. Ключ сохранён и больше не отображается.`);
     setScreen("models");
     const refreshed = await reloadProviders();
-    if (!refreshed) setNotice(`Аккаунт «${accountName}» подключён, но список моделей не обновился. Нажми «Повторить».`);
+    if (!refreshed) setNotice(`Аккаунт «${accountName}» подключён, но список моделей не обновился. Нажмите «Повторить».`);
   };
 
   const submitConnect = async (event: FormEvent<HTMLFormElement>) => {
@@ -414,7 +414,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return;
     }
     if (!providerFreeTierConfirmed) {
-      setFormError("Подтверди условия бесплатного доступа и проверь настройки оплаты аккаунта.");
+      setFormError("Подтвердите условия бесплатного доступа и проверьте настройки оплаты аккаунта.");
       return;
     }
 
@@ -467,7 +467,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setScreen("welcome");
       await reloadProviders();
     } catch (error) {
-      setFormError(readableError(error, "Не удалось проверить ключ. Убедись, что скопировал его целиком, и попробуй ещё раз."));
+      setFormError(readableError(error, "Не удалось проверить ключ. Убедитесь, что скопировали его целиком, и попробуйте ещё раз."));
     } finally {
       setBusyAction(null);
     }
@@ -494,7 +494,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return;
     }
     if (!customFreeConfirmed) {
-      setCustomError("Подтверди нулевую стоимость endpoint/модели после проверки условий провайдера.");
+      setCustomError("Подтвердите нулевую стоимость endpoint/модели после проверки условий провайдера.");
       return;
     }
 
@@ -629,7 +629,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       await postAction({ action: "refresh-models", accountId: account.id });
       const refreshed = await reloadProviders();
       if (refreshed) setNotice(`Каталог ${provider.name} обновлён для аккаунта «${account.name}».`);
-      else setNotice(`Каталог обновлён для аккаунта «${account.name}», но список моделей не загрузился. Нажми «Повторить».`);
+      else setNotice(`Каталог обновлён для аккаунта «${account.name}», но список моделей не загрузился. Нажмите «Повторить».`);
     } catch (error) {
       setLoadError(readableError(error, "Не удалось обновить каталог моделей."));
     } finally {
@@ -705,7 +705,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const renderAccountList = (provider: AiProvider) => {
     const accounts = provider.accounts.slice().sort((left, right) => left.sortOrder - right.sortOrder);
     if (accounts.length === 0) {
-      return <p className={styles.empty}>{provider.connectable ? "Пока нет подключённых аккаунтов. Добавь ключ, чтобы получить доступ к моделям." : "Подключение аккаунтов недоступно для этого провайдера."}</p>;
+      return <p className={styles.empty}>{provider.connectable ? "Пока нет подключённых аккаунтов. Добавьте ключ, чтобы получить доступ к моделям." : "Подключение аккаунтов недоступно для этого провайдера."}</p>;
     }
 
     return (
@@ -881,7 +881,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "ready" && screen === "providers" && (
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}>
-                <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключи аккаунты и выбери модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
+                <p className={styles.intro}>{guidedRun ? "Выберите провайдера и подключите ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключите аккаунты и выберите модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
                 {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
               </div>
               {guidedRun && queue.length === 0 && (
@@ -899,7 +899,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                   ) : (
                     <div ref={skipConfirmationRef} className={styles.skipConfirmation} role="group" aria-labelledby={`${id}-skip-title`} aria-live="polite">
                       <h2 id={`${id}-skip-title`}>Отказаться от ИИ-функций?</h2>
-                      <p>ИИ-функции останутся выключены. К настройке можно вернуться в любой момент — нажми шестерёнку в нижней панели.</p>
+                      <p>ИИ-функции останутся выключены. К настройке можно вернуться в любой момент — нажмите шестерёнку в нижней панели.</p>
                       <div className={styles.skipActions}>
                         <button className={styles.secondaryAction} type="button" onClick={() => setConfirmSkip(false)} disabled={busyAction !== null}>Продолжить настройку</button>
                         <button className={styles.dangerAction} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>
@@ -979,7 +979,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     <div><p className={styles.eyebrow}>Каталог</p><h4>Модели провайдера</h4></div>
                     <span className={styles.modelsCount}>{activeProvider.models.filter((model) => model.selected).length} из {activeProvider.models.length} выбрано</span>
                   </div>
-                  <p className={styles.modelsIntro}>{activeProvider.models.length ? "Нажми, чтобы настроить доступные модели и перейти к общему порядку." : "Подключи аккаунт, чтобы получить список моделей."}</p>
+                  <p className={styles.modelsIntro}>{activeProvider.models.length ? "Нажмите, чтобы настроить доступные модели и перейти к общему порядку." : "Подключите аккаунт, чтобы получить список моделей."}</p>
                   {activeProvider.models.length > 0 && <button className={styles.primaryAction} type="button" onClick={() => { setModelQuery((current) => ({ ...current, [activeProvider.id]: "" })); setScreen("models"); }} disabled={!activeProvider.connectable}>Выбрать модели</button>}
                 </div>
 
@@ -1046,7 +1046,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "ready" && screen === "queue" && (
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}><p className={styles.intro}>Модели со всех провайдеров в порядке, в котором LifeOS будет пробовать их использовать.</p></div>
-              {queue.length === 0 ? <p className={styles.empty}>Пока нет выбранных моделей. Подключи аккаунт и отметь модели на странице провайдера.</p> : (
+              {queue.length === 0 ? <p className={styles.empty}>Пока нет выбранных моделей. Подключите аккаунт и отметьте модели на странице провайдера.</p> : (
                 <ol className={styles.queueList} aria-label="Общий порядок использования моделей">
                   {queue.map((item, index) => {
                     const provider = sortedProviders.find((entry) => entry.id === item.providerId);
@@ -1087,13 +1087,13 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
           {loadState === "ready" && screen === "welcome" && (
             <motion.section className={styles.welcomePanel} variants={motionVariants.screen} initial="initial" animate="animate" aria-live="polite" aria-labelledby={`${id}-welcome-title`}>
-              <p className={styles.welcomeEyebrow}>{wizardConnected ? `${wizardConnected.name} подключён · ${wizardConnected.images ? "текст и фото" : "только текст"}` : "Попробуй в чате"}</p>
+              <p className={styles.welcomeEyebrow}>{wizardConnected ? `${wizardConnected.name} подключён · ${wizardConnected.images ? "текст и фото" : "только текст"}` : "Попробуйте в чате"}</p>
               <h2 id={`${id}-welcome-title`}>Пиши как обычно</h2>
               <p className={styles.welcomeLead}>Напиши, что съел или потратил, обычным сообщением.</p>
               <ul className={styles.welcomeList}>
-                <li><strong>Еда и траты.</strong> Расскажи, что съел, или назови покупку. Можно прислать фото блюда, этикетки или чека, если выбранная модель понимает фото. LifeOS покажет черновик, а ты сохранишь его кнопкой «Записать».</li>
+                <li><strong>Еда и траты.</strong> Расскажите, что съели, или назовите покупку. Можно прислать фото блюда, этикетки или чека, если выбранная модель понимает фото. LifeOS покажет черновик, а вы сохраните его кнопкой «Записать».</li>
                 <li><strong>Твои данные.</strong> Спроси, сколько потратил сегодня, какой сейчас баланс или сколько осталось по КБЖУ.</li>
-                <li><strong>Общая справка.</strong> Задай вопрос о питании, КБЖУ или упражнениях.</li>
+                <li><strong>Общая справка.</strong> Задайте вопрос о питании, КБЖУ или упражнениях.</li>
               </ul>
               <p className={styles.welcomeFootnote}>Если модели недоступны, бот объяснит причину. Данные сохраняются только после подтверждения.</p>
             </motion.section>

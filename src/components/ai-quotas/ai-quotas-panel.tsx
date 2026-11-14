@@ -179,7 +179,7 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
       .then(async (response) => {
         const body: unknown = await response.json().catch(() => null);
         if (!response.ok) {
-          const message = isObject(body) && typeof body.error === "string" ? body.error : "Не удалось загрузить квоты. Попробуй обновить.";
+          const message = isObject(body) && typeof body.error === "string" ? body.error : "Не удалось загрузить квоты. Попробуйте обновить.";
           throw new Error(message);
         }
         if (!isQuotaResponse(body)) throw new Error("Сервер вернул данные лимитов в неожиданном формате.");
@@ -205,12 +205,12 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
         <div className={styles.scrollArea} aria-live="polite" aria-busy={loadState === "loading"}>
           {loadState === "loading" && !data && <><span className="visually-hidden" role="status">Загружаю лимиты ИИ.</span><AiQuotasSkeleton /></>}
           <AnimatePresence mode="wait" initial={false}>
-            {loadState === "error" && <motion.div key="error" variants={motionVariants.state} initial="initial" animate="animate" exit="exit" className={styles.state} role="alert"><h3>Не удалось загрузить лимиты</h3><p>Проверь подключение и попробуй ещё раз.</p><button type="button" className={styles.action} onClick={refresh}>Повторить</button></motion.div>}
+            {loadState === "error" && <motion.div key="error" variants={motionVariants.state} initial="initial" animate="animate" exit="exit" className={styles.state} role="alert"><h3>Не удалось загрузить лимиты</h3><p>Проверьте подключение и попробуйте ещё раз.</p><button type="button" className={styles.action} onClick={refresh}>Повторить</button></motion.div>}
           </AnimatePresence>
           {data && <>
             <section className={styles.providerUsageSection}>
               <div className={styles.usageSectionHeading}><h3>Подключённые аккаунты</h3><span>Последние 24 часа</span></div>
-              {data.providers.length ? <div className={styles.providerUsageList}>{data.providers.map((provider) => <ProviderUsageCard key={provider.accountId} provider={provider} />)}</div> : <p className={styles.empty}>Провайдеры ещё не подключены. Добавь аккаунт в настройках ИИ.</p>}
+              {data.providers.length ? <div className={styles.providerUsageList}>{data.providers.map((provider) => <ProviderUsageCard key={provider.accountId} provider={provider} />)}</div> : <p className={styles.empty}>Провайдеры ещё не подключены. Добавьте аккаунт в настройках ИИ.</p>}
             </section>
             {snapshot && <section className={styles.legacyQuotaSection}>
               <div className={styles.modelLine}><span>{statusTitle(snapshot.status)}</span><strong>{snapshot.model}</strong></div>
