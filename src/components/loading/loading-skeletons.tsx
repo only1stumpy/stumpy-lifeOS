@@ -68,6 +68,13 @@ export function LifeOSBootSkeleton({ fullscreen = false, safeAreaTop = 0, conten
             </div>
             <span className={`${styles.block} ${styles.ghostAction}`} />
           </div>
+          <div className={styles.todaySection}>
+            <div className={styles.cardHeading}>
+              <span className={`${styles.block} ${styles.sectionLabel}`} />
+              <span className={`${styles.block} ${styles.sectionLink}`} />
+            </div>
+            <span className={`${styles.block} ${styles.footLeft}`} />
+          </div>
         </section>
       </div>
 
