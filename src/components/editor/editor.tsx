@@ -7,7 +7,7 @@ import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { exerciseCatalog } from "@/domain/exercise-catalog";
 import { parseMinor } from "@/domain/math";
-import { ACTIVITY_LEVELS, GOALS, profileSchema, suggestTargets } from "@/domain/nutrition";
+import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
@@ -460,6 +460,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     const savedProfile = profileSchema.safeParse(saved);
     const initialTarget = target ?? (savedProfile.success ? suggestTargets(savedProfile.data) : null);
     const profileFields = ["sex", "age", "heightCm", "profileWeightKg", "activityLevel", "goalType"];
+    const week = weeklyAverageWeight(snapshot.nutrition.weightHistory, snapshot.localDate);
+    const averageTarget = !firstRun && week.averageKg !== null && week.weighIns >= MIN_WEEKLY_WEIGH_INS
+      ? targetFromAverage(snapshot.settings.profile, week.averageKg, target)
+      : null;
 
     function readProfile(form: FormData): NutritionProfile | null {
       const filled = profileFields.filter((name) => recordValue(form, name)).length;
@@ -515,6 +519,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         </div>
         <label>Активность<select name="activityLevel" defaultValue={saved.activityLevel ?? ""}><option value="" disabled>Выберите уровень</option>{Object.entries(ACTIVITY_LEVELS).map(([value, level]) => <option key={value} value={value}>{level.label}</option>)}</select></label>
         <label>Цель<select name="goalType" defaultValue={savedProfile.success || !firstRun ? saved.goalType ?? "" : ""}><option value="" disabled>Выберите цель</option>{Object.entries(GOALS).map(([value, goal]) => <option key={value} value={value}>{goal.label}</option>)}</select></label>
+        {averageTarget && week.averageKg !== null ? (
+          <p>
+            Средний вес за 7 дней — {week.averageKg.toLocaleString("ru-RU")} кг, замеров: {week.weighIns}. По профилю норма теперь {averageTarget.calories} ккал · Б {averageTarget.proteinGrams} · Ж {averageTarget.fatGrams} · У {averageTarget.carbsGrams} г.{" "}
+            <button type="button" onClick={() => { setSuggestedTarget(averageTarget); setTargetRevision((revision) => revision + 1); }}>Подставить</button>
+          </p>
+        ) : null}
         <h3>Норма в день</h3>
         <MacroFields key={targetRevision} values={suggestedTarget ?? initialTarget} />
         <p>Оценка по формуле Миффлина — Сан Жеора с учётом активности и цели. Вес из профиля попадёт в историю веса.</p>

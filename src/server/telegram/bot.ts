@@ -1,6 +1,7 @@
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, lt, lte, or, sql } from "drizzle-orm";
 import { Bot, InlineKeyboard, type Context } from "grammy";
 import type { InlineKeyboardMarkup, Update } from "grammy/types";
+import type { MacroValues } from "@/domain/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
@@ -8,7 +9,8 @@ import { dateKey, sumMacros, convertToLocalMinor } from "@/domain/math";
 import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
-import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot } from "@/server/lifeos";
+import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
+import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
@@ -85,6 +87,25 @@ function getBot(): Bot<Context> {
     }
 
     try {
+      if (action === "tgt") {
+        if (id === "keep") {
+          await ctx.answerCallbackQuery({ text: "Оставил прежнюю норму." });
+          await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard() }).catch(() => undefined);
+          return;
+        }
+        const [calories, proteinGrams, fatGrams, carbsGrams] = id.split("-").map(Number);
+        if (![calories, proteinGrams, fatGrams, carbsGrams].every((value) => Number.isFinite(value) && value >= 0) || calories <= 0) {
+          await ctx.answerCallbackQuery({ text: "Кнопка устарела." });
+          return;
+        }
+        const owner = await ensureOwner();
+        await executeCommand({ type: "settings.save", timeZone: owner.timezone, target: { calories, proteinGrams, fatGrams, carbsGrams } });
+        await ctx.answerCallbackQuery({ text: "Норма обновлена." });
+        await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard() }).catch(() => undefined);
+        await ctx.reply(`Новая норма с сегодняшнего дня: ${calories} ккал · Б ${proteinGrams} · Ж ${fatGrams} · У ${carbsGrams} г. Поменять можно в «Цели КБЖУ» в LifeOS.`);
+        return;
+      }
+
       if (action === "all" || action === "none") {
         const owner = await ensureOwner();
         const pending = await getDb()
@@ -933,8 +954,46 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     `Расходы: ${formatMoney(weeklySpending, "PRB")}`,
     `Тренировки: ${completedWorkouts} · подходы: ${completedSets}`,
     weightLine,
-  ].join("\n");
-  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text);
+  ];
+  const [currentTarget] = await getDb().select().from(schema.nutritionTargets)
+    .where(and(eq(schema.nutritionTargets.ownerId, owner.id), lte(schema.nutritionTargets.effectiveFrom, localToday)))
+    .orderBy(desc(schema.nutritionTargets.effectiveFrom))
+    .limit(1);
+  const recalculation = weeklyTargetRecalculation(
+    storedProfile(owner, localToday),
+    weights.map((entry) => ({ date: dateKey(entry.occurredAt, timeZone), weightKg: Number(entry.weightKg) })),
+    localToday,
+    currentTarget ? macroValues(currentTarget) : null,
+  );
+  if (recalculation.line) text.push("", recalculation.line);
+  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), recalculation.keyboard);
+}
+
+/** Weekly target proposal: the profile formula with the 7-day average weight, applied only after a button press. */
+function weeklyTargetRecalculation(
+  profile: ReturnType<typeof storedProfile>,
+  weights: { date: string; weightKg: number }[],
+  today: string,
+  current: MacroValues | null,
+): { line: string | null; keyboard?: InlineKeyboardMarkup } {
+  const week = weeklyAverageWeight(weights, today);
+  if (week.averageKg === null) return { line: null };
+  if (week.weighIns < MIN_WEEKLY_WEIGH_INS) {
+    return { line: `Норму КБЖУ не пересчитываю: за 7 дней замеров веса: ${week.weighIns}, нужно хотя бы ${MIN_WEEKLY_WEIGH_INS}.` };
+  }
+  const average = `Средний вес за 7 дней: ${round1(week.averageKg)} кг.`;
+  const next = targetFromAverage(profile, week.averageKg, current);
+  if (!next) {
+    const complete = Object.values(profile).every((value) => value !== undefined);
+    return { line: complete ? `${average} Норма КБЖУ остаётся прежней.` : `${average} Заполни профиль в «Цели КБЖУ» в LifeOS — тогда буду предлагать новую норму по среднему весу.` };
+  }
+  const was = current ? ` (сейчас ${Math.round(current.calories)} ккал)` : "";
+  return {
+    line: `${average} По профилю норма теперь ${next.calories} ккал · Б ${next.proteinGrams} · Ж ${next.fatGrams} · У ${next.carbsGrams} г${was}. Применить?`,
+    keyboard: new InlineKeyboard()
+      .text("Применить", `tgt:${next.calories}-${next.proteinGrams}-${next.fatGrams}-${next.carbsGrams}`)
+      .text("Оставить", "tgt:keep"),
+  };
 }
 
 async function clearEditingCapture(id: string): Promise<void> {
