@@ -4,17 +4,15 @@ import type { NextConfig } from "next";
 
 const { version } = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string };
 
-/** Bullet points of the newest CHANGELOG.md section, shown once per version in the Mini App. */
-function latestReleaseNotes(): string[] {
-  const lines = readFileSync(join(process.cwd(), "CHANGELOG.md"), "utf8").split("\n");
-  const start = lines.findIndex((line) => /^## \d+\.\d+\.\d+/.test(line));
-  if (start < 0) return [];
-  const notes: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (line.startsWith("## ")) break;
-    if (line.startsWith("- ")) notes.push(line.slice(2).trim());
+/** Every CHANGELOG.md release with its bullet points, newest first; the Mini App shows what a user has missed. */
+function releaseHistory(): { version: string; notes: string[] }[] {
+  const releases: { version: string; notes: string[] }[] = [];
+  for (const line of readFileSync(join(process.cwd(), "CHANGELOG.md"), "utf8").split("\n")) {
+    const heading = /^## (\d+\.\d+\.\d+)/.exec(line);
+    if (heading) releases.push({ version: heading[1], notes: [] });
+    else if (line.startsWith("- ") && releases.length) releases[releases.length - 1].notes.push(line.slice(2).trim());
   }
-  return notes;
+  return releases;
 }
 
 const nextConfig: NextConfig = {
@@ -22,7 +20,7 @@ const nextConfig: NextConfig = {
   experimental: { useTypeScriptCli: false },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
-    NEXT_PUBLIC_RELEASE_NOTES: JSON.stringify(latestReleaseNotes()),
+    NEXT_PUBLIC_RELEASE_HISTORY: JSON.stringify(releaseHistory()),
   },
 };
 

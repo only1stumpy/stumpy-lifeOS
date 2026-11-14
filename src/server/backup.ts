@@ -171,6 +171,10 @@ function normalizeColumnValue(column: BackupColumn, property: string, value: unk
     if (typeof value !== "number" || !Number.isSafeInteger(value)) throw new AppError(400, `Некорректное целое число в поле ${property}.`);
     return value;
   }
+  if (type === "text[]") {
+    if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) throw new AppError(400, `Некорректный список в поле ${property}.`);
+    return [...value];
+  }
   if (type === "jsonb") {
     try {
       return JSON.parse(JSON.stringify(value));

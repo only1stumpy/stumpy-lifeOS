@@ -60,6 +60,8 @@ export type AnalyzeMessageInput = {
   templates?: unknown[];
   categories?: string[];
   previousDraft?: unknown;
+  /** Modules the user enabled; records for other modules must not be produced. */
+  enabledModules?: string[];
 };
 
 /** Short, text-only conversation history for an unanswered AI clarification. */

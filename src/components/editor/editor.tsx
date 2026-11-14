@@ -10,10 +10,13 @@ import { parseMinor } from "@/domain/math";
 import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import { USAGE_MODES, type UsageMode } from "@/domain/notifications";
-import { APP_VERSION, RELEASE_NOTES } from "@/domain/release";
+import { APP_VERSION, releasesSince } from "@/domain/release";
+import { ALL_MODULES, LIFE_MODULES } from "@/domain/modules";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { useMotionVariants } from "@/components/motion/motion-system";
+
+export type FormValues = Record<string, string[]>;
 
 export type EditorState =
   | { kind: "food"; entry?: FoodLogEntry }
@@ -25,6 +28,7 @@ export type EditorState =
   | { kind: "target"; firstRun?: boolean }
   | { kind: "notifications"; firstRun?: boolean }
   | { kind: "whats-new" }
+  | { kind: "modules" }
   | { kind: "weight" }
   | { kind: "accounts"; account?: MoneyAccount }
   | { kind: "recurring"; item?: AppSnapshot["recurring"][number] }
@@ -43,6 +47,9 @@ type EditorDialogProps = {
   onClose(): void;
   onChange(editor: EditorState): void;
   onCommand(command: AppCommand, keepOpen?: boolean): Promise<boolean>;
+  /** Form values to put back after a failed save, so nothing typed is lost. */
+  restoreValues?: FormValues | null;
+  onRememberForm?(values: FormValues): void;
   onRegisterTelegramBackHandler?(handler: (() => void) | null): void;
 };
 
@@ -150,7 +157,7 @@ function MacroFields({ values }: { values?: { calories: number; proteinGrams: nu
   );
 }
 
-export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler }: EditorDialogProps) {
+export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm }: EditorDialogProps) {
   const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -162,6 +169,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [selectedCatalogId, setSelectedCatalogId] = useState(exerciseCatalog[0]?.id ?? "");
   const [selectedReplacementId, setSelectedReplacementId] = useState<string | null>(null);
   const [debtOpenedAs, setDebtOpenedAs] = useState<"transfer" | "opening_balance">(editor.kind === "debt-create" ? editor.openedAs ?? "transfer" : "transfer");
+
+  useEffect(() => {
+    // Reopened after a failed save: put the typed values back into the form fields.
+    if (!restoreValues) return;
+    for (const field of dialogRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("form [name]") ?? []) {
+      const values = restoreValues[field.name];
+      if (field instanceof HTMLInputElement && (field.type === "checkbox" || field.type === "radio")) field.checked = (values ?? []).includes(field.value || "on");
+      else if (values) field.value = values[0] ?? "";
+    }
+  }, [restoreValues]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -199,7 +216,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     setFormError(null);
     setSaved(false);
     try {
-      const succeeded = await onCommand(build(new FormData(formElement)), keepOpen);
+      const data = new FormData(formElement);
+      const command = build(data);
+      const values: FormValues = {};
+      for (const [name, value] of data.entries()) if (typeof value === "string") (values[name] ??= []).push(value);
+      onRememberForm?.(values);
+      const succeeded = await onCommand(command, keepOpen);
       if (succeeded && keepOpen) {
         formElement.reset();
         setSaved(true);
@@ -589,10 +611,35 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     );
   }
 
+  function renderModulesForm() {
+    const enabled = snapshot.settings.enabledModules;
+    return (
+      <form onSubmit={(event) => submitForm(event, (form) => {
+        const modules = ALL_MODULES.filter((module) => form.get(module) === "on");
+        if (!modules.length) throw new Error("Оставьте хотя бы один раздел.");
+        return { type: "modules.save", modules };
+      })}>
+        <p>Выключенные разделы пропадают из приложения, не попадают в сводки и не передаются ИИ. Данные сохраняются: включите раздел снова, и всё будет на месте.</p>
+        {ALL_MODULES.map((module) => (
+          <label key={module} className="checkbox-row choice-row">
+            <input type="checkbox" name={module} defaultChecked={enabled.includes(module)} />
+            <span><strong>{LIFE_MODULES[module].label}</strong><br />{LIFE_MODULES[module].description}</span>
+          </label>
+        ))}
+        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить</button></div>
+      </form>
+    );
+  }
+
   function renderWhatsNew() {
     return (
       <>
-        <ul>{RELEASE_NOTES.map((note) => <li key={note}>{note}</li>)}</ul>
+        {releasesSince(snapshot.settings.lastSeenVersion).map((release, index, all) => (
+          <section key={release.version}>
+            {all.length > 1 ? <h3>Версия {release.version}</h3> : null}
+            <ul>{release.notes.map((note) => <li key={note}>{note}</li>)}</ul>
+          </section>
+        ))}
         <div className="actions"><button className="submit" type="button" disabled={pending} onClick={() => void onCommand({ type: "version.seen", version: APP_VERSION })}>Понятно</button></div>
       </>
     );
@@ -852,6 +899,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "target": return renderTargetForm();
       case "notifications": return renderNotificationsForm();
       case "whats-new": return renderWhatsNew();
+      case "modules": return renderModulesForm();
       case "weight": return renderWeightForm();
       case "accounts": return renderAccountsForm(editor.account);
       case "recurring": return renderRecurringForm(editor.item);
@@ -891,8 +939,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       </header>
       <AnimatePresence initial={false} mode="wait">{activeError && <motion.p key="editor-error" className="error" role="alert" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">{activeError}</motion.p>}</AnimatePresence>
       <AnimatePresence initial={false} mode="wait">
-        {pending ? <motion.p key="editor-pending" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохраняю…</motion.p>
-          : saved ? <motion.p key="editor-saved" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохранено.</motion.p> : null}
+        {saved ? <motion.p key="editor-saved" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохранено.</motion.p> : null}
       </AnimatePresence>
       {renderEditorContent()}
     </motion.dialog>
@@ -925,7 +972,8 @@ function editorTitle(editor: EditorState): string {
     case "debt-repayment": return editor.debt.direction === "i_owe" ? "Возврат долга" : "Получение возврата";
     case "target": return editor.firstRun ? "Расскажите о себе" : "Профиль и цель КБЖУ";
     case "notifications": return editor.firstRun ? "Добро пожаловать" : "Уведомления";
-    case "whats-new": return `Что нового в ${APP_VERSION}`;
+    case "whats-new": return "Что нового";
+    case "modules": return "Разделы";
     case "weight": return "Масса тела";
     case "accounts": return "Счета и курс";
     case "recurring": return editor.item ? "Изменить платёж" : "Подписки и платежи";

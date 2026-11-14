@@ -10,6 +10,7 @@ import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
+import { disabledModulesMessage, normalizeModules } from "@/domain/modules";
 import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -308,15 +309,19 @@ function getBot(): Bot<Context> {
     let image: { mimeType: string; dataBase64: string } | undefined;
 
     try {
+      const modules = normalizeModules(owner.enabledModules);
       const weightKg = photo ? null : parseWeightMessage(text);
       if (weightKg !== null) {
-        await ctx.reply(await saveWeightFromChat(owner.id, owner.timezone, weightKg));
+        await ctx.reply(modules.includes("nutrition")
+          ? await saveWeightFromChat(owner.id, owner.timezone, weightKg)
+          : disabledModulesMessage(["nutrition"]));
         return;
       }
 
       if (!photo && text.trim() && isReferenceQuestion(text)) {
         const snapshot = await loadSnapshot();
-        const knownAnswer = answerKnownReferenceQuestion(text, snapshot);
+        // Ready-made answers read finance data directly, so they are skipped when finance is off.
+        const knownAnswer = modules.includes("finance") ? answerKnownReferenceQuestion(text, snapshot) : null;
         if (knownAnswer) {
           await ctx.reply(knownAnswer);
           return;
@@ -336,6 +341,11 @@ function getBot(): Bot<Context> {
           await ctx.reply(result.answer);
           return;
         }
+      }
+
+      if (!photo && !modules.includes("finance") && (hasFinancePlanMarker(text) || parseDebtMessage(text))) {
+        await ctx.reply(disabledModulesMessage(["finance"]));
+        return;
       }
 
       if (!photo && hasFinancePlanMarker(text)) {
@@ -483,20 +493,27 @@ async function sendToday(ctx: Context): Promise<void> {
   try {
     const snapshot = await loadSnapshot();
     const lines = [`Вот что уже есть за сегодня · ${snapshot.localDate}`];
+    const modules = snapshot.settings.enabledModules;
     const nutrition = snapshot.nutrition;
-    lines.push(`Питание: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
-    lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
-    if (nutrition.target) {
-      lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+    if (modules.includes("nutrition")) {
+      lines.push(`Питание: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
+      lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
+      if (nutrition.target) {
+        lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+      }
     }
-    lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")} сегодня · ${formatMoney(snapshot.finance.spentMonthPrbMinor, "PRB")} за месяц`);
-    if (snapshot.gym.nextWorkout) {
-      const session = snapshot.activeSession ? "Текущая тренировка" : "Следующая тренировка";
-      lines.push(`${session}: ${snapshot.gym.nextWorkout.name}`);
-    } else if (snapshot.gym.lastWorkout) {
-      lines.push(`Последняя тренировка: ${snapshot.gym.lastWorkout.name} · ${snapshot.gym.lastWorkout.summary}`);
-    } else {
-      lines.push("Зал: программа пока не составлена.");
+    if (modules.includes("finance")) {
+      lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")} сегодня · ${formatMoney(snapshot.finance.spentMonthPrbMinor, "PRB")} за месяц`);
+    }
+    if (modules.includes("gym")) {
+      if (snapshot.gym.nextWorkout) {
+        const session = snapshot.activeSession ? "Текущая тренировка" : "Следующая тренировка";
+        lines.push(`${session}: ${snapshot.gym.nextWorkout.name}`);
+      } else if (snapshot.gym.lastWorkout) {
+        lines.push(`Последняя тренировка: ${snapshot.gym.lastWorkout.name} · ${snapshot.gym.lastWorkout.summary}`);
+      } else {
+        lines.push("Зал: программа пока не составлена.");
+      }
     }
     await ctx.reply(lines.join("\n"));
   } catch (error) {
@@ -796,12 +813,17 @@ export async function sendDailySummary(now: Date, timeZone: string): Promise<boo
   const today = dateKey(now, timeZone);
   const snapshot = await loadSnapshot(today);
   const lines = [`Вот твоя сводка за сегодня · ${today}`];
+  const modules = snapshot.settings.enabledModules;
+  const nutritionOn = modules.includes("nutrition");
+  if (!nutritionOn && !modules.includes("finance")) return false;
   const nutrition = snapshot.nutrition;
-  lines.push(`КБЖУ: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
-  lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
-  if (nutrition.target) lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
-  lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")}`);
-  const remaining = nutrition.target ? Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories)) : 0;
+  if (nutritionOn) {
+    lines.push(`КБЖУ: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
+    lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
+    if (nutrition.target) lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+  }
+  if (modules.includes("finance")) lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayPrbMinor, "PRB")}`);
+  const remaining = nutritionOn && nutrition.target ? Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories)) : 0;
   if (remaining > 0) {
     const owner = await ensureOwner();
     const suggestions = await getUsualFoodSuggestions(owner.id, remaining);
@@ -946,13 +968,17 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
   const weightLine = weeklyWeights.length < 2
     ? weeklyWeights.length === 1 ? `Вес: ${round1(Number(weeklyWeights[0].weightKg))} кг · одна запись за неделю` : "Вес: записей на этой неделе нет"
     : `Вес: ${round1(Number(weeklyWeights[0].weightKg))} → ${round1(Number(weeklyWeights[weeklyWeights.length - 1].weightKg))} кг (${formatSigned(Number(weeklyWeights[weeklyWeights.length - 1].weightKg) - Number(weeklyWeights[0].weightKg))} кг)`;
+  const modules = normalizeModules(owner.enabledModules);
+  const nutritionOn = modules.includes("nutrition");
   const text = [
     `Вот как прошла неделя · ${weekStart} — ${localToday}`,
-    `Питание: ${Math.round(macros.calories)} ккал · Б ${Math.round(macros.proteinGrams)} · Ж ${Math.round(macros.fatGrams)} · У ${Math.round(macros.carbsGrams)} г суммарно`,
-    loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : "Питание: записей за неделю нет",
-    `Расходы: ${formatMoney(weeklySpending, "PRB")}`,
-    `Тренировки: ${completedWorkouts} · подходы: ${completedSets}`,
-    weightLine,
+    ...(nutritionOn ? [
+      `Питание: ${Math.round(macros.calories)} ккал · Б ${Math.round(macros.proteinGrams)} · Ж ${Math.round(macros.fatGrams)} · У ${Math.round(macros.carbsGrams)} г суммарно`,
+      loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : "Питание: записей за неделю нет",
+    ] : []),
+    ...(modules.includes("finance") ? [`Расходы: ${formatMoney(weeklySpending, "PRB")}`] : []),
+    ...(modules.includes("gym") ? [`Тренировки: ${completedWorkouts} · подходы: ${completedSets}`] : []),
+    ...(nutritionOn ? [weightLine] : []),
   ];
   const [currentTarget] = await getDb().select().from(schema.nutritionTargets)
     .where(and(eq(schema.nutritionTargets.ownerId, owner.id), lte(schema.nutritionTargets.effectiveFrom, localToday)))
@@ -964,8 +990,8 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     localToday,
     currentTarget ? macroValues(currentTarget) : null,
   );
-  if (recalculation.line) text.push("", recalculation.line);
-  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), recalculation.keyboard);
+  if (nutritionOn && recalculation.line) text.push("", recalculation.line);
+  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), nutritionOn ? recalculation.keyboard : undefined);
 }
 
 /** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */

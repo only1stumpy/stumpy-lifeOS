@@ -18,6 +18,7 @@ export const USAGE_MODES = {
   trial: { label: "Пока просто смотрю", hint: "Без сводок и напоминаний, включите позже в настройках", dailySummary: false, weeklySummary: false, weightReminder: false },
 } as const;
 export type UsageMode = keyof typeof USAGE_MODES;
+export const usageModeSchema = z.enum(Object.keys(USAGE_MODES) as [UsageMode, ...UsageMode[]]);
 
 /** Minutes since local midnight for an HH:MM string. */
 export function minuteOfDay(time: string): number {

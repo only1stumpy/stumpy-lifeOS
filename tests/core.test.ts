@@ -6,6 +6,8 @@ import { commandSchema } from "../src/domain/commands";
 import { convertToLocalMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
 import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverageWeight } from "../src/domain/nutrition";
 import { parseWeightMessage } from "../src/domain/weight-message";
+import { disabledModulesMessage, filterEntriesByModules, normalizeModules } from "../src/domain/modules";
+import { compareVersions, releasesSince } from "../src/domain/release";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
 import { analyzeMessage } from "../src/server/ai/analyze";
@@ -519,4 +521,40 @@ test("notification settings command validates the summary time", () => {
   assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: null } }).success, true);
   assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: "25:00" } }).success, false);
   assert.equal(commandSchema.safeParse({ ...base, settings: { ...base.settings, summaryTime: "9:00" } }).success, false);
+});
+
+test("disabled modules drop AI records and explain why", () => {
+  const food = { label: "Суп" };
+  const money = { amountMinor: 1000 };
+  const entries = [{ food, money, occurredAt: "x" }, { food, money: null, occurredAt: "y" }];
+  const financeOnly = filterEntriesByModules(entries, ["finance"]);
+  assert.deepEqual(financeOnly.entries, [{ food: null, money, occurredAt: "x" }]);
+  assert.deepEqual(financeOnly.blocked, ["nutrition"]);
+  assert.deepEqual(filterEntriesByModules(entries, ["nutrition", "finance"]).blocked, []);
+  assert.deepEqual(filterEntriesByModules(entries, ["gym"]), { entries: [], blocked: ["nutrition", "finance"] });
+  assert.match(disabledModulesMessage(["finance"]), /Раздел «Финансы» выключен/);
+  assert.deepEqual(normalizeModules(["gym", "unknown", "nutrition"]), ["nutrition", "gym"]);
+  assert.deepEqual(normalizeModules([]), ["nutrition", "finance", "gym"]);
+});
+
+test("onboarding command requires at least one module and a positive USD rate", () => {
+  const base = { type: "onboarding.complete", modules: ["finance"], usage: "weekly", profile: null, target: null, account: { currency: "USD", openingBalanceMinor: 12_000, usdToPrb: "16.2" } };
+  assert.equal(commandSchema.safeParse(base).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, modules: [] }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, modules: ["finance", "finance"] }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, account: { ...base.account, usdToPrb: "0" } }).success, false);
+});
+
+test("what's new lists every release missed since the last visit", () => {
+  const history = [
+    { version: "0.10.0", notes: ["c"] },
+    { version: "0.9.0", notes: ["b"] },
+    { version: "0.8.0", notes: ["a"] },
+    { version: "0.7.0", notes: ["z"] },
+  ];
+  assert.deepEqual(releasesSince("0.7.0", history, "0.10.0").map((r) => r.version), ["0.10.0", "0.9.0", "0.8.0"]);
+  assert.deepEqual(releasesSince("0.10.0", history, "0.10.0"), []);
+  assert.deepEqual(releasesSince(null, history, "0.10.0").map((r) => r.version), ["0.10.0"]);
+  assert.deepEqual(releasesSince("0.8.0", history, "0.9.0").map((r) => r.version), ["0.9.0"]);
+  assert.equal(compareVersions("0.10.0", "0.9.0"), 1);
 });

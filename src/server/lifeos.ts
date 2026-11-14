@@ -8,6 +8,9 @@ import { convertToLocalMinor, dateKey, sumMacros } from "@/domain/math";
 import { advanceRecurrenceDate } from "@/domain/recurrence";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { ACTIVITY_LEVELS, GOALS, ageOn, birthDateForAge, type NutritionProfile } from "@/domain/nutrition";
+import { disabledModulesMessage, filterEntriesByModules, normalizeModules } from "@/domain/modules";
+import { USAGE_MODES } from "@/domain/notifications";
+import { APP_VERSION } from "@/domain/release";
 import { AppError } from "./http";
 import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
@@ -38,6 +41,15 @@ export function storedProfile(owner: typeof s.ownerSettings.$inferSelect, today:
     activityLevel: owner.activityLevel && owner.activityLevel in ACTIVITY_LEVELS ? owner.activityLevel as NutritionProfile["activityLevel"] : undefined,
     goalType: owner.goalType in GOALS ? owner.goalType as NutritionProfile["goalType"] : undefined,
   };
+}
+
+/** Saves the nutrition profile, today's weight when it changed, and the target from today. */
+async function saveProfile(tx: Transaction, owner: typeof s.ownerSettings.$inferSelect, profile: NutritionProfile, target: MacroValues): Promise<void> {
+  const today = dateKey(new Date(), owner.timezone);
+  await tx.update(s.ownerSettings).set({ sex: profile.sex, dateOfBirth: birthDateForAge(profile.age, today), heightCm: String(profile.heightCm), activityLevel: profile.activityLevel, goalType: profile.goalType, profileOnboardingCompleted: true, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+  const [latestWeight] = await tx.select().from(s.weightEntries).where(eq(s.weightEntries.ownerId, owner.id)).orderBy(desc(s.weightEntries.occurredAt)).limit(1);
+  if (!latestWeight || Number(latestWeight.weightKg) !== profile.weightKg) await saveDailyWeight(tx, owner.id, today, profile.weightKg);
+  await tx.insert(s.nutritionTargets).values({ ownerId: owner.id, effectiveFrom: today, ...macroStrings(target) }).onConflictDoUpdate({ target: [s.nutritionTargets.ownerId, s.nutritionTargets.effectiveFrom], set: macroStrings(target) });
 }
 
 /** One weight measurement per local day: a repeated entry for the same date replaces the earlier one. */
@@ -216,7 +228,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion },
+    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);
@@ -473,10 +485,16 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
       .where(eq(s.ownerSettings.id, owner.id));
   }
   const providerProfiles = await loadConfiguredAiProviderConfigs(owner.id);
-  const analysis = await analyzeMessage({ ...input, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
+  const modules = normalizeModules(owner.enabledModules);
+  const rawAnalysis = await analyzeMessage({ ...input, enabledModules: modules, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
     profiles: providerProfiles,
     ownerId: owner.id,
   });
+  const allowed = filterEntriesByModules(rawAnalysis.entries, modules);
+  const analysis = { ...rawAnalysis, entries: allowed.entries };
+  if (!analysis.entries.length && allowed.blocked.length) {
+    return { ...analysis, clarification: disabledModulesMessage(allowed.blocked), draftIds: [] as string[] };
+  }
   if (!analysis.entries.length) {
     const nextHistory = nextClarificationHistory(clarificationHistory, input.text, analysis.clarification, false);
     await getDb().update(s.ownerSettings)
@@ -530,13 +548,30 @@ export async function executeCommand(command: AppCommand) {
         break;
       }
       case "food.delete": await tx.delete(s.nutritionEntries).where(and(eq(s.nutritionEntries.id, command.id), eq(s.nutritionEntries.ownerId, owner.id))); break;
-      case "profile.save": {
-        const { profile, target } = command;
-        const today = dateKey(new Date(), owner.timezone);
-        await tx.update(s.ownerSettings).set({ sex: profile.sex, dateOfBirth: birthDateForAge(profile.age, today), heightCm: String(profile.heightCm), activityLevel: profile.activityLevel, goalType: profile.goalType, profileOnboardingCompleted: true, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
-        const [latestWeight] = await tx.select().from(s.weightEntries).where(eq(s.weightEntries.ownerId, owner.id)).orderBy(desc(s.weightEntries.occurredAt)).limit(1);
-        if (!latestWeight || Number(latestWeight.weightKg) !== profile.weightKg) await saveDailyWeight(tx, owner.id, today, profile.weightKg);
-        await tx.insert(s.nutritionTargets).values({ ownerId: owner.id, effectiveFrom: today, ...macroStrings(target) }).onConflictDoUpdate({ target: [s.nutritionTargets.ownerId, s.nutritionTargets.effectiveFrom], set: macroStrings(target) });
+      case "profile.save": await saveProfile(tx, owner, command.profile, command.target); break;
+      case "modules.save": await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id)); break;
+      case "onboarding.complete": {
+        const preset = USAGE_MODES[command.usage];
+        const nutritionOn = command.modules.includes("nutrition");
+        await tx.update(s.ownerSettings).set({
+          enabledModules: command.modules,
+          modulesConfigured: true,
+          notificationsConfigured: true,
+          dailySummaryEnabled: preset.dailySummary,
+          weeklySummaryEnabled: preset.weeklySummary,
+          weightReminderEnabled: preset.weightReminder && nutritionOn,
+          profileOnboardingCompleted: true,
+          lastSeenVersion: owner.lastSeenVersion ?? APP_VERSION,
+          updatedAt: new Date(),
+        }).where(eq(s.ownerSettings.id, owner.id));
+        if (nutritionOn && command.profile && command.target) await saveProfile(tx, owner, command.profile, command.target);
+        if (command.account && command.modules.includes("finance")) {
+          const existing = await tx.select({ id: s.financeAccounts.id }).from(s.financeAccounts).where(eq(s.financeAccounts.ownerId, owner.id)).limit(1);
+          if (!existing.length) {
+            await tx.insert(s.financeAccounts).values({ ownerId: owner.id, name: "Основной", currency: command.account.currency, isDefault: true, openingBalance: decimal(command.account.openingBalanceMinor) });
+          }
+          if (command.account.usdToPrb) await tx.insert(s.exchangeRates).values({ ownerId: owner.id, usdToPrbRate: command.account.usdToPrb, effectiveAt: new Date() });
+        }
         break;
       }
       case "notifications.save": {
