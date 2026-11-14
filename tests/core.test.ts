@@ -593,6 +593,18 @@ test("personalization.save keeps modules, features and notifications in one comm
   assert.equal(commandSchema.safeParse(withoutFeatures).success, false);
 });
 
+test("gym and weight management commands validate their input", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  assert.equal(commandSchema.safeParse({ type: "day.delete", id }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "day.delete", id: "nope" }).success, false);
+  const update = { type: "exercise.update", dayId: id, dayExerciseId: id, targetSets: 4, targetRepetitions: 10, restSeconds: 120 };
+  assert.equal(commandSchema.safeParse(update).success, true);
+  assert.equal(commandSchema.safeParse({ ...update, targetSets: 0 }).success, false);
+  assert.equal(commandSchema.safeParse({ type: "exercise.remove", dayId: id, dayExerciseId: id }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "weight.delete", date: "2026-11-14" }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "weight.delete", date: "14.11" }).success, false);
+});
+
 test("what's new lists every release missed since the last visit", () => {
   const history = [
     { version: "0.10.0", notes: ["c"] },

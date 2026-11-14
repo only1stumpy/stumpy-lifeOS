@@ -128,7 +128,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   const active = sessions.find((v) => v.status === "active");
   const last = sessions.find((v) => v.status === "completed");
   const program: WorkoutDay[] = days.map((day) => ({
-    id: day.id, name: day.name,
+    id: day.id, name: day.name, weekday: day.weekday,
     exercises: dayItems.filter((i) => i.workoutDayId === day.id).map((item) => {
       const exercise = exercises.find((e) => e.id === item.exerciseId)!;
       const activeItem = sessionItems.find((i) => i.sessionId === active?.id && i.workoutDayExerciseId === item.id);
@@ -139,7 +139,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
         ? "В прошлый раз все подходы достигли верхней границы повторений — можно попробовать немного увеличить вес."
         : null;
       return {
-        id: item.id, name: activeItem?.exerciseName ?? exercise?.name ?? "Упражнение", restSeconds: item.restSeconds ?? 90,
+        id: item.id, name: activeItem?.exerciseName ?? exercise?.name ?? "Упражнение", restSeconds: item.restSeconds ?? 90, targetRepetitions: item.targetRepsMax ?? item.targetRepsMin ?? null,
         previousPerformance: previousSets.length ? previousSets.map((v) => v.weightKg !== null ? Number(v.weightKg) + " кг × " + (v.repetitions ?? "—") : (v.durationSeconds ?? 0) + " с").join(", ") : null,
         progressionHint,
         sets: Array.from({ length: item.plannedSets }, (_, i) => {
@@ -731,6 +731,33 @@ export async function executeCommand(command: AppCommand) {
       case "day.save": {
         if (command.id) await tx.update(s.workoutDays).set({ name: command.name, weekday: command.weekday }).where(and(eq(s.workoutDays.id, command.id), eq(s.workoutDays.ownerId, owner.id)));
         else { const days = await tx.select().from(s.workoutDays).where(eq(s.workoutDays.ownerId, owner.id)); await tx.insert(s.workoutDays).values({ ownerId: owner.id, name: command.name, weekday: command.weekday, position: days.length }); }
+        break;
+      }
+      case "day.delete": {
+        const archived = await tx.update(s.workoutDays).set({ isArchived: true }).where(and(eq(s.workoutDays.id, command.id), eq(s.workoutDays.ownerId, owner.id), eq(s.workoutDays.isArchived, false))).returning({ id: s.workoutDays.id });
+        if (!archived.length) throw new AppError(404, "Тренировочный день не найден.");
+        break;
+      }
+      case "exercise.update": {
+        const updated = await tx.update(s.workoutDayExercises).set({ plannedSets: command.targetSets, targetRepsMin: command.targetRepetitions, targetRepsMax: command.targetRepetitions, restSeconds: command.restSeconds })
+          .where(and(eq(s.workoutDayExercises.id, command.dayExerciseId), eq(s.workoutDayExercises.workoutDayId, command.dayId), eq(s.workoutDayExercises.ownerId, owner.id))).returning({ id: s.workoutDayExercises.id });
+        if (!updated.length) throw new AppError(404, "Упражнение в программе не найдено.");
+        break;
+      }
+      case "exercise.remove": {
+        const items = await tx.select().from(s.workoutDayExercises)
+          .where(and(eq(s.workoutDayExercises.ownerId, owner.id), eq(s.workoutDayExercises.workoutDayId, command.dayId)))
+          .orderBy(s.workoutDayExercises.position).for("update");
+        if (!items.some((item) => item.id === command.dayExerciseId)) throw new AppError(404, "Упражнение в программе не найдено.");
+        await tx.update(s.workoutSessionExercises).set({ workoutDayExerciseId: null }).where(and(eq(s.workoutSessionExercises.workoutDayExerciseId, command.dayExerciseId), eq(s.workoutSessionExercises.ownerId, owner.id)));
+        await tx.delete(s.workoutDayExercises).where(and(eq(s.workoutDayExercises.id, command.dayExerciseId), eq(s.workoutDayExercises.ownerId, owner.id)));
+        const rest = items.filter((item) => item.id !== command.dayExerciseId);
+        for (let i = 0; i < rest.length; i++) if (rest[i].position !== i) await tx.update(s.workoutDayExercises).set({ position: i }).where(and(eq(s.workoutDayExercises.id, rest[i].id), eq(s.workoutDayExercises.ownerId, owner.id)));
+        break;
+      }
+      case "weight.delete": {
+        const removed = await tx.delete(s.weightEntries).where(and(eq(s.weightEntries.ownerId, owner.id), eq(s.weightEntries.occurredAt, new Date(command.date + "T12:00:00Z")))).returning({ id: s.weightEntries.id });
+        if (!removed.length) throw new AppError(404, "Замер не найден.");
         break;
       }
       case "day.move": {
