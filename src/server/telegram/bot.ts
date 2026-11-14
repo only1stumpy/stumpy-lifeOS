@@ -330,7 +330,6 @@ function getBot(): Bot<Context> {
           const result = await answerLifeOSQuestion({ question: text, context: makeReferenceContext(snapshot) }, {
             profiles: providerProfiles,
             ownerId: owner.id,
-            allowLegacyProviders: Boolean(owner.telegramUserId && owner.telegramUserId === process.env.TELEGRAM_OWNER_ID?.trim()),
           });
           await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
           statusMessageId = undefined;

@@ -476,7 +476,6 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   const analysis = await analyzeMessage({ ...input, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
     profiles: providerProfiles,
     ownerId: owner.id,
-    allowLegacyProviders: Boolean(owner.telegramUserId && owner.telegramUserId === process.env.TELEGRAM_OWNER_ID?.trim()),
   });
   if (!analysis.entries.length) {
     const nextHistory = nextClarificationHistory(clarificationHistory, input.text, analysis.clarification, false);

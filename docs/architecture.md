@@ -89,15 +89,13 @@ Cron-маршрут также проверяет сроки регулярны�
 |---|---|
 | `DATABASE_URL` | PostgreSQL для приложения, миграций и резервных копий |
 | `TELEGRAM_BOT_TOKEN` | Авторизация Telegram Bot API и проверка Mini App `initData` |
-| `TELEGRAM_OWNER_ID` | Необязательный legacy Telegram ID, которому доступны deployment-wide ключи и квоты Gemini |
+| `TELEGRAM_OWNER_ID` | Необязательный Telegram ID, которому доступны метрики квот Gemini |
 | `TELEGRAM_WEBHOOK_SECRET` | Проверка входящих Telegram updates |
 | `CRON_SECRET` | Защита `/api/cron` |
-| `GEMINI_API_KEY` | Подключение Gemini; опционально для ручного ввода |
-| `GEMINI_MODEL` | Модель Gemini, по умолчанию `gemini-3.5-flash-lite` |
+| `GEMINI_MODEL` | Модель Gemini для метрик квот, по умолчанию `gemini-3.5-flash-lite` |
 | `GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON` | Необязательный JSON сервисного аккаунта только для чтения квот Gemini; хранить как секрет сервера |
 | `GOOGLE_CLOUD_PROJECT_ID` | Необязательный проект Google Cloud для метрик; по умолчанию берётся из JSON сервисного аккаунта |
-| `GROQ_API_KEY`, `GROQ_MODEL` | Необязательный резервный провайдер, модель по умолчанию `qwen/qwen3.8-27b` |
-| `AI_PROVIDER_ENCRYPTION_KEY` | Обязателен для сохранения BYOK-профилей: base64 от 32 случайных байт; не терять и не менять без процедуры перешифрования |
+| `AI_PROVIDER_ENCRYPTION_KEY` | Обязателен для сохранения BYOK-профилей (ключи ИИ задаются только пользователями в Mini App; `GEMINI_API_KEY` и `GROQ_API_KEY` из окружения в production больше не используются): base64 от 32 случайных байт; не терять и не менять без процедуры перешифрования |
 | `APP_URL` | HTTPS URL для `npm run telegram:register` |
 
 Команды проекта объявлены в `package.json`:
