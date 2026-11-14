@@ -170,6 +170,7 @@ function editorIdentity(editor: EditorState): string {
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
     case "delete-finance-plan": return `delete-finance-plan:${editor.id}`;
+    case "finish-session": return `finish-session:${editor.sessionId}`;
     case "target":
     case "weight":
     case "whats-new":
@@ -194,6 +195,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const formMemoryRef = useRef<FormValues | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A short confirmation after an action («Тренировка завершена»); it fades out by itself.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
   const [telegramSafeAreaTop, setTelegramSafeAreaTop] = useState(0);
   const [telegramContentSafeAreaTop, setTelegramContentSafeAreaTop] = useState(0);
@@ -435,6 +443,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       const payload = await responseBody(response);
       if (!response.ok || isErrorPayload(payload)) throw new Error(responseError(payload, response.status));
       triggerTelegramHaptic("success");
+      if (parsed.data.type === "session.finish") setNotice("Тренировка завершена. Она в журнале на вкладке «Зал».");
 
       try {
         setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
@@ -646,11 +655,12 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}
         </AnimatePresence>
         <AnimatePresence initial={false}>
-          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => setEditor(null)} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
+          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => { if (editor.kind === "whats-new") void sendCommand({ type: "version.seen", version: APP_VERSION }); else setEditor(null); }} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
         </AnimatePresence>
+        {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
         <AnimatePresence>
           {snapshot.activeSession && (
-            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => void sendCommand({ type: "session.finish", id: snapshot.activeSession!.id })} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
+            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => { const active = snapshot.activeSession!; const day = snapshot.gym.program.find((item) => item.id === active.dayId); const sets = (day?.exercises ?? []).flatMap((exercise) => exercise.sets); openEditor({ kind: "finish-session", sessionId: active.id, done: sets.filter((set) => set.completed).length, total: sets.length }); }} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
               {pending ? "Сохраняю…" : "Завершить тренировку"}
             </motion.button>
           )}

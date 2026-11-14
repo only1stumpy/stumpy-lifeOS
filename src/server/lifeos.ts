@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte } from "drizzle-orm";
 import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
@@ -456,8 +456,11 @@ async function baseCurrencyOf(tx: Transaction, ownerId: string): Promise<string>
 async function rateAt(tx: Transaction, ownerId: string, currency: string, at: Date) {
   if (currency === await baseCurrencyOf(tx, ownerId)) return null;
   const [rate] = await tx.select().from(s.exchangeRates).where(and(eq(s.exchangeRates.ownerId, ownerId), eq(s.exchangeRates.currency, currency), lte(s.exchangeRates.effectiveAt, at))).orderBy(desc(s.exchangeRates.effectiveAt)).limit(1);
-  if (!rate) throw new AppError(400, `Для операции в ${currency} нужен ручной курс. Сначала задайте курс.`);
-  return rate.rateToBase;
+  if (rate) return rate.rateToBase;
+  // Nothing was in force yet at that time: take the earliest rate that was set afterwards.
+  const [later] = await tx.select().from(s.exchangeRates).where(and(eq(s.exchangeRates.ownerId, ownerId), eq(s.exchangeRates.currency, currency))).orderBy(asc(s.exchangeRates.effectiveAt)).limit(1);
+  if (!later) throw new AppError(400, `Для операции в ${currency} нужен ручной курс. Сначала задайте курс.`);
+  return later.rateToBase;
 }
 /** First account decides the base currency; later accounts leave it unchanged. */
 async function ensureBaseCurrency(tx: Transaction, ownerId: string, currency: string) {
@@ -609,7 +612,10 @@ export async function executeCommand(command: AppCommand) {
       }
       case "rate.save": {
         if (command.currency === await baseCurrencyOf(tx, owner.id)) throw new AppError(400, "Курс основной валюты к самой себе не задаётся.");
-        await tx.insert(s.exchangeRates).values({ ownerId: owner.id, currency: command.currency, rateToBase: command.rateToBase, effectiveAt: command.effectiveAt ? new Date(command.effectiveAt) : new Date() });
+        // The same moment again (a corrected typo) replaces the earlier value instead of failing.
+        await tx.insert(s.exchangeRates)
+          .values({ ownerId: owner.id, currency: command.currency, rateToBase: command.rateToBase, effectiveAt: command.effectiveAt ? new Date(command.effectiveAt) : new Date() })
+          .onConflictDoUpdate({ target: [s.exchangeRates.ownerId, s.exchangeRates.currency, s.exchangeRates.effectiveAt], set: { rateToBase: command.rateToBase } });
         break;
       }
       case "money.save": {
