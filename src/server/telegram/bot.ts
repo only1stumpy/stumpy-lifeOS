@@ -11,7 +11,7 @@ import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
-import { buildWelcomeMessage } from "@/domain/welcome";
+import { buildWelcomeMessages } from "@/domain/welcome";
 import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -44,12 +44,13 @@ function getBot(): Bot<Context> {
     }
     const owner = await ensureOwner();
     const modules = normalizeModules(owner.enabledModules);
-    const text = buildWelcomeMessage({ modules, features: resolveFeatures(modules, owner.disabledFeatures), firstRun: !owner.modulesConfigured });
-    const keyboard = new InlineKeyboard()
+    const messages = buildWelcomeMessages({ modules, features: resolveFeatures(modules, owner.disabledFeatures), firstRun: !owner.modulesConfigured });
+    const keyboard = () => new InlineKeyboard()
       .webApp("Открыть LifeOS", appUrl)
       .row()
       .text("Сводка сегодня", "today");
-    await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
+    // The app button sits under every part, so it stays within reach after the long guide.
+    for (const text of messages) await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard() });
   };
 
   bot.command("start", async (ctx) => {
