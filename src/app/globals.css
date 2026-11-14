@@ -18,6 +18,8 @@
   /* Safe areas: set from JS inside Telegram (system inset + Telegram controls), env() elsewhere. */
   --lifeos-inset-top: env(safe-area-inset-top, 0px);
   --lifeos-inset-bottom: env(safe-area-inset-bottom, 0px);
+  /* Height of the on-screen keyboard when it overlays the page (0 otherwise); set by KeyboardAvoidance. */
+  --lifeos-keyboard: 0px;
   --motion-duration-micro: 140ms;
   --motion-duration-state: 180ms;
   --motion-duration-transition: 240ms;

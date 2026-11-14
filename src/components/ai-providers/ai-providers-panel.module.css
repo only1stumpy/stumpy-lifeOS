@@ -1751,6 +1751,14 @@
   transition: border-color 150ms ease, background-color 150ms ease;
 }
 
+.wizardChoice .providerMark {
+  flex: 0 0 52px;
+}
+
+.wizardChoiceCopy {
+  flex: 1 1 auto;
+}
+
 .wizardChoice input {
   position: absolute;
   opacity: 0;

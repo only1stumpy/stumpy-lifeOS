@@ -65,6 +65,8 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   const [skipAccount, setSkipAccount] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
+  // After a tap on "Далее" with unfilled fields, the missing ones are marked.
+  const [attemptedAt, setAttemptedAt] = useState(-1);
   const rootRef = useRef<HTMLElement>(null);
 
   const steps = useMemo<Step[]>(() => {
@@ -86,12 +88,22 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
     rootRef.current?.scrollIntoView({ block: "start" });
   }, [stepIndex]);
 
+  const attempted = attemptedAt === stepIndex;
   const parsedProfile = parseProfile(profile);
   const norm = parsedProfile ? suggestTargets(parsedProfile) : null;
   const invalid = {
     age: profile.age !== "" && !(Number.isInteger(num(profile.age)) && num(profile.age) >= 16 && num(profile.age) <= 90),
     heightCm: profile.heightCm !== "" && !(num(profile.heightCm) >= 100 && num(profile.heightCm) <= 250),
     weightKg: profile.weightKg !== "" && !(num(profile.weightKg) >= 30 && num(profile.weightKg) <= 350),
+  };
+
+  const missing = {
+    sex: attempted && profile.sex === "",
+    age: invalid.age || (attempted && profile.age === ""),
+    heightCm: invalid.heightCm || (attempted && profile.heightCm === ""),
+    weightKg: invalid.weightKg || (attempted && profile.weightKg === ""),
+    activityLevel: attempted && profile.activityLevel === "",
+    goalType: attempted && profile.goalType === "",
   };
 
   function changeProfile(patch: Partial<ProfileForm>) {
@@ -146,7 +158,12 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   }
 
   function next() {
-    if (stepBlocked) return;
+    if (stepBlocked) {
+      // The button stays pressable: instead of silently doing nothing, show what is missing and scroll to it.
+      setAttemptedAt(stepIndex);
+      window.requestAnimationFrame(() => rootRef.current?.querySelector('[aria-invalid="true"]')?.scrollIntoView({ block: "center", behavior: "smooth" }));
+      return;
+    }
     if (step === "currency") setSkipAccount(false);
     if (isLastDataStep && !(step === "currency" && skipAccount)) void finish({});
     else { setLocalError(null); setStepIndex((i) => i + 1); }
@@ -218,32 +235,38 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
             <h1 id="ob-title">Расскажите о себе</h1>
             <div className={styles.fieldsTwo}>
               <label className={styles.field}>Пол
-                <select value={profile.sex} onChange={(e) => changeProfile({ sex: e.target.value })}>
+                <select value={profile.sex} onChange={(e) => changeProfile({ sex: e.target.value })} aria-invalid={missing.sex}>
                   <option value="" disabled>Выберите</option>
                   <option value="male">Мужской</option>
                   <option value="female">Женский</option>
                 </select>
+                {missing.sex && <small className={styles.fieldError}>Выберите пол</small>}
               </label>
               <label className={styles.field}>Возраст
-                <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={invalid.age} />
+                <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={missing.age} />
+                {missing.age && <small className={styles.fieldError}>{profile.age === "" ? "Укажите возраст" : "От 16 до 90"}</small>}
               </label>
               <label className={styles.field}>Рост, см
-                <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={invalid.heightCm} />
+                <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={missing.heightCm} />
+                {missing.heightCm && <small className={styles.fieldError}>{profile.heightCm === "" ? "Укажите рост" : "От 100 до 250"}</small>}
               </label>
               <label className={styles.field}>Вес, кг
-                <input inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} aria-invalid={invalid.weightKg} />
+                <input inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} aria-invalid={missing.weightKg} />
+                {missing.weightKg && <small className={styles.fieldError}>{profile.weightKg === "" ? "Укажите вес" : "От 30 до 350"}</small>}
               </label>
               <label className={`${styles.field} ${styles.wide}`}>Активность
-                <select value={profile.activityLevel} onChange={(e) => changeProfile({ activityLevel: e.target.value })}>
+                <select value={profile.activityLevel} onChange={(e) => changeProfile({ activityLevel: e.target.value })} aria-invalid={missing.activityLevel}>
                   <option value="" disabled>Выберите</option>
                   {Object.entries(ACTIVITY_LEVELS).map(([key, level]) => <option key={key} value={key}>{level.label}</option>)}
                 </select>
+                {missing.activityLevel && <small className={styles.fieldError}>Выберите активность</small>}
               </label>
               <label className={`${styles.field} ${styles.wide}`}>Цель
-                <select value={profile.goalType} onChange={(e) => changeProfile({ goalType: e.target.value })}>
+                <select value={profile.goalType} onChange={(e) => changeProfile({ goalType: e.target.value })} aria-invalid={missing.goalType}>
                   <option value="" disabled>Выберите</option>
                   {Object.entries(GOALS).map(([key, goal]) => <option key={key} value={key}>{goal.label}</option>)}
                 </select>
+                {missing.goalType && <small className={styles.fieldError}>Выберите цель</small>}
               </label>
             </div>
             <p className={styles.norm} aria-live="polite">
@@ -265,19 +288,22 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
           <section className={styles.step} aria-labelledby="ob-title">
             <h1 id="ob-title">Сколько сейчас на счёте?</h1>
             <label className={styles.field}>Сумма, {currencyUnit(currency)}
-              <input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={attempted && stepBlocked} />
+              {attempted && stepBlocked && <small className={styles.fieldError}>Введите сумму числом, например 1500,50</small>}
             </label>
             <p className={styles.note}>Счёт назовём «Основной», переименовать можно в Финансах.</p>
           </section>
         )}
 
-        {step === "ai" && <section className={styles.aiStep} aria-label="Подключение ИИ">{renderAiStep()}</section>}
+        {/* Mounted from the start (hidden) so the providers are already loaded when the step opens. */}
+        <section className={styles.aiStep} aria-label="Подключение ИИ" hidden={step !== "ai"}>{renderAiStep()}</section>
 
         {step !== "ai" && (
           <div className={styles.actions}>
             {step === "modules" && modules.length < 1 && <p className={styles.hint}>Оставьте включённым хотя бы один раздел.</p>}
+            {step === "currency" && attempted && currency === "" && <p className={styles.hint} role="alert">Выберите валюту из списка или введите свой код.</p>}
             {shownError && <p className={styles.error} role="alert">{shownError}</p>}
-            <button type="button" className={styles.primary} onClick={next} disabled={pending || stepBlocked}>Далее</button>
+            <button type="button" className={styles.primary} onClick={next} disabled={pending} aria-busy={pending}>{pending ? <><span className={styles.spinner} aria-hidden="true" />Сохраняю…</> : "Далее"}</button>
             <div className={styles.secondaryRow}>
               {stepIndex > 0 && <button type="button" className={styles.secondary} onClick={back} disabled={pending}>Назад</button>}
               {canSkip && <button type="button" className={styles.secondary} onClick={skip} disabled={pending}>Пропустить</button>}
