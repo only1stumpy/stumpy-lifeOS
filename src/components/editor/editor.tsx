@@ -168,6 +168,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [exerciseMode, setExerciseMode] = useState<"catalog" | "custom">("catalog");
   const [selectedCatalogId, setSelectedCatalogId] = useState(exerciseCatalog[0]?.id ?? "");
   const [selectedReplacementId, setSelectedReplacementId] = useState<string | null>(null);
+  const [debtDirection, setDebtDirection] = useState<"i_owe" | "owed_to_me">("i_owe");
   const [foodPrefill, setFoodPrefill] = useState<AppSnapshot["templates"][number] | null>(null);
   const [weightDate, setWeightDate] = useState(snapshot.localDate);
   const [weightValue, setWeightValue] = useState("");
@@ -354,7 +355,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               <label>Сумма<input name="amount" type="text" inputMode="decimal" required defaultValue={entry ? moneyDecimal.format(entry.amountMinor / 100) : ""} placeholder="80,00" /></label>
               <label>Тип<select name="kind" defaultValue={entry?.kind ?? "expense"}><option value="expense">Расход</option><option value="income">Доход</option></select></label>
             </div>
-            <label>Счёт<select name="accountId" defaultValue={initialAccountId} onChange={(event) => setPickedFinanceAccount({ form: formId, id: event.target.value })}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}</select></label>
+            <label>Счёт<select name="accountId" defaultValue={initialAccountId} onChange={(event) => setPickedFinanceAccount({ form: formId, id: event.target.value })}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</select></label>
             {missingRate && pickedAccount && (
               <div>
                 <p role="alert">Сначала задайте курс {pickedAccount.currency} к {baseCurrency}.</p>
@@ -442,15 +443,19 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         note: recordValue(form, "note") || null,
       }))}>
         <label>Имя человека<input name="personName" maxLength={300} required placeholder="Например, Андрей" /></label>
+        <div role="group" aria-label="Кто кому должен" className="actions">
+          <button type="button" aria-pressed={debtDirection === "i_owe"} className={debtDirection === "i_owe" ? "submit" : undefined} onClick={() => setDebtDirection("i_owe")}>Я должен</button>
+          <button type="button" aria-pressed={debtDirection === "owed_to_me"} className={debtDirection === "owed_to_me" ? "submit" : undefined} onClick={() => setDebtDirection("owed_to_me")}>Мне должны</button>
+        </div>
+        <input type="hidden" name="direction" value={debtDirection} />
         <div className="fields-row">
-          <label>Направление<select name="direction" defaultValue="i_owe"><option value="i_owe">Я должен ему/ей</option><option value="owed_to_me">Он/она должен(на) мне</option></select></label>
           <label>{baseAmountLabel("Сумма")}<input name="amount" type="text" inputMode="decimal" required placeholder="500" /></label>
         </div>
-        <label>Как учитывать сумму<select value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
-          <option value="transfer">Новые переданные деньги</option>
-          <option value="opening_balance">Уже существующий остаток</option>
+        <label>Откуда этот долг<select value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
+          <option value="transfer">Деньги передаю или получаю сейчас</option>
+          <option value="opening_balance">Долг уже был до LifeOS</option>
         </select></label>
-        <p>{debtOpenedAs === "transfer" ? "Создаст финансовую операцию по выбранному счёту." : "Добавит только остаток долга — без операции задним числом."}</p>
+        <p>{debtOpenedAs === "transfer" ? "Создаст операцию по выбранному счёту: баланс изменится." : "Запишет только остаток долга: баланс счетов не изменится."}</p>
         {debtOpenedAs === "transfer" && (baseAccounts.length ? (
           <>
             <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
@@ -647,7 +652,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       <>
         <section>
           <h3>Счета</h3>
-          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {item.currency} · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создайте основной счёт, чтобы начать вести операции.</p>}
+          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создайте основной счёт, чтобы начать вести операции.</p>}
         </section>
         <hr />
         <h3>{account ? "Изменить счёт" : "Добавить счёт"}</h3>
@@ -742,7 +747,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               <label>Сумма<input name="amount" type="text" inputMode="decimal" required defaultValue={item ? moneyDecimal.format(item.amountMinor / 100) : ""} placeholder="10,00" /></label>
               <label>Период<select name="frequency" defaultValue={item?.frequency ?? "monthly"}><option value="weekly">Еженедельно</option><option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option></select></label>
             </div>
-            <label>Счёт<select name="accountId" defaultValue={item?.accountId ?? snapshot.settings.defaultAccountId ?? snapshot.finance.accounts[0]?.id}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}</select></label>
+            <label>Счёт<select name="accountId" defaultValue={item?.accountId ?? snapshot.settings.defaultAccountId ?? snapshot.finance.accounts[0]?.id}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</select></label>
             <label>Категория<input name="category" maxLength={300} required defaultValue={item?.category ?? "Подписки"} /></label>
             <label>Следующее списание<input name="nextDueAt" type="date" required defaultValue={item?.nextDueAt.slice(0, 10) ?? ""} /></label>
             <div className="actions"><button className="submit" type="submit" disabled={pending}>{item ? "Сохранить изменения" : "Сохранить напоминание"}</button></div>
@@ -989,7 +994,17 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       exit="exit"
       onCancel={(event) => { event.preventDefault(); if (!pending) onClose(); }}
       onClick={(event) => { if (event.target === dialogRef.current && !pending) onClose(); }}
-      onInput={() => setSaved(false)}
+      onInput={(event) => { setSaved(false); const target = event.target; if (target instanceof HTMLElement && target.getAttribute("aria-invalid")) { target.removeAttribute("aria-invalid"); setFormError(null); } }}
+      onInvalidCapture={(event) => {
+        event.preventDefault();
+        const field = event.target;
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
+        const label = (field.closest("label")?.firstChild?.textContent ?? field.getAttribute("aria-label") ?? "Поле").trim();
+        const { validity } = field;
+        setFormError(validity.valueMissing ? `Заполните поле «${label}».` : validity.rangeOverflow || validity.rangeUnderflow ? `Значение в поле «${label}» вне допустимого диапазона.` : validity.stepMismatch || validity.badInput ? `В поле «${label}» нужно число в верном формате.` : `Проверьте поле «${label}».`);
+        field.setAttribute("aria-invalid", "true");
+        field.focus();
+      }}
     >
       <header className="editor-header">
         {canGoBack && (

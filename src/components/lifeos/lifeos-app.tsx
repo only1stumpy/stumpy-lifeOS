@@ -348,6 +348,7 @@ function ExerciseMetrics({ set }: { set: ExerciseSet }) {
 
 function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, aiSettingsActive, aiSettingsContent, onHaptic, onRegisterTelegramBackHandler, initialSection = "today", onDateChange, fullscreen = false, safeAreaTop = 0, contentSafeAreaTop = 0 }: LifeOSAppProps) {
   const motionVariants = useMotionVariants();
+  const prefersReducedMotion = useReducedMotion() !== false;
   const [selectedSection, setSection] = useState<ModuleKey>(initialSection);
   const modules = snapshot?.settings.enabledModules ?? ["nutrition", "finance", "gym"];
   const features = snapshot?.settings.enabledFeatures ?? ALL_FEATURES;
@@ -924,7 +925,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
         </main>
         <motion.nav ref={dockRef} className={styles.dock} style={{ "--dock-items": navItems.length } as CSSProperties} data-lg-role="dock" aria-label="Разделы LifeOS" initial={{ opacity: 0, transform: "translateY(12px)" }} animate={{ opacity: 1, transform: "translateY(0px)" }} transition={{ duration: motionDuration.enter, ease: motionEase.out, delay: 0.18 }}>
           <GlassRefraction surfaceRef={dockRef} filterId={dockFilterId} profile="thin" shape="pill" />
-          {navItems.map((item) => item.key === activeTab ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={{ type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
+          {navItems.map((item) => item.key === activeTab ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
           {navItems.map((item) => (
             <button key={item.key} type="button" className={styles.dockButton} aria-label={item.label} title={item.label} aria-current={item.key === activeTab ? "page" : undefined} onClick={() => activateTab(item.key)}>
               <Icon name={item.icon} />
