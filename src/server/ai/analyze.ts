@@ -78,8 +78,6 @@ type ProviderConfig = {
 export type ProviderSelection = {
   profiles: readonly AiProviderConfig[];
   ownerId?: string;
-  /** Deployment-wide legacy keys must only be exposed to the configured account. */
-  allowLegacyProviders?: boolean;
 };
 
 type ProviderFailureKind =
@@ -545,6 +543,10 @@ function getProviderConfigs(): ProviderConfig[] {
   return configs;
 }
 
+/**
+ * A user's own provider accounts. Deployment-wide keys from the environment are used only when
+ * no selection is passed at all, which happens in tests; production callers always pass one.
+ */
 function getProviderConfigsForSelection(selection?: ProviderSelection): ProviderConfig[] {
   if (!selection) return getProviderConfigs();
   const profiles: ProviderConfig[] = selection.profiles.map((profile) => ({
@@ -556,9 +558,7 @@ function getProviderConfigsForSelection(selection?: ProviderSelection): Provider
     supportsImages: profile.supportsImages,
     authHeaderName: profile.authHeaderName,
   }));
-  return selection.allowLegacyProviders
-    ? [...profiles, ...getProviderConfigs()]
-    : profiles;
+  return profiles;
 }
 
 async function callOpenAICompatible(

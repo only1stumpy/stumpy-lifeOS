@@ -166,14 +166,14 @@ test("истёкший wall-clock deadline вызывает безопасную
   assert.equal(error.kind, "unavailable");
 });
 
-test("пользовательская конфигурация не подхватывает deployment-wide ключи другого пользователя", async () => {
+test("пользовательская конфигурация никогда не подхватывает ключи из окружения", async () => {
   const previousGeminiKey = process.env.GEMINI_API_KEY;
   const previousGroqKey = process.env.GROQ_API_KEY;
   process.env.GEMINI_API_KEY = "legacy-gemini-key";
   process.env.GROQ_API_KEY = "legacy-groq-key";
 
   try {
-    const selection = { profiles: [], allowLegacyProviders: false };
+    const selection = { profiles: [] };
     await assert.rejects(
       analyzeMessage({ text: "съел суп", timeZone: "Europe/Chisinau", now: "2026-10-29T12:00:00.000Z" }, selection),
       (error: unknown) => error instanceof AIAnalysisError && error.code === "not_configured",
