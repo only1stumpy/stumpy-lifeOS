@@ -1,6 +1,6 @@
 import { and, desc, eq, lt, lte, or, sql } from "drizzle-orm";
 import { Bot, InlineKeyboard, type Context } from "grammy";
-import type { InlineKeyboardMarkup, Update } from "grammy/types";
+import type { InlineKeyboardButton, InlineKeyboardMarkup, Update } from "grammy/types";
 import type { MacroValues } from "@/domain/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
@@ -11,7 +11,7 @@ import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
-import { buildWelcomeMessages } from "@/domain/welcome";
+import { buildHelpSection, buildStartMessage, HELP_MENU_TEXT, helpSections, isHelpSectionId } from "@/domain/welcome";
 import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
@@ -36,31 +36,68 @@ function getBot(): Bot<Context> {
   if (!token) throw new AppError(503, "Telegram ещё не настроен.");
 
   const bot = new Bot(token);
-  const sendWelcome = async (ctx: Context) => {
+  /** Enabled modules and features of the current owner, used to tailor start and help texts. */
+  const welcomeInput = async () => {
+    const owner = await ensureOwner();
+    const modules = normalizeModules(owner.enabledModules);
+    return { owner, input: { modules, features: resolveFeatures(modules, owner.disabledFeatures) } };
+  };
+  const appRow = () => {
+    const appUrl = getAppUrl();
+    return appUrl ? [InlineKeyboard.webApp("Открыть LifeOS", appUrl)] : [];
+  };
+  const helpMenuKeyboard = (input: Parameters<typeof helpSections>[0]) => {
+    const buttons = helpSections(input).map((section) => InlineKeyboard.text(section.label, `help:${section.id}`));
+    const rows: InlineKeyboardButton[][] = [];
+    for (let index = 0; index < buttons.length; index += 2) rows.push(buttons.slice(index, index + 2));
+    const app = appRow();
+    if (app.length) rows.push(app);
+    return new InlineKeyboard(rows);
+  };
+
+  bot.command("start", async (ctx) => {
+    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
     const appUrl = getAppUrl();
     if (!appUrl) {
       await ctx.reply("Веб-приложение пока не настроено.");
       return;
     }
-    const owner = await ensureOwner();
-    const modules = normalizeModules(owner.enabledModules);
-    const messages = buildWelcomeMessages({ modules, features: resolveFeatures(modules, owner.disabledFeatures), firstRun: !owner.modulesConfigured });
-    const keyboard = () => new InlineKeyboard()
-      .webApp("Открыть LifeOS", appUrl)
-      .row()
-      .text("Сводка сегодня", "today");
-    // The app button sits under every part, so it stays within reach after the long guide.
-    for (const text of messages) await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard() });
-  };
-
-  bot.command("start", async (ctx) => {
-    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
-    await sendWelcome(ctx);
+    const { owner, input } = await welcomeInput();
+    await ctx.reply(buildStartMessage({ ...input, firstRun: !owner.modulesConfigured }), {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard([appRow(), [InlineKeyboard.text("Сводка сегодня", "today")]]),
+    });
   });
 
   bot.command("help", async (ctx) => {
     if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
-    await sendWelcome(ctx);
+    const { input } = await welcomeInput();
+    await ctx.reply(HELP_MENU_TEXT, { parse_mode: "HTML", reply_markup: helpMenuKeyboard(input) });
+  });
+
+  // Help menu: each button swaps the message for one section, with a way back to the menu.
+  bot.callbackQuery(/^help:([a-z]+)$/, async (ctx) => {
+    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") {
+      await ctx.answerCallbackQuery({ text: "Нет доступа." });
+      return;
+    }
+    const target = ctx.match[1];
+    const { input } = await welcomeInput();
+    if (target === "menu") {
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageText(HELP_MENU_TEXT, { parse_mode: "HTML", reply_markup: helpMenuKeyboard(input) }).catch(() => undefined);
+      return;
+    }
+    const text = isHelpSectionId(target) ? buildHelpSection(target, input) : null;
+    if (!text) {
+      await ctx.answerCallbackQuery({ text: "Этого раздела уже нет. Откройте /help заново." });
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    const rows: InlineKeyboardButton[][] = [[InlineKeyboard.text("‹ К справке", "help:menu")]];
+    const app = appRow();
+    if (app.length) rows.push(app);
+    await ctx.editMessageText(text, { parse_mode: "HTML", reply_markup: new InlineKeyboard(rows) }).catch(() => undefined);
   });
 
   bot.command("today", async (ctx) => {
