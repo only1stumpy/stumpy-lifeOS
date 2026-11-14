@@ -64,6 +64,13 @@
       "when": 1794586839842,
       "tag": "0008_profile_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794640934804,
+      "tag": "0009_notification_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -267,6 +267,23 @@ function FinanceEntry({ entry, timeZone, onEdit, onDelete }: { entry: MoneyEntry
   );
 }
 
+// Average of all entries in the 7 local days ending on each point's date (date-6..date).
+function weightTrend(history: { date: string; weightKg: number }[]): number[] {
+  const dayNumber = (date: string) => Math.floor(Date.parse(`${date}T12:00:00Z`) / 86_400_000);
+  const days = history.map((point) => dayNumber(point.date));
+  return history.map((_, index) => {
+    let sum = 0;
+    let count = 0;
+    for (let other = 0; other < history.length; other += 1) {
+      if (days[other] <= days[index] && days[other] >= days[index] - 6) {
+        sum += history[other].weightKg;
+        count += 1;
+      }
+    }
+    return sum / count;
+  });
+}
+
 function WeightChart({ history }: { history: LifeOSSnapshot["nutrition"]["weightHistory"] }) {
   if (history.length === 0) return <p className={styles.emptyInline}>Истории веса пока нет.</p>;
   if (history.length === 1) return <p className={styles.singleWeightPoint}>{decimalFormat.format(history[0].weightKg)} <small>кг · {dateHeading(history[0].date)}</small></p>;
@@ -274,22 +291,25 @@ function WeightChart({ history }: { history: LifeOSSnapshot["nutrition"]["weight
   const height = 90;
   const pad = 12;
   const values = history.map((point) => point.weightKg);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const trend = history.length >= 3 ? weightTrend(history) : null;
+  const scaled = trend ? [...values, ...trend] : values;
+  const min = Math.min(...scaled);
+  const max = Math.max(...scaled);
   const range = max - min || 1;
-  const points = history.map((point, index) => {
-    const x = pad + (index / (history.length - 1)) * (width - pad * 2);
-    const y = height - pad - ((point.weightKg - min) / range) * (height - pad * 2);
-    return { ...point, x, y };
-  });
+  const xAt = (index: number) => pad + (index / (history.length - 1)) * (width - pad * 2);
+  const yAt = (value: number) => height - pad - ((value - min) / range) * (height - pad * 2);
+  const points = history.map((point, index) => ({ ...point, x: xAt(index), y: yAt(point.weightKg) }));
   const line = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const trendLine = trend ? trend.map((value, index) => `${xAt(index)},${yAt(value)}`).join(" ") : null;
   return (
     <div className={styles.weightChart}>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`График массы тела: от ${decimalFormat.format(values[0])} до ${decimalFormat.format(values[values.length - 1])} килограммов`}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`График массы тела: от ${decimalFormat.format(values[0])} до ${decimalFormat.format(values[values.length - 1])} килограммов${trend ? "; линия тренда показывает среднее за 7 дней" : ""}`}>
         <polyline points={line} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {trendLine ? <polyline className={styles.weightTrendLine} points={trendLine} fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
         {points.map((point) => <circle key={`${point.date}-${point.weightKg}`} cx={point.x} cy={point.y} r="3.5" />)}
       </svg>
       <div className={styles.chartCaption}><span>{history[0].date}</span><strong>{decimalFormat.format(history[history.length - 1].weightKg)} кг</strong><span>{history[history.length - 1].date}</span></div>
+      {trend ? <p className={styles.weightTrendLegend}>Линия — среднее за 7 дней</p> : null}
     </div>
   );
 }
@@ -823,7 +843,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <AnimatePresence mode="wait">
             <motion.div key={aiSettingsActive ? "ai-settings" : `${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
               {aiSettingsActive
-                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
+                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<button type="button" className={styles.settingsLink} onClick={() => onAction({ type: "notifications.open" })}>Уведомления и сводки</button><p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>

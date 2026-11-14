@@ -129,6 +129,18 @@
   min-width: 0;
 }
 
+.settingsLink {
+  display: block;
+  margin: 28px auto 0;
+  padding: 12px 20px;
+  border: 1px solid #a5899538;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--wine);
+  font: inherit;
+  cursor: pointer;
+}
+
 .appVersion {
   margin: 28px 0 0;
   color: var(--muted);
@@ -988,6 +1000,18 @@
   fill: #fffdfa;
   stroke: currentColor;
   stroke-width: 2;
+}
+
+.weightTrendLine {
+  stroke: var(--wine);
+  opacity: 0.85;
+}
+
+.weightTrendLegend {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .chartCaption {

@@ -14,6 +14,7 @@ import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
 import { LifeOSBootSkeleton } from "@/components/loading/loading-skeletons";
 import { MotionProvider, motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
+import { APP_VERSION, RELEASE_NOTES } from "@/domain/release";
 
 type LifeOSRootProps = { configured: boolean };
 type RootStatus = "checking" | "outside" | "setup" | "loading" | "ready" | "error";
@@ -154,8 +155,10 @@ function editorIdentity(editor: EditorState): string {
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
     case "delete-finance-plan": return `delete-finance-plan:${editor.id}`;
+    case "notifications": return `notifications:${editor.firstRun ? "first-run" : "settings"}`;
     case "target":
     case "weight":
+    case "whats-new":
     case "program": return editor.kind;
   }
 }
@@ -171,6 +174,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [showAiProviders, setShowAiProviders] = useState(false);
   const [guidedAiOnboarding, setGuidedAiOnboarding] = useState(false);
   const [aiOnboardingQueued, setAiOnboardingQueued] = useState(false);
+  const [onboardingQueue, setOnboardingQueue] = useState<EditorState[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
@@ -271,12 +275,26 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         setSnapshot(nextSnapshot);
         setSelectedDate(nextSnapshot.localDate);
         setError(null);
-        if (!nextSnapshot.settings.profileOnboardingCompleted) {
-          setEditor({ kind: "target", firstRun: true });
+        const firstRunSteps: EditorState[] = [];
+        if (!nextSnapshot.settings.notificationsConfigured) firstRunSteps.push({ kind: "notifications", firstRun: true });
+        if (!nextSnapshot.settings.profileOnboardingCompleted) firstRunSteps.push({ kind: "target", firstRun: true });
+        if (firstRunSteps.length) {
+          setEditor(firstRunSteps[0]);
+          setOnboardingQueue(firstRunSteps.slice(1));
           setAiOnboardingQueued(!nextSnapshot.settings.aiOnboardingCompleted);
         } else if (!nextSnapshot.settings.aiOnboardingCompleted) {
           setGuidedAiOnboarding(true);
           setShowAiProviders(true);
+        } else if (nextSnapshot.settings.lastSeenVersion !== APP_VERSION && RELEASE_NOTES.length) {
+          setEditor({ kind: "whats-new" });
+        }
+        // A brand-new user has nothing to compare with: remember the current version silently.
+        if (nextSnapshot.settings.lastSeenVersion === null && !nextSnapshot.settings.notificationsConfigured) {
+          void fetch("/api/commands", {
+            method: "POST",
+            headers: { Authorization: `tma ${rawInitData}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "version.seen", version: APP_VERSION }),
+          }).catch(() => undefined);
         }
         setStatus("ready");
       } catch (cause: unknown) {
@@ -424,8 +442,11 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     setEditor(nextEditor);
   }, []);
 
-  // First run: the profile questionnaire comes first, AI setup opens once it is closed.
-  if (!editor && aiOnboardingQueued) {
+  // First run: usage question, then the profile questionnaire, then AI setup once they are closed.
+  if (!editor && onboardingQueue.length) {
+    setEditor(onboardingQueue[0]);
+    setOnboardingQueue(onboardingQueue.slice(1));
+  } else if (!editor && aiOnboardingQueued) {
     setAiOnboardingQueued(false);
     setGuidedAiOnboarding(true);
     setShowAiProviders(true);
@@ -463,6 +484,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       }
       case "food.set-target": openEditor({ kind: "target" }); return;
       case "weight.add": openEditor({ kind: "weight" }); return;
+      case "notifications.open": openEditor({ kind: "notifications" }); return;
       case "finance.add": openEditor({ kind: "finance" }); return;
       case "finance.edit": {
         const entry = snapshot.finance.entries.find((item) => item.id === action.id);
