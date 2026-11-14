@@ -1,0 +1,1 @@
+ALTER TABLE "owner_settings" ADD COLUMN "disabled_features" text[] DEFAULT ARRAY[]::text[] NOT NULL;

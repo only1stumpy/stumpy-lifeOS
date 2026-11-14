@@ -1,5 +1,5 @@
 import type { AppSnapshot } from "@/domain/app";
-import { normalizeModules } from "@/domain/modules";
+import { ALL_FEATURES, normalizeModules, type LifeFeature } from "@/domain/modules";
 import { dateKey } from "@/domain/math";
 
 const moneyFormat = new Intl.NumberFormat("ru-RU", {
@@ -139,7 +139,7 @@ export function makeReferenceContext(snapshot: AppSnapshot): string {
       progress: snapshot.reports.exerciseProgress.slice(0, 12).map((exercise) => ({ name: exercise.name, latest: exercise.points.slice(-5) })),
     },
   };
-  const serialized = JSON.stringify(withEnabledModules(context, snapshot.settings.enabledModules));
+  const serialized = JSON.stringify(withEnabledModules(context, snapshot.settings.enabledModules, snapshot.settings.enabledFeatures));
   if (serialized.length <= 7_500) return serialized;
 
   // Keep the aggregate facts needed for answers when a long personal history exceeds the prompt budget.
@@ -157,17 +157,25 @@ export function makeReferenceContext(snapshot: AppSnapshot): string {
       nextWorkout: snapshot.gym.nextWorkout ? { name: snapshot.gym.nextWorkout.name.slice(0, 80) } : null,
       lastWorkout: snapshot.gym.lastWorkout,
     },
-  }, snapshot.settings.enabledModules));
+  }, snapshot.settings.enabledModules, snapshot.settings.enabledFeatures));
 }
 
 /** Removes the data of disabled modules so it never reaches the AI. */
-function withEnabledModules<T extends { finance?: unknown; nutrition?: unknown; gym?: unknown }>(context: T, stored: readonly string[] | undefined): T & { enabledModules: readonly string[] } {
+function withEnabledModules<T extends { finance?: unknown; nutrition?: unknown; gym?: unknown }>(context: T, stored: readonly string[] | undefined, features: readonly LifeFeature[] = ALL_FEATURES): T & { enabledModules: readonly string[] } {
   const enabled = normalizeModules(stored);
+  const withoutKeys = (value: unknown, keys: string[]) => {
+    if (!value || typeof value !== "object") return value;
+    const copy: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+    for (const key of keys) delete copy[key];
+    return copy;
+  };
+  const financeHidden = features.includes("finance.subscriptions") ? [] : ["recurring"];
+  const nutritionHidden = features.includes("nutrition.weight") ? [] : ["latestWeightKg", "weightHistory"];
   return {
     ...context,
     enabledModules: enabled,
-    finance: enabled.includes("finance") ? context.finance : undefined,
-    nutrition: enabled.includes("nutrition") ? context.nutrition : undefined,
+    finance: enabled.includes("finance") ? withoutKeys(context.finance, financeHidden) : undefined,
+    nutrition: enabled.includes("nutrition") ? withoutKeys(context.nutrition, nutritionHidden) : undefined,
     gym: enabled.includes("gym") ? context.gym : undefined,
   };
 }

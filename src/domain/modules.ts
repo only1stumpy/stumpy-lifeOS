@@ -39,3 +39,33 @@ export function disabledModulesMessage(blocked: readonly LifeModule[]): string {
   const names = blocked.map((module) => `«${LIFE_MODULES[module].label}»`).join(" и ");
   return `${blocked.length > 1 ? "Разделы" : "Раздел"} ${names} ${blocked.length > 1 ? "выключены" : "выключен"}, поэтому я ничего не записал. Включить можно в LifeOS: шестерёнка → «Разделы».`;
 }
+
+/** Parts of a module that can be switched off on their own; they work only while their module is on. */
+export const LIFE_FEATURES = {
+  "finance.debts": { module: "finance", label: "Долги", description: "Кому вы должны и кто должен вам, частичные возвраты и напоминания о сроке." },
+  "finance.plans": { module: "finance", label: "Планы покупок", description: "Что хотите купить. План не расход, пока вы не отметите покупку." },
+  "finance.subscriptions": { module: "finance", label: "Подписки и платежи", description: "Регулярные списания и напоминания. Расходом становятся после вашего подтверждения." },
+  "nutrition.weight": { module: "nutrition", label: "Вес", description: "Замеры массы тела, график с трендом, напоминание взвеситься и пересчёт нормы по среднему весу." },
+} as const satisfies Record<string, { module: LifeModule; label: string; description: string }>;
+export type LifeFeature = keyof typeof LIFE_FEATURES;
+export const ALL_FEATURES = Object.keys(LIFE_FEATURES) as LifeFeature[];
+
+export const lifeFeatureSchema = z.enum(ALL_FEATURES as [LifeFeature, ...LifeFeature[]]);
+export const disabledFeaturesSchema = z.array(lifeFeatureSchema).max(ALL_FEATURES.length)
+  .refine((features) => new Set(features).size === features.length, "Функции повторяются.");
+
+/** Known disabled features from storage, in canonical order. */
+export function normalizeDisabledFeatures(value: readonly string[] | null | undefined): LifeFeature[] {
+  return ALL_FEATURES.filter((feature) => value?.includes(feature));
+}
+
+/** Features that are actually usable: their module is on and the user did not switch them off. */
+export function resolveFeatures(modules: readonly LifeModule[], disabled: readonly string[] | null | undefined): LifeFeature[] {
+  const off = normalizeDisabledFeatures(disabled);
+  return ALL_FEATURES.filter((feature) => modules.includes(LIFE_FEATURES[feature].module) && !off.includes(feature));
+}
+
+/** Reply for a chat message that needs a switched-off feature. */
+export function disabledFeatureMessage(feature: LifeFeature): string {
+  return `Функция «${LIFE_FEATURES[feature].label}» выключена, поэтому я ничего не записал. Включить можно в LifeOS: шестерёнка → «Разделы».`;
+}

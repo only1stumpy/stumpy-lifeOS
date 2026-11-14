@@ -11,7 +11,7 @@ import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTar
 import type { NutritionProfile } from "@/domain/nutrition";
 import { USAGE_MODES, type UsageMode } from "@/domain/notifications";
 import { APP_VERSION, releasesSince } from "@/domain/release";
-import { ALL_MODULES, LIFE_MODULES } from "@/domain/modules";
+import { ALL_FEATURES, ALL_MODULES, LIFE_FEATURES, LIFE_MODULES, type LifeFeature } from "@/domain/modules";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { useMotionVariants } from "@/components/motion/motion-system";
@@ -487,7 +487,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     const initialTarget = target ?? (savedProfile.success ? suggestTargets(savedProfile.data) : null);
     const profileFields = ["sex", "age", "heightCm", "profileWeightKg", "activityLevel", "goalType"];
     const week = weeklyAverageWeight(snapshot.nutrition.weightHistory, snapshot.localDate);
-    const averageTarget = !firstRun && week.averageKg !== null && week.weighIns >= MIN_WEEKLY_WEIGH_INS
+    const weightOn = snapshot.settings.enabledFeatures.includes("nutrition.weight");
+    const averageTarget = weightOn && !firstRun && week.averageKg !== null && week.weighIns >= MIN_WEEKLY_WEIGH_INS
       ? targetFromAverage(snapshot.settings.profile, week.averageKg, target)
       : null;
 
@@ -617,14 +618,23 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       <form onSubmit={(event) => submitForm(event, (form) => {
         const modules = ALL_MODULES.filter((module) => form.get(module) === "on");
         if (!modules.length) throw new Error("Оставьте хотя бы один раздел.");
-        return { type: "modules.save", modules };
+        const disabledFeatures = ALL_FEATURES.filter((feature) => form.get(feature) !== "on");
+        return { type: "modules.save", modules, disabledFeatures };
       })}>
-        <p>Выключенные разделы пропадают из приложения, не попадают в сводки и не передаются ИИ. Данные сохраняются: включите раздел снова, и всё будет на месте.</p>
+        <p>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включите снова, и всё будет на месте. Функции работают, только пока включён их раздел.</p>
         {ALL_MODULES.map((module) => (
-          <label key={module} className="checkbox-row choice-row">
-            <input type="checkbox" name={module} defaultChecked={enabled.includes(module)} />
-            <span><strong>{LIFE_MODULES[module].label}</strong><br />{LIFE_MODULES[module].description}</span>
-          </label>
+          <div key={module} className="module-group">
+            <label className="checkbox-row choice-row">
+              <input type="checkbox" name={module} defaultChecked={enabled.includes(module)} />
+              <span><strong>{LIFE_MODULES[module].label}</strong><br />{LIFE_MODULES[module].description}</span>
+            </label>
+            {ALL_FEATURES.filter((feature) => LIFE_FEATURES[feature].module === module).map((feature: LifeFeature) => (
+              <label key={feature} className="checkbox-row feature-row">
+                <input type="checkbox" name={feature} defaultChecked={!snapshot.settings.disabledFeatures.includes(feature)} />
+                <span><strong>{LIFE_FEATURES[feature].label}</strong><br />{LIFE_FEATURES[feature].description}</span>
+              </label>
+            ))}
+          </div>
         ))}
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить</button></div>
       </form>

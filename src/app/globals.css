@@ -207,6 +207,24 @@ button:disabled {
   accent-color: #742b45;
 }
 
+.editor .module-group {
+  display: grid;
+  gap: 8px;
+}
+
+.editor label.feature-row {
+  align-items: flex-start;
+  margin-left: 20px;
+  padding: 8px 12px;
+  border-left: 2px solid #a5899538;
+  font-size: 0.94em;
+}
+
+.editor label.feature-row input {
+  margin-top: 2px;
+  accent-color: #742b45;
+}
+
 .editor .fields-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

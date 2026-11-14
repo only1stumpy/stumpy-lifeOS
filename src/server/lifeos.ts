@@ -8,7 +8,7 @@ import { convertToLocalMinor, dateKey, sumMacros } from "@/domain/math";
 import { advanceRecurrenceDate } from "@/domain/recurrence";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { ACTIVITY_LEVELS, GOALS, ageOn, birthDateForAge, type NutritionProfile } from "@/domain/nutrition";
-import { disabledModulesMessage, filterEntriesByModules, normalizeModules } from "@/domain/modules";
+import { disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "@/domain/modules";
 import { USAGE_MODES } from "@/domain/notifications";
 import { APP_VERSION } from "@/domain/release";
 import { AppError } from "./http";
@@ -228,7 +228,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured },
+    settings: { timeZone: owner.timezone, usdToPrb: rates[0]?.usdToPrbRate ?? null, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: asCurrency(v.currency), category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);
@@ -549,7 +549,7 @@ export async function executeCommand(command: AppCommand) {
       }
       case "food.delete": await tx.delete(s.nutritionEntries).where(and(eq(s.nutritionEntries.id, command.id), eq(s.nutritionEntries.ownerId, owner.id))); break;
       case "profile.save": await saveProfile(tx, owner, command.profile, command.target); break;
-      case "modules.save": await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id)); break;
+      case "modules.save": await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, ...(command.disabledFeatures ? { disabledFeatures: command.disabledFeatures } : {}), updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id)); break;
       case "onboarding.complete": {
         const preset = USAGE_MODES[command.usage];
         const nutritionOn = command.modules.includes("nutrition");

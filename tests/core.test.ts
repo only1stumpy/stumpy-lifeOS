@@ -6,7 +6,7 @@ import { commandSchema } from "../src/domain/commands";
 import { convertToLocalMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
 import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverageWeight } from "../src/domain/nutrition";
 import { parseWeightMessage } from "../src/domain/weight-message";
-import { disabledModulesMessage, filterEntriesByModules, normalizeModules } from "../src/domain/modules";
+import { disabledFeatureMessage, disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "../src/domain/modules";
 import { compareVersions, releasesSince } from "../src/domain/release";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
@@ -557,4 +557,21 @@ test("what's new lists every release missed since the last visit", () => {
   assert.deepEqual(releasesSince(null, history, "0.10.0").map((r) => r.version), ["0.10.0"]);
   assert.deepEqual(releasesSince("0.8.0", history, "0.9.0").map((r) => r.version), ["0.9.0"]);
   assert.equal(compareVersions("0.10.0", "0.9.0"), 1);
+});
+
+test("features work only while their module is on and the user did not switch them off", () => {
+  assert.deepEqual(resolveFeatures(["nutrition", "finance", "gym"], []), ["finance.debts", "finance.plans", "finance.subscriptions", "nutrition.weight"]);
+  assert.deepEqual(resolveFeatures(["nutrition", "finance", "gym"], ["finance.debts", "nutrition.weight"]), ["finance.plans", "finance.subscriptions"]);
+  assert.deepEqual(resolveFeatures(["gym"], []), []);
+  assert.deepEqual(resolveFeatures(["finance"], ["finance.plans"]), ["finance.debts", "finance.subscriptions"]);
+  assert.deepEqual(normalizeDisabledFeatures(["nutrition.weight", "bogus", "finance.debts"]), ["finance.debts", "nutrition.weight"]);
+  assert.match(disabledFeatureMessage("finance.debts"), /Функция «Долги» выключена/);
+});
+
+test("modules.save accepts disabled features and rejects unknown or repeated ones", () => {
+  const base = { type: "modules.save", modules: ["finance"] };
+  assert.equal(commandSchema.safeParse(base).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.debts", "nutrition.weight"] }).success, true);
+  assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.debts", "finance.debts"] }).success, false);
+  assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.usd"] }).success, false);
 });
