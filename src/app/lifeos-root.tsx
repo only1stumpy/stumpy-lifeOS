@@ -664,7 +664,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           aiSettingsActive={showAiProviders}
           aiSettingsContent={showAiProviders && initData ? (
             settingsPage === "menu" ? <SettingsMenu onOpen={setSettingsPage} />
-              : settingsPage === "personalization" ? <SettingsSubpage><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} /></SettingsSubpage>
+              : settingsPage === "personalization" ? <SettingsSubpage><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} onBack={() => setSettingsPage("menu")} /></SettingsSubpage>
               : <SettingsSubpage><AiProvidersPanel key="ai-providers" initData={initData} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => setShowAiQuotas(true)} /></SettingsSubpage>
           ) : null}
           onDateChange={(date) => void changeDate(date)}

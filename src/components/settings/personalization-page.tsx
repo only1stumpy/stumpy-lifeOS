@@ -12,11 +12,12 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
  * Settings page: which life areas and features are on, and which summaries and reminders the bot sends.
  * One form, one save button; nothing opens in a popup.
  */
-export function PersonalizationPage({ snapshot, pending, onSave }: {
+export function PersonalizationPage({ snapshot, pending, onSave, onBack }: {
   snapshot: AppSnapshot;
   pending: boolean;
   /** Sends the commands one after another and resolves to false as soon as one is rejected. */
   onSave(commands: AppCommand[]): Promise<boolean>;
+  onBack?(): void;
 }) {
   const { enabledModules, disabledFeatures, notifications } = snapshot.settings;
   const [modules, setModules] = useState<LifeModule[]>(enabledModules);
@@ -24,7 +25,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
   const [dailySummary, setDailySummary] = useState(notifications.dailySummary);
   const [weeklySummary, setWeeklySummary] = useState(notifications.weeklySummary);
   const [weightReminder, setWeightReminder] = useState(notifications.weightReminder);
-  const [summaryTime, setSummaryTime] = useState(notifications.summaryTime ?? "");
+  const [summaryTime, setSummaryTime] = useState(notifications.summaryTime ?? "19:30");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -40,7 +41,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
     || dailySummary !== notifications.dailySummary
     || weeklySummary !== notifications.weeklySummary
     || weightReminder !== notifications.weightReminder
-    || summaryTime !== (notifications.summaryTime ?? "");
+    || summaryTime !== (notifications.summaryTime ?? "19:30");
 
   async function save() {
     if (pending) return;
@@ -55,6 +56,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
 
   return (
     <div className={styles.page}>
+      {onBack && <button type="button" className={styles.back} onClick={onBack}>‹ Назад</button>}
       <h1 className={styles.title}>Персонализация</h1>
       <p className={styles.hint}>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включите снова, и всё будет на месте.</p>
 
@@ -83,20 +85,20 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         <h2 id="notifications-heading">Сводки и напоминания</h2>
         <label className={styles.option}>
           <input type="checkbox" checked={dailySummary} onChange={(event) => { touch(); setDailySummary(event.target.checked); }} />
-          <span><strong>Дневная сводка</strong><small>Съеденное КБЖУ и остаток на день.</small></span>
+          <span><strong>Дневная сводка</strong><small>{summaryText(modules, "day")}</small></span>
         </label>
         <label className={styles.option}>
           <input type="checkbox" checked={weeklySummary} onChange={(event) => { touch(); setWeeklySummary(event.target.checked); }} />
-          <span><strong>Недельная сводка</strong><small>По воскресеньям: питание, расходы, тренировки и пересчёт нормы по среднему весу.</small></span>
+          <span><strong>Недельная сводка</strong><small>По воскресеньям: {summaryText(modules, "week")}</small></span>
         </label>
-        <label className={styles.option}>
+        {modules.includes("nutrition") && <label className={styles.option}>
           <input type="checkbox" checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} />
           <span><strong>Напоминание взвеситься</strong><small>По четвергам, если за 7 дней меньше трёх замеров.</small></span>
-        </label>
+        </label>}
         <label className={styles.timeField}>
           <strong>Время сводок и напоминаний</strong>
           <input type="time" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
-          <small className={styles.hint}>Если не задано, сводки приходят в 19:30 по вашему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
+          <small className={styles.hint}>Сводки приходят в это время по вашему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
         </label>
       </section>
 
@@ -107,4 +109,14 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
       </div>
     </div>
   );
+}
+
+function summaryText(modules: readonly string[], period: "day" | "week"): string {
+  const parts: string[] = [];
+  if (modules.includes("nutrition")) parts.push(period === "day" ? "съеденное КБЖУ и остаток на день" : "питание и пересчёт нормы по среднему весу");
+  if (modules.includes("finance")) parts.push(period === "day" ? "расходы за день" : "расходы за неделю");
+  if (modules.includes("gym") && period === "week") parts.push("тренировки за неделю");
+  if (!parts.length) return period === "day" ? "Дневная сводка считает питание и расходы: включите «Питание» или «Финансы»." : "Включите хотя бы один раздел, чтобы получать сводки.";
+  const text = parts.join(", ");
+  return text.charAt(0).toUpperCase() + text.slice(1) + ".";
 }
