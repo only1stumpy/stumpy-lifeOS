@@ -28,7 +28,7 @@
   display: block;
   margin-bottom: 8px;
   color: var(--debt-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.4;
@@ -118,7 +118,7 @@
 
 .totalCard span {
   color: var(--debt-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -168,12 +168,12 @@
 .groupHeader p {
   margin: 4px 0 0;
   color: var(--debt-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
 .groupTotal {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   white-space: nowrap;
 }
@@ -220,7 +220,7 @@
 .debtIdentity span,
 .original {
   color: var(--debt-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -240,7 +240,7 @@
   display: grid;
   gap: 4px;
   color: var(--debt-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -261,7 +261,7 @@
   padding: 16px 0 4px;
   border-top: 1px solid var(--debt-line);
   color: var(--debt-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 

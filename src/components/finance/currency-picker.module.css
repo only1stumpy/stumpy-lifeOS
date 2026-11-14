@@ -28,7 +28,7 @@
 .selected { border-color: rgba(116, 43, 69, 0.72); background: rgba(116, 43, 69, 0.07); }
 .selected .code { color: #742b45; }
 .code { font-size: 16px; font-weight: 600; }
-.name { overflow: hidden; color: #6f5f65; font-size: 12px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.name { overflow: hidden; color: #6f5f65; font-size: 13px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 .other { grid-column: 1 / -1; }
 
 .custom { display: grid; gap: 6px; font-size: 13px; font-weight: 550; }

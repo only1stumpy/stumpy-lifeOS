@@ -235,7 +235,7 @@ function messageForFailure(kind: AiProviderFailureKind): string {
     case "quota_exceeded": return "Достигнут лимит запросов ИИ API.";
     case "credits_exhausted": return "Провайдер сообщает, что оплаченные кредиты исчерпаны.";
     case "unavailable": return "ИИ API сейчас не отвечает или временно недоступен.";
-    case "configuration": return "Проверь endpoint, API-ключ, права доступа и название модели.";
+    case "configuration": return "Проверьте endpoint, API-ключ, права доступа и название модели.";
     case "invalid_response": return "ИИ API ответило в неподдерживаемом формате.";
     case "other": return "Не получилось выполнить запрос к ИИ API.";
   }

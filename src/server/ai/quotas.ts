@@ -159,7 +159,7 @@ export async function getGeminiQuotaSnapshot(
       "unavailable",
       emptyMetrics(),
       null,
-      "Google Cloud Monitoring пока не вернул данные для этой модели. Проверь включение метрик и повтори позже.",
+      "Google Cloud Monitoring пока не вернул данные для этой модели. Проверьте включение метрик и повторите позже.",
     );
   }
 

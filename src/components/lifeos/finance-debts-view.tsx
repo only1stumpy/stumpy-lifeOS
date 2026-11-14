@@ -79,7 +79,7 @@ function DebtGroup({
           ))}
         </ul>
       ) : (
-        <p className={styles.groupEmpty}>{direction === "i_owe" ? "Ты никому не должен." : "Открытых долгов в твою пользу пока нет."}</p>
+        <p className={styles.groupEmpty}>{direction === "i_owe" ? "Вы никому не должны." : "Открытых долгов в вашу пользу пока нет."}</p>
       )}
     </section>
   );

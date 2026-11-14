@@ -78,7 +78,7 @@
 .eyebrow {
   margin: 0 0 4px;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   letter-spacing: 0;
   line-height: 1.4;
@@ -89,7 +89,7 @@
 .periodHint {
   flex: 0 0 auto;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -139,7 +139,7 @@
 }
 
 .calendarHeader button:disabled {
-  color: #a99ba0;
+  color: #76666d;
   cursor: default;
   opacity: 0.48;
 }
@@ -154,7 +154,7 @@
 .calendarWeekdays {
   margin-bottom: 8px;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 560;
   text-align: center;
 }
@@ -173,7 +173,7 @@
   background: rgba(255, 255, 255, 0.12);
   color: #76666d;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -200,7 +200,7 @@
   max-width: 100%;
   color: var(--report-accent);
   font-family: "Medeo Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   overflow: hidden;
@@ -236,7 +236,7 @@
 .selectedDayHeading > span {
   flex: 0 0 auto;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -261,14 +261,14 @@
 
 .macroValues dt {
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .macroValues dd {
   margin: 0;
   color: #35272c;
   font-family: "Medeo Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -340,7 +340,7 @@
 .chartTitle {
   margin: 0 0 4px;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
   letter-spacing: 0;
 }
@@ -369,7 +369,7 @@
 
 .axisLabel {
   fill: #76666d;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 @media (max-width: 440px) {
@@ -383,7 +383,7 @@
 .emptyChart {
   margin: 12px 0 0;
   color: #6f6067;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -395,7 +395,7 @@
   margin-top: 12px;
   border-top: 1px solid rgba(96, 45, 62, 0.13);
   color: #5f5056;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .tableDetails summary {
@@ -460,7 +460,7 @@
 .categoryLine {
   align-items: baseline;
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -474,7 +474,7 @@
   flex: 0 0 auto;
   color: #35272c;
   font-family: "Medeo Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 540;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -510,7 +510,7 @@
 
 .comparisonValues > div > span {
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -534,7 +534,7 @@
 .comparisonNote {
   margin: 16px 0 0;
   color: #6f6067;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -555,7 +555,7 @@
 .purchaseGroup h3 {
   margin: 0 0 12px;
   color: #5f5056;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -564,7 +564,7 @@
   align-items: flex-start;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(96, 45, 62, 0.1);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .purchaseList li:last-child {
@@ -585,7 +585,7 @@
 
 .purchaseList li small {
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -594,7 +594,7 @@
   gap: 8px;
   margin: 0 0 16px;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .exerciseSelect select {
@@ -624,7 +624,7 @@
   flex: 0 0 68px;
   padding-top: 2px;
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
@@ -643,7 +643,7 @@
 
 .sessionBody small {
   color: #76666d;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
