@@ -8,7 +8,7 @@ import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverag
 import { parseWeightMessage } from "../src/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures, type LifeFeature, type LifeModule } from "../src/domain/modules";
 import { compareVersions, releasesSince } from "../src/domain/release";
-import { buildWelcomeMessages } from "../src/domain/welcome";
+import { buildHelpSection, buildStartMessage, helpSections, isHelpSectionId, type HelpSectionId } from "../src/domain/welcome";
 import { parseDebtMessage } from "../src/domain/debt-message";
 import { parseFinancePlanMessage } from "../src/domain/finance-plans";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
@@ -579,50 +579,66 @@ test("modules.save accepts disabled features and rejects unknown or repeated one
   assert.equal(commandSchema.safeParse({ ...base, disabledFeatures: ["finance.usd"] }).success, false);
 });
 
-test("welcome messages explain the bot, the onboarding and only enabled features, with examples the bot understands", () => {
-  const everything = { modules: ["nutrition", "finance", "gym"] as LifeModule[], features: ["finance.debts", "finance.plans", "finance.subscriptions", "nutrition.weight"] as LifeFeature[] };
-  const newcomer = buildWelcomeMessages({ ...everything, firstRun: true });
-  assert.equal(newcomer.length, 2);
-  const [intro, guide] = newcomer;
-  assert.match(intro, /<b>Зачем я нужен<\/b>/);
-  assert.match(intro, /<b>Давай начнём со знакомства<\/b>/);
-  assert.match(intro, /1\. Нажми кнопку «Открыть LifeOS»/);
-  assert.match(intro, /Расскажи о себе: пол, возраст, рост, вес/);
-  assert.match(intro, /Укажи, сколько сейчас на основном счёте/);
-  assert.match(intro, /Подключи бесплатный ключ ИИ/);
-  assert.match(intro, /Готов\? Нажми «Открыть LifeOS» ниже/);
-  for (const heading of ["Как со мной общаться", "Питание", "Финансы", "Зал", "Вопросы", "Сводки и напоминания", "Команды", "Про ключ ИИ"]) assert.match(guide, new RegExp(`<b>${heading}</b>`));
-  for (const message of newcomer) {
-    assert.ok(message.length < 4000, `message is ${message.length} chars`);
-    assert.equal(message.replace(/<\/?b>/g, "").search(/[<>&]/), -1);
+const allModules: LifeModule[] = ["nutrition", "finance", "gym"];
+const allFeatures: LifeFeature[] = ["finance.debts", "finance.plans", "finance.subscriptions", "nutrition.weight"];
+const plain = (html: string) => html.replace(/<\/?b>/g, "");
+
+test("/start is short, names only enabled sections and sends a newcomer to the app", () => {
+  const newcomer = buildStartMessage({ modules: allModules, features: allFeatures, firstRun: true });
+  assert.ok(newcomer.length < 1100, `start message is ${newcomer.length} chars`);
+  for (const phrase of ["Привет! Я Stumpy’s LifeOS", "съел гречку с курицей", "кофе 45", "<b>Питание</b>", "<b>Финансы</b>", "<b>Зал</b>", "<b>Сводки</b>", "<b>С чего начать?</b>", "«Открыть LifeOS»", "/help"]) assert.ok(newcomer.includes(phrase), phrase);
+  // The onboarding is explained in the app, not repeated here.
+  assert.doesNotMatch(newcomer, /\n1\. |Расскажи о себе|основном счёте|Подключи бесплатный ключ/);
+  assert.equal(plain(newcomer).search(/[<>&]/), -1);
+
+  const returning = buildStartMessage({ modules: allModules, features: allFeatures, firstRun: false });
+  assert.doesNotMatch(returning, /С чего начать/);
+  assert.match(returning, /<b>Где приложение\?<\/b>/);
+
+  const gymOnly = buildStartMessage({ modules: ["gym"], features: [], firstRun: true });
+  assert.doesNotMatch(gymOnly, /<b>Питание<\/b>|<b>Финансы<\/b>|гречку|кофе/);
+  assert.match(gymOnly, /<b>Зал<\/b>/);
+
+  const noWeight = buildStartMessage({ modules: ["nutrition"], features: [], firstRun: false });
+  assert.doesNotMatch(noWeight, /веду вес/);
+});
+
+test("/help menu lists enabled modules plus general sections, and each section is accurate and fits Telegram", () => {
+  const input = { modules: allModules, features: allFeatures };
+  assert.deepEqual(helpSections(input).map((section) => section.id), ["nutrition", "finance", "gym", "digest", "ai", "commands"]);
+  assert.deepEqual(helpSections({ modules: ["finance"], features: [] }).map((section) => section.id), ["finance", "digest", "ai", "commands"]);
+
+  for (const { id } of helpSections(input)) {
+    const text = buildHelpSection(id, input);
+    assert.ok(text && text.length < 3500, `${id}: ${text?.length}`);
+    assert.equal(plain(text).search(/[<>&]/), -1, id);
+    assert.ok(`help:${id}`.length <= 64);
+    assert.equal(isHelpSectionId(id), true);
   }
-  // No internal details about how drafts are grouped.
-  assert.doesNotMatch(newcomer.join("\n"), /отдельные черновики|подтверждаются отдельно|одной кнопкой/);
+  assert.equal(isHelpSectionId("bogus"), false);
 
   // The examples promised in the text are really recognized by the parsers.
-  assert.equal(parseWeightMessage("вес 72,4"), 72.4);
-  assert.equal(parseWeightMessage("72,4 кг"), 72.4);
+  const finance = buildHelpSection("finance", input) ?? "";
   for (const text of ["я должен Ивану 500", "Иван должен мне 300", "занял 500 у Ивана", "Иван вернул мне 200"]) {
-    assert.ok(guide.includes(`«${text}»`), text);
+    assert.ok(finance.includes(`«${text}»`), text);
     assert.notEqual(parseDebtMessage(text), null, text);
   }
-  assert.ok(guide.includes("«запиши в планы шампунь за 220р»"));
+  assert.ok(finance.includes("«запиши в планы шампунь за 220р»"));
   assert.notEqual(parseFinancePlanMessage("запиши в планы шампунь за 220р"), null);
+  const nutrition = buildHelpSection("nutrition", input) ?? "";
+  assert.ok(nutrition.includes("«вес 72,4»"));
+  assert.equal(parseWeightMessage("вес 72,4"), 72.4);
+  assert.equal(parseWeightMessage("72,4 кг"), 72.4);
 
-  const returning = buildWelcomeMessages({ ...everything, firstRun: false });
-  assert.equal(returning.length, 1);
-  assert.match(returning[0], /<b>Зачем я нужен<\/b>/);
-  assert.doesNotMatch(returning[0], /Давай начнём со знакомства|Готов\? Нажми/);
-  assert.ok(returning[0].length < 4000, `message is ${returning[0].length} chars`);
-
-  const gymNewcomer = buildWelcomeMessages({ modules: ["gym"], features: [], firstRun: true });
-  assert.doesNotMatch(gymNewcomer[0], /Расскажи о себе|основном счёте/);
-  assert.match(gymNewcomer[0], /1\. Нажми кнопку/);
-  assert.match(gymNewcomer[0], /4\. Подключи бесплатный ключ ИИ/);
-  assert.doesNotMatch(gymNewcomer[1], /<b>Питание<\/b>|<b>Финансы<\/b>|<b>Вопросы<\/b>/);
-  assert.match(gymNewcomer[1], /<b>Зал<\/b>/);
-
-  const noDebts = buildWelcomeMessages({ modules: ["nutrition", "finance"], features: ["finance.plans"], firstRun: false })[0];
-  assert.doesNotMatch(noDebts, /я должен Ивану|вес 72,4|Подписки и регулярные/);
+  // Disabled modules and features disappear from the help.
+  assert.equal(buildHelpSection("gym", { modules: ["nutrition"], features: [] }), null);
+  assert.equal(buildHelpSection("finance", { modules: ["nutrition"], features: [] }), null);
+  const noDebts = buildHelpSection("finance", { modules: allModules, features: ["finance.plans"] }) ?? "";
+  assert.doesNotMatch(noDebts, /я должен Ивану|Подписки и регулярные/);
   assert.match(noDebts, /запиши в планы/);
+  assert.doesNotMatch(buildHelpSection("nutrition", { modules: allModules, features: [] }) ?? "", /вес 72,4/);
+  assert.match(buildHelpSection("digest", { modules: ["nutrition"], features: [] }) ?? "", /сколько калорий мне осталось/);
+  assert.doesNotMatch(buildHelpSection("digest", { modules: ["nutrition"], features: [] }) ?? "", /сколько я потратил/);
+  const commands: HelpSectionId = "commands";
+  assert.match(buildHelpSection(commands, input) ?? "", /«Записать»[\s\S]*\/today[\s\S]*\/cancel[\s\S]*\/help/);
 });
