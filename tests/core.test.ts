@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { commandSchema } from "../src/domain/commands";
 import { convertToLocalMinor, formatMoneyAmount, parseMinor } from "../src/domain/math";
-import { ageOn, birthDateForAge, suggestTargets } from "../src/domain/nutrition";
+import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverageWeight } from "../src/domain/nutrition";
 import { parseWeightMessage } from "../src/domain/weight-message";
 import { shouldSuggestLoadIncrease } from "../src/domain/progression";
 import { advanceRecurrenceDate } from "../src/domain/recurrence";
@@ -494,4 +494,21 @@ test("суммы с копейками всегда показывают два 
   assert.equal(formatMoneyAmount(4851), "48,51");
   assert.equal(formatMoneyAmount(2700), "27");
   assert.equal(formatMoneyAmount(-3100), "31");
+});
+
+test("weekly target recalculation uses the 7-day average weight and skips unchanged targets", () => {
+  const weights = [
+    { date: "2026-11-01", weightKg: 90 },
+    { date: "2026-11-08", weightKg: 78.4 },
+    { date: "2026-11-11", weightKg: 78 },
+    { date: "2026-11-14", weightKg: 77.6 },
+  ];
+  assert.deepEqual(weeklyAverageWeight(weights, "2026-11-14"), { weighIns: 3, averageKg: 78 });
+  assert.deepEqual(weeklyAverageWeight([], "2026-11-14"), { weighIns: 0, averageKg: null });
+
+  const profile = { sex: "male" as const, age: 30, heightCm: 180, activityLevel: "moderate" as const, goalType: "lose_weight" as const };
+  const current = { calories: 2350, proteinGrams: 160, fatGrams: 64, carbsGrams: 284 };
+  assert.deepEqual(targetFromAverage(profile, 78, current), { calories: 2300, proteinGrams: 156, fatGrams: 62, carbsGrams: 280 });
+  assert.equal(targetFromAverage(profile, 80, current), null);
+  assert.equal(targetFromAverage({ ...profile, heightCm: undefined }, 78, current), null);
 });

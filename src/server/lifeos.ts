@@ -30,7 +30,7 @@ const macroNumbers = (row: { calories: string; proteinGrams: string; fatGrams: s
   calories: Number(row.calories), proteinGrams: Number(row.proteinGrams), fatGrams: Number(row.fatGrams), carbsGrams: Number(row.carbsGrams),
 });
 /** Saved calculator parameters without body weight; the latest weight entry supplies it. Incomplete or legacy values yield null fields. */
-function storedProfile(owner: typeof s.ownerSettings.$inferSelect, today: string): Partial<Omit<NutritionProfile, "weightKg">> {
+export function storedProfile(owner: typeof s.ownerSettings.$inferSelect, today: string): Partial<Omit<NutritionProfile, "weightKg">> {
   return {
     sex: owner.sex === "male" || owner.sex === "female" ? owner.sex : undefined,
     age: owner.dateOfBirth ? ageOn(owner.dateOfBirth, today) : undefined,
