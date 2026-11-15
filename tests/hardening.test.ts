@@ -79,3 +79,10 @@ test("склонение по числу даёт верную форму, вк�
   assert.equal(forms(2.9), "записи");
   assert.equal(forms(-1), "запись");
 });
+
+test("сбой доставки экспорта в чат даёт понятную ошибку, а не общую", async () => {
+  const { sendExportWithApi } = await import("../src/server/telegram/export");
+  const { AppError } = await import("../src/server/http");
+  // The id is validated before anything else, so an invalid id never reaches the database or Telegram.
+  await assert.rejects(() => sendExportWithApi({} as never, "not-a-number"), (error: unknown) => error instanceof AppError && error.status === 400);
+});

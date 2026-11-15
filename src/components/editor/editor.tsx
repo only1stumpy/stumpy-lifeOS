@@ -163,6 +163,8 @@ function MacroFields({ values }: { values?: { calories: number; proteinGrams: nu
 export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm, onConnectAi }: EditorDialogProps) {
   const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  /** The browser reports every invalid field of a form; only the first one is shown and focused. */
+  const invalidHandledRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
@@ -455,10 +457,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           <label>{baseAmountLabel("Сумма")}<input name="amount" type="text" inputMode="decimal" required placeholder="500" /></label>
         </div>
         <label>Откуда этот долг<select value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
-          <option value="transfer">Деньги передаю или получаю сейчас</option>
+          <option value="transfer">Деньги сейчас</option>
           <option value="opening_balance">Долг уже был до LifeOS</option>
         </select></label>
-        <p>{debtOpenedAs === "transfer" ? "Создаст операцию по выбранному счёту: баланс изменится." : "Запишет только остаток долга: баланс счетов не изменится."}</p>
+        <p>{debtOpenedAs === "transfer" ? "Деньги передаются или получаются сейчас: создастся операция по выбранному счёту, баланс изменится." : "Запишет только остаток долга: баланс счетов не изменится."}</p>
         {debtOpenedAs === "transfer" && (baseAccounts.length ? (
           <>
             <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
@@ -1000,6 +1002,9 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       onInput={(event) => { setSaved(false); const target = event.target; if (target instanceof HTMLElement && target.getAttribute("aria-invalid")) { target.removeAttribute("aria-invalid"); setFormError(null); } }}
       onInvalidCapture={(event) => {
         event.preventDefault();
+        if (invalidHandledRef.current) return;
+        invalidHandledRef.current = true;
+        window.setTimeout(() => { invalidHandledRef.current = false; }, 0);
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
         const label = (field.closest("label")?.firstChild?.textContent ?? field.getAttribute("aria-label") ?? "Поле").trim();
