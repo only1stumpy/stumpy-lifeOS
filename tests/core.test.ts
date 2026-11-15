@@ -617,6 +617,11 @@ test("what's new lists every release missed since the last visit", () => {
   assert.deepEqual(releasesSince(null, history, "0.10.0").map((r) => r.version), ["0.10.0"]);
   assert.deepEqual(releasesSince("0.8.0", history, "0.9.0").map((r) => r.version), ["0.9.0"]);
   assert.equal(compareVersions("0.10.0", "0.9.0"), 1);
+  assert.equal(compareVersions("1.0.0-rc.1", "0.26.2"), 1);
+  assert.equal(compareVersions("1.0.0-rc.1", "1.0.0"), -1);
+  assert.equal(compareVersions("1.0.0", "1.0.0-rc.1"), 1);
+  assert.equal(compareVersions("1.0.0-rc.2", "1.0.0-rc.10"), -1);
+  assert.equal(compareVersions("1.0.0-rc.1", "1.0.0-rc.1"), 0);
 });
 
 test("features work only while their module is on and the user did not switch them off", () => {

@@ -13,15 +13,36 @@ export const RELEASE_HISTORY: Release[] = (() => {
   }
 })();
 
-/** Numeric comparison of MAJOR.MINOR.PATCH versions. */
+/** SemVer comparison: numeric MAJOR.MINOR.PATCH, and a pre-release (1.0.0-rc.1) sorts before its release (1.0.0). */
 export function compareVersions(left: string, right: string): number {
-  const a = left.split(".").map(Number);
-  const b = right.split(".").map(Number);
+  const [leftCore, leftPre] = splitVersion(left);
+  const [rightCore, rightPre] = splitVersion(right);
   for (let index = 0; index < 3; index += 1) {
-    const difference = (a[index] ?? 0) - (b[index] ?? 0);
+    const difference = (leftCore[index] ?? 0) - (rightCore[index] ?? 0);
     if (difference) return Math.sign(difference);
   }
+  if (!leftPre && !rightPre) return 0;
+  if (!leftPre) return 1;
+  if (!rightPre) return -1;
+  const length = Math.max(leftPre.length, rightPre.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = leftPre[index];
+    const b = rightPre[index];
+    if (a === undefined) return -1;
+    if (b === undefined) return 1;
+    const aNumeric = /^\d+$/.test(a);
+    const bNumeric = /^\d+$/.test(b);
+    if (aNumeric && bNumeric) { if (Number(a) !== Number(b)) return Math.sign(Number(a) - Number(b)); continue; }
+    if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+    if (a !== b) return a < b ? -1 : 1;
+  }
   return 0;
+}
+
+function splitVersion(version: string): [number[], string[] | null] {
+  const [core, ...rest] = version.split("-");
+  const pre = rest.join("-");
+  return [core.split(".").map(Number), pre ? pre.split(".") : null];
 }
 
 /**

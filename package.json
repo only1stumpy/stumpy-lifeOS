@@ -1,6 +1,6 @@
 {
   "name": "stumpy-lifeos",
-  "version": "0.26.2",
+  "version": "1.0.0-rc.1",
   "private": true,
   "license": "AGPL-3.0-only",
   "author": "Евгений Степанов (https://github.com/only1stumpy)",
