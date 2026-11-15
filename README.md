@@ -151,8 +151,8 @@ npm run telegram:register
 | `npm test` | Тесты на `node --test` (`tests/*.test.ts`) |
 | `npm run db:generate` | Генерация SQL-миграции из `src/db/schema.ts` |
 | `npm run db:migrate` | Применение миграций из `drizzle/` |
-| `npm run docs:readme` | Обновляет бейджи и версию в README из `package.json` (запускается автоматически при `npm version`) |
-| `npm run docs:readme:check` | Проверяет, что README соответствует `package.json` (то же проверяет тест в CI) |
+| `npm run docs:readme` | Обновляет бейджи и версию в README из `package.json` (CI делает это сам после зелёных проверок; также срабатывает при `npm version`) |
+| `npm run docs:readme:check` | Проверяет, что README соответствует `package.json` |
 | `npm run telegram:register` | Регистрация Telegram webhook |
 | `npm run backup:export -- ./backup.json` | Экспорт профиля в JSON |
 | `npm run backup:restore -- ./backup.json` | Восстановление в пустой профиль |
