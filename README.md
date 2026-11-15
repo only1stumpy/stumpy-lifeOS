@@ -2,10 +2,12 @@
 
 Личный LifeOS в Telegram: питание только по КБЖУ, деньги и тренировки. Бот принимает обычные сообщения, Mini App даёт полный ручной ввод и обзор дня, а ИИ (ваши собственные ключи) лишь ускоряет ввод.
 
-![Версия](https://img.shields.io/badge/версия-0.25.0-8b1e3f)
+<!-- badges:start -->
+![Версия](https://img.shields.io/badge/версия-0.26.1-8b1e3f)
 ![Статус](https://img.shields.io/badge/статус-бета-orange)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933)
 ![Лицензия](https://img.shields.io/badge/лицензия-AGPL--3.0-blue)
+<!-- badges:end -->
 
 > Проект в бете: код трёх модулей написан, но сквозная проверка на реальных сервисах и устройствах не завершена. Подробности — в разделе [Статус и дорожная карта](#статус-и-дорожная-карта).
 
@@ -149,6 +151,8 @@ npm run telegram:register
 | `npm test` | Тесты на `node --test` (`tests/*.test.ts`) |
 | `npm run db:generate` | Генерация SQL-миграции из `src/db/schema.ts` |
 | `npm run db:migrate` | Применение миграций из `drizzle/` |
+| `npm run docs:readme` | Обновляет бейджи и версию в README из `package.json` (запускается автоматически при `npm version`) |
+| `npm run docs:readme:check` | Проверяет, что README соответствует `package.json` (то же проверяет тест в CI) |
 | `npm run telegram:register` | Регистрация Telegram webhook |
 | `npm run backup:export -- ./backup.json` | Экспорт профиля в JSON |
 | `npm run backup:restore -- ./backup.json` | Восстановление в пустой профиль |
@@ -225,7 +229,7 @@ docs/             Продукт, архитектура, план, исслед
 
 ## Статус и дорожная карта
 
-Версия `0.25.0`, бета; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
+Версия <!-- version -->`0.26.1`<!-- /version -->, бета; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
 
 | Что | Состояние |
 |---|---|
