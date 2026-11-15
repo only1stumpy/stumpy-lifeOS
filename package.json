@@ -15,7 +15,10 @@
     "test": "node --import tsx --import ./tests/setup.ts --test --test-isolation=none tests/*.test.ts",
     "telegram:register": "tsx scripts/register-webhook.ts",
     "backup:export": "tsx scripts/backup.ts export",
-    "backup:restore": "tsx scripts/backup.ts restore"
+    "backup:restore": "tsx scripts/backup.ts restore",
+    "docs:readme": "tsx scripts/sync-readme.ts",
+    "docs:readme:check": "tsx scripts/sync-readme.ts --check",
+    "version": "npm run docs:readme && git add README.md"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",
