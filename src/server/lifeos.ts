@@ -17,6 +17,7 @@ import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
 import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
 import { resolveTelegramUserId } from "./owner-context";
+import { enforceRateLimit, RATE_LIMITS } from "./rate-limit";
 import { loadConfiguredAiProviderConfigs } from "./ai/provider-accounts";
 import type { DebtMessageIntent } from "@/domain/debt-message";
 
@@ -87,6 +88,10 @@ export async function ensureOwner(explicitTelegramUserId?: string) {
   const telegramUserId = resolveTelegramUserId(explicitTelegramUserId);
   if (!telegramUserId || !/^[1-9]\d{0,19}$/.test(telegramUserId)) throw new AppError(503, "Профиль Telegram не найден.");
   const db = getDb();
+  const [existing] = await db.select().from(s.ownerSettings).where(eq(s.ownerSettings.telegramUserId, telegramUserId));
+  if (existing) return existing;
+  // Open registration: cap how many new profiles can be created per hour across all users.
+  await enforceRateLimit(RATE_LIMITS.newProfiles, "all");
   await db.insert(s.ownerSettings).values({ telegramUserId }).onConflictDoNothing();
   const [owner] = await db.select().from(s.ownerSettings).where(eq(s.ownerSettings.telegramUserId, telegramUserId));
   if (!owner) throw new AppError(503, "Не удалось загрузить профиль.");

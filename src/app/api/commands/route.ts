@@ -1,4 +1,5 @@
 import { requireOwner, errorResponse, AppError } from "@/server/http";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { commandSchema } from "@/domain/commands";
 import { executeCommand, loadSnapshot } from "@/server/lifeos";
 import { AIAnalysisError } from "@/server/ai/types";
@@ -8,6 +9,7 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   try {
     const user = requireOwner(request);
+    await enforceRateLimit(RATE_LIMITS.commands, user.id);
     if (Number(request.headers.get("content-length") ?? 0) > 64000) throw new AppError(413, "Слишком большой запрос.");
     const raw = await request.text();
     if (raw.length > 64000) throw new AppError(413, "Слишком большой запрос.");

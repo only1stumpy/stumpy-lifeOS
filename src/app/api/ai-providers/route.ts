@@ -11,6 +11,7 @@ import {
   setAiProviderModelQueue,
 } from "@/server/ai/provider-accounts";
 import { AppError, errorResponse, requireOwner } from "@/server/http";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { ensureOwner } from "@/server/lifeos";
 import { withTelegramUser } from "@/server/owner-context";
 
@@ -44,6 +45,7 @@ const actionSchema = z.discriminatedUnion("action", [
 export async function GET(request: Request): Promise<Response> {
   try {
     const user = requireOwner(request);
+    await enforceRateLimit(RATE_LIMITS.aiProviders, user.id);
     return await withTelegramUser(String(user.id), async () => {
       const owner = await ensureOwner();
       const result = await listAiProviderCards(owner.id);
@@ -59,6 +61,7 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const user = requireOwner(request);
+    await enforceRateLimit(RATE_LIMITS.aiProviders, user.id);
     if (Number(request.headers.get("content-length") ?? 0) > 128_000) throw new AppError(413, "Слишком большой запрос.");
     const raw = await request.text();
     if (Buffer.byteLength(raw, "utf8") > 128_000) throw new AppError(413, "Слишком большой запрос.");
@@ -108,6 +111,7 @@ export async function POST(request: Request): Promise<Response> {
 export async function DELETE(request: Request): Promise<Response> {
   try {
     const user = requireOwner(request);
+    await enforceRateLimit(RATE_LIMITS.aiProviders, user.id);
     const id = new URL(request.url).searchParams.get("id");
     if (!id || !accountId.safeParse(id).success) throw new AppError(400, "Некорректный аккаунт провайдера.");
 
