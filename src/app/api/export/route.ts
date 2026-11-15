@@ -1,6 +1,7 @@
 import { getDb } from "@/db/client";
 import { createBackup, type BackupDatabase } from "@/server/backup";
 import { errorResponse, requireOwner } from "@/server/http";
+import { sendExportToChat } from "@/server/telegram/bot";
 import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 
 export const runtime = "nodejs";
@@ -20,6 +21,17 @@ export async function GET(request: Request) {
         "X-Content-Type-Options": "nosniff",
       },
     });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+/** Sends the export into the user\'s Telegram chat; file downloads are unreliable inside the Telegram WebView. */
+export async function POST(request: Request) {
+  try {
+    const user = requireOwner(request);
+    await sendExportToChat(String(user.id));
+    return Response.json({ sent: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return errorResponse(error);
   }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte, sql } from "drizzle-orm";
 import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
@@ -12,6 +12,7 @@ import { ACTIVITY_LEVELS, GOALS, ageOn, birthDateForAge, type NutritionProfile }
 import { disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "@/domain/modules";
 import { USAGE_MODES } from "@/domain/notifications";
 import { APP_VERSION } from "@/domain/release";
+import { PRIVACY_POLICY_VERSION } from "@/domain/privacy";
 import { AppError } from "./http";
 import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
@@ -236,7 +237,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, baseCurrency, rates: latestRates, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
+    settings: { timeZone: owner.timezone, baseCurrency, rates: latestRates, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, privacyAcceptedVersion: owner.privacyPolicyVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: v.currency, category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: captures.map((v) => {
       const food = foodDrafts.find((f) => f.captureDraftId === v.id);
@@ -551,6 +552,15 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   return { ...analysis, draftIds };
 }
 
+/**
+ * Permanently removes the owner's profile and, through foreign-key cascades, all of their data.
+ * Rate-limit counters are keyed by Telegram ID rather than by owner, so they are removed explicitly.
+ */
+export async function deleteOwnerData(tx: Transaction, owner: { id: string; telegramUserId: string }): Promise<void> {
+  await tx.delete(s.rateLimitCounters).where(sql`${s.rateLimitCounters.key} like ${"%:" + owner.telegramUserId}`);
+  await tx.delete(s.ownerSettings).where(eq(s.ownerSettings.id, owner.id));
+}
+
 export async function executeCommand(command: AppCommand) {
   if (command.type === "analyze") { await analyzeCapture(command); return; }
   const owner = await ensureOwner();
@@ -605,6 +615,15 @@ export async function executeCommand(command: AppCommand) {
       case "notifications.save": {
         const { settings } = command;
         await tx.update(s.ownerSettings).set({ notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+        break;
+      }
+      case "privacy.accept": {
+        if (command.version !== PRIVACY_POLICY_VERSION) throw new AppError(409, "Версия политики устарела. Откройте приложение заново.");
+        await tx.update(s.ownerSettings).set({ privacyAcceptedAt: new Date(), privacyPolicyVersion: command.version, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+        break;
+      }
+      case "account.delete": {
+        await deleteOwnerData(tx, owner);
         break;
       }
       case "version.seen": await tx.update(s.ownerSettings).set({ lastSeenVersion: command.version, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id)); break;

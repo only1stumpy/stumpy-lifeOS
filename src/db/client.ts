@@ -14,5 +14,10 @@ export function getDb() {
   return database ??= createDatabase();
 }
 export type Database = ReturnType<typeof getDb>;
+
+/** Test seam: lets tests run the real command layer against an in-memory PGlite database. */
+export function useDatabaseForTests(testDatabase: unknown): void {
+  database = testDatabase as Database;
+}
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 

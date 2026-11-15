@@ -3,11 +3,12 @@
 import type { ReactNode } from "react";
 import styles from "./settings.module.css";
 
-export type SettingsPage = "menu" | "ai" | "personalization";
+export type SettingsPage = "menu" | "ai" | "personalization" | "privacy";
 
 const ITEMS: { page: Exclude<SettingsPage, "menu">; title: string; description: string }[] = [
   { page: "personalization", title: "Персонализация", description: "Разделы и функции, сводки и напоминания." },
   { page: "ai", title: "ИИ-провайдеры", description: "Ключи и модели, которыми бот разбирает сообщения." },
+  { page: "privacy", title: "Данные и приватность", description: "Политика, копия данных и удаление." },
 ];
 
 export function SettingsMenu({ onOpen }: { onOpen(page: Exclude<SettingsPage, "menu">): void }) {

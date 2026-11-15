@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { commandSchema } from "../src/domain/commands";
+import { PRIVACY_POLICY_VERSION } from "../src/domain/privacy";
 import { analyzeMessage } from "../src/server/ai/analyze";
 import { AIAnalysisError } from "../src/server/ai/types";
 import { resolveTelegramUserId, withTelegramUser } from "../src/server/owner-context";
@@ -58,4 +60,12 @@ test("заголовки безопасности разрешают тольк�
   assert.equal(headers["X-Content-Type-Options"], "nosniff");
   assert.ok(headers["Strict-Transport-Security"].startsWith("max-age="));
   assert.ok(headers["Referrer-Policy"]);
+});
+
+test("удаление аккаунта требует точного слова подтверждения, согласие требует версию", () => {
+  assert.equal(commandSchema.safeParse({ type: "account.delete", confirmation: "УДАЛИТЬ" }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "account.delete", confirmation: "удалить" }).success, false);
+  assert.equal(commandSchema.safeParse({ type: "account.delete" }).success, false);
+  assert.equal(commandSchema.safeParse({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "privacy.accept" }).success, false);
 });

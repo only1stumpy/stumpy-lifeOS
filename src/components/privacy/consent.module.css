@@ -1,0 +1,55 @@
+.screen {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-height: 100svh;
+  box-sizing: border-box;
+  padding: calc(32px + var(--lifeos-inset-top)) 24px calc(32px + var(--lifeos-inset-bottom));
+  color: #35272c;
+  background: #f6f2ec;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.8rem;
+  line-height: 1.15;
+}
+
+.lead,
+.list {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+}
+
+.screen a {
+  color: #742b45;
+  text-decoration: underline;
+}
+
+.error {
+  margin: 0;
+  color: #a3261f;
+  font-size: 0.95rem;
+}
+
+.accept {
+  min-height: 52px;
+  border: 0;
+  border-radius: 18px;
+  background: #742b45;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.accept:disabled {
+  opacity: 0.6;
+}
