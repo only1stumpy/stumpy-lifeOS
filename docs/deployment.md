@@ -7,7 +7,7 @@
 ## Что нужно заранее
 
 - Аккаунты Telegram (BotFather), GitHub, Vercel, Neon и cron-job.org.
-- Node.js 22 или новее и npm (`engines.node >=22` в `package.json`) для локальных команд.
+- Node.js 24 или новее и npm (`engines.node >=24` в `package.json`) для локальных команд.
 - Клон репозитория и `npm ci`.
 - Для применения миграций вручную — клиент `psql` (или SQL-консоль Neon).
 
@@ -105,3 +105,7 @@ npm run telegram:register
 - Код: откат merge commit в `main` через GitHub и повторный деплой Vercel (или Promote предыдущего деплоя в Vercel; не проверялось).
 - База: Neon point-in-time restore или ветка, созданная перед миграцией; журнал `drizzle.__drizzle_migrations` откатывается вместе с базой.
 - Секреты: смена `TELEGRAM_WEBHOOK_SECRET` требует повторного `npm run telegram:register`; смена `AI_PROVIDER_ENCRYPTION_KEY` делает сохранённые ключи ИИ нечитаемыми.
+
+## Регион функций Vercel
+
+`vercel.json` задаёт регион серверных функций `fra1` (Франкфурт), чтобы они работали рядом с базой Neon (`eu-central-1`, Франкфурт). Без этого Vercel использует `iad1` (Вашингтон), и каждый запрос к базе пересекает Атлантику. При создании нового развёртывания выбирайте для базы и для функций один регион или соседние.

@@ -1,6 +1,6 @@
 {
   "name": "stumpy-lifeos",
-  "version": "0.26.0",
+  "version": "0.26.1",
   "private": true,
   "license": "AGPL-3.0-only",
   "author": "Евгений Степанов (https://github.com/only1stumpy)",
@@ -40,6 +40,6 @@
     "typescript": "5.9.3"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }
