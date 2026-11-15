@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { NextConfig } from "next";
+import { securityHeaders } from "./src/server/security-headers";
 
 const { version } = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string };
 
@@ -18,6 +19,9 @@ function releaseHistory(): { version: string; notes: string[] }[] {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   experimental: { useTypeScriptCli: false },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders() }];
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
     NEXT_PUBLIC_RELEASE_HISTORY: JSON.stringify(releaseHistory()),

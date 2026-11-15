@@ -7,11 +7,11 @@ export function withTelegramUser<T>(telegramUserId: string, callback: () => T): 
   return telegramUserContext.run(telegramUserId, callback);
 }
 
-/** The request/update-scoped Telegram ID; falls back to the legacy owner only for CLI jobs. */
+/** The request/update-scoped Telegram ID. There is deliberately no deployment-wide fallback owner. */
 export function currentTelegramUserId(): string | undefined {
   return telegramUserContext.getStore();
 }
 
 export function resolveTelegramUserId(explicitId?: string): string | undefined {
-  return explicitId ?? currentTelegramUserId() ?? (process.env.TELEGRAM_OWNER_ID?.trim() || undefined);
+  return explicitId ?? currentTelegramUserId();
 }

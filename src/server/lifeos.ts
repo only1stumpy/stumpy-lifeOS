@@ -637,7 +637,13 @@ export async function executeCommand(command: AppCommand) {
         } else await tx.insert(s.financeEntries).values(values);
         break;
       }
-      case "money.delete": await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id))); break;
+      case "money.delete": {
+        const [linked] = await tx.select({ id: s.financeDebtRepayments.id }).from(s.financeDebtRepayments)
+          .where(and(eq(s.financeDebtRepayments.financeEntryId, command.id), eq(s.financeDebtRepayments.ownerId, owner.id))).limit(1);
+        if (linked) throw new AppError(409, "Эта операция записана как возврат долга. Сначала удалите возврат в разделе долгов.");
+        await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id)));
+        break;
+      }
       case "debt.create": {
         await saveDebtTransfer(tx, owner.id, {
           personName: command.personName,
@@ -825,7 +831,14 @@ export async function executeCommand(command: AppCommand) {
         break;
       }
       case "session.finish": await tx.update(s.workoutSessions).set({ status: "completed", completedAt: new Date() }).where(and(eq(s.workoutSessions.id, command.id), eq(s.workoutSessions.ownerId, owner.id), eq(s.workoutSessions.status, "active"))); break;
-      case "draft.reject": await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.status, "pending"))); break;
+      case "draft.reject": {
+        const [draft] = await tx.select({ status: s.captureDrafts.status }).from(s.captureDrafts)
+          .where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
+        if (!draft) throw new AppError(404, "Черновик не найден.");
+        if (draft.status === "confirmed") throw new AppError(409, "Черновик уже записан, отменить его нельзя. Удалите запись.");
+        if (draft.status === "pending") await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id)));
+        break;
+      }
       case "draft.money-category.set": await setPendingMoneyDraftCategory(tx, owner.id, command.id, command.category); break;
       case "draft.confirm": {
         const [draft] = await tx.select().from(s.captureDrafts).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
@@ -877,6 +890,10 @@ export async function executeCommand(command: AppCommand) {
         const values = { ownerId: owner.id, name: command.name, portionLabel: entry.portionLabel, ...macroStrings(macroNumbers(entry)), composition: entry.composition };
         await tx.insert(s.foodTemplates).values(values).onConflictDoUpdate({ target: [s.foodTemplates.ownerId, s.foodTemplates.name], set: values });
         break;
+      }
+      default: {
+        const unhandled: never = command;
+        throw new AppError(400, `Неизвестная команда: ${(unhandled as { type: string }).type}`);
       }
     }
   });
