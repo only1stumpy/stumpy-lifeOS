@@ -10,7 +10,12 @@ export async function sendExportWithApi(api: Api, telegramUserId: string): Promi
   await enforceRateLimit(RATE_LIMITS.export, telegramUserId);
   const backup = await createBackup(getDb() as unknown as BackupDatabase, telegramUserId);
   const date = new Date().toISOString().slice(0, 10);
-  await api.sendDocument(Number(telegramUserId), new InputFile(Buffer.from(JSON.stringify(backup), "utf8"), `lifeos-backup-${date}.json`), {
-    caption: "Копия ваших данных LifeOS (JSON). Храните файл в безопасном месте: в нём ваши записи.",
-  });
+  try {
+    await api.sendDocument(Number(telegramUserId), new InputFile(Buffer.from(JSON.stringify(backup), "utf8"), `lifeos-backup-${date}.json`), {
+      caption: "Копия ваших данных LifeOS (JSON). Храните файл в безопасном месте: в нём ваши записи.",
+    });
+  } catch (error) {
+    console.error("LifeOS export delivery failed", { error: error instanceof Error ? error.name : "unknown" });
+    throw new AppError(502, "Не удалось отправить файл в чат. Откройте диалог с ботом, нажмите /start и повторите.");
+  }
 }
