@@ -1,6 +1,6 @@
 {
   "name": "stumpy-lifeos",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "author": "Евгений Степанов (https://github.com/only1stumpy)",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
+    "test": "node --import tsx --import ./tests/setup.ts --test --test-isolation=none tests/*.test.ts",
     "telegram:register": "tsx scripts/register-webhook.ts",
     "backup:export": "tsx scripts/backup.ts export",
     "backup:restore": "tsx scripts/backup.ts restore"

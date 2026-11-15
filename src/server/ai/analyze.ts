@@ -548,11 +548,12 @@ function getProviderConfigs(): ProviderConfig[] {
 }
 
 /**
- * A user's own provider accounts. Deployment-wide keys from the environment are used only when
- * no selection is passed at all, which happens in tests; production callers always pass one.
+ * A user's own provider accounts. Deployment-wide keys from the environment are never used for
+ * real users: without a selection the result is empty unless the test-only switch
+ * LIFEOS_ALLOW_ENV_AI_KEYS=1 is set (see tests/setup.ts).
  */
 function getProviderConfigsForSelection(selection?: ProviderSelection): ProviderConfig[] {
-  if (!selection) return getProviderConfigs();
+  if (!selection) return process.env.LIFEOS_ALLOW_ENV_AI_KEYS === "1" ? getProviderConfigs() : [];
   const profiles: ProviderConfig[] = selection.profiles.map((profile) => ({
     provider: "openai-compatible",
     endpoint: profile.endpoint,

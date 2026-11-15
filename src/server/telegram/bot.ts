@@ -549,19 +549,11 @@ export function getTelegramBot(): Bot<Context> {
   return getBot();
 }
 
-export function configuredOwnerId(): number {
-  const value = process.env.TELEGRAM_OWNER_ID;
-  if (!value || !/^[1-9]\d*$/.test(value)) throw new AppError(503, "Telegram ещё не настроен.");
-  const id = Number(value);
-  if (!Number.isSafeInteger(id)) throw new AppError(503, "Telegram ещё не настроен.");
-  return id;
-}
-
 export async function sendOwnerMessage(
   text: string,
   replyMarkup?: InlineKeyboardMarkup,
 ): Promise<void> {
-  const resolvedId = currentTelegramUserId() ?? process.env.TELEGRAM_OWNER_ID?.trim();
+  const resolvedId = currentTelegramUserId();
   if (!resolvedId || !/^[1-9]\d{0,19}$/.test(resolvedId)) throw new AppError(503, "Telegram ID получателя не настроен.");
   const ownerId = Number(resolvedId);
   if (!Number.isSafeInteger(ownerId)) throw new AppError(503, "Telegram ID получателя не настроен.");
@@ -816,7 +808,8 @@ export async function processStoredTelegramUpdate(updateRowId: string): Promise<
       .update(schema.telegramUpdates)
       .set({ status: "processed", processingStartedAt: null, payload: {}, processedAt: new Date(), lastError: null })
       .where(eq(schema.telegramUpdates.id, updateRowId));
-  } catch {
+  } catch (error) {
+    console.error("LifeOS telegram update failed", { updateRowId, attempt: claimed.attemptCount, error: error instanceof Error ? error.name : "unknown" });
     await db
       .update(schema.telegramUpdates)
       .set({ status: "failed", processingStartedAt: null, lastError: "handler_failed" })

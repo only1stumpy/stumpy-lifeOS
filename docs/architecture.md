@@ -33,6 +33,7 @@
 | `POST /api/ai-providers` | Подключение аккаунта с тестом ключа, изменение общей очереди моделей, завершение первичной настройки, приоритета/доступности аккаунта и обновление каталога | Telegram `initData` пользователя |
 | `DELETE /api/ai-providers?id=...` | Удаление собственного аккаунта и зашифрованного ключа | Telegram `initData` пользователя |
 | `GET /api/ai-quotas` | Счётчики запросов LifeOS и опубликованные квоты OpenRouter `:free`; legacy Gemini Cloud Monitoring добавляется отдельно | Telegram `initData` пользователя; `Cache-Control: no-store` |
+| `GET /api/health` | Проверка доступности: статус и версия, без секретов и без обращения к базе | Не требуется |
 | `POST /api/telegram` | Приём Telegram update, сохранение события и обработка бота | Секретный заголовок Telegram webhook |
 | `GET` или `POST /api/cron` | Повтор обработок, напоминания и ежедневная/недельная сводка | `Authorization: Bearer <CRON_SECRET>` |
 | `GET /api/export` | JSON-копия данных текущего пользователя | Telegram `initData` пользователя |
@@ -89,9 +90,9 @@ Cron-маршрут также проверяет сроки регулярны�
 |---|---|
 | `DATABASE_URL` | PostgreSQL для приложения, миграций и резервных копий |
 | `TELEGRAM_BOT_TOKEN` | Авторизация Telegram Bot API и проверка Mini App `initData` |
-| `TELEGRAM_OWNER_ID` | Необязательный Telegram ID, которому доступны метрики квот Gemini |
+| `TELEGRAM_OWNER_ID` | Необязательный Telegram ID, которому доступны метрики квот Gemini. Как запасной владелец данных и получателя сообщений больше не используется: профиль определяется только проверенным Telegram ID запроса |
 | `TELEGRAM_WEBHOOK_SECRET` | Проверка входящих Telegram updates |
-| `CRON_SECRET` | Защита `/api/cron` |
+| `CRON_SECRET` | Защита `/api/cron`; рекомендуется случайная строка не короче 32 символов (при более слабой сервер пишет предупреждение в лог) |
 | `GEMINI_MODEL` | Модель Gemini для метрик квот, по умолчанию `gemini-3.5-flash-lite` |
 | `GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON` | Необязательный JSON сервисного аккаунта только для чтения квот Gemini; хранить как секрет сервера |
 | `GOOGLE_CLOUD_PROJECT_ID` | Необязательный проект Google Cloud для метрик; по умолчанию берётся из JSON сервисного аккаунта |
@@ -136,3 +137,10 @@ Cron-маршрут также проверяет сроки регулярны�
 - [OpenRouter: тарифы](https://openrouter.ai/pricing), [каталог моделей и цены](https://openrouter.ai/docs/api/api-reference/models/get-models).
 - [Cerebras: лимиты и Free Trial](https://inference-docs.cerebras.ai/support/rate-limits), [модели](https://inference-docs.cerebras.ai/models/overview).
 - [cron-job.org](https://cron-job.org/en/), [FAQ](https://cron-job.org/en/faq/).
+
+## Заголовки безопасности и устойчивость cron
+
+- Все маршруты отдают `Content-Security-Policy` (только `frame-ancestors` для Telegram, `base-uri`, `object-src`, `form-action`), `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` и `Strict-Transport-Security` (`src/server/security-headers.ts`). Полная политика `script-src` требует nonce и запланирована отдельно ([план релиза](release-plan.md)).
+- `/api/cron` обрабатывает владельцев независимо: сбой у одного (например, пользователь заблокировал бота) пишется в лог и не прерывает остальных; ответ содержит число сбоев.
+- Ключи ИИ из окружения никогда не обслуживают пользователей; переменная `LIFEOS_ALLOW_ENV_AI_KEYS=1` существует только для тестов (`tests/setup.ts`).
+- Команда в `executeCommand` без обработчика даёт ошибку компиляции (проверка исчерпанности по `never`), а не молчаливый успех.

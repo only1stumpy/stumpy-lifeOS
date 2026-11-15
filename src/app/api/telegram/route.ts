@@ -6,6 +6,7 @@ import * as schema from "@/db/schema";
 import { ensureOwner } from "@/server/lifeos";
 import { processStoredTelegramUpdate } from "@/server/telegram/bot";
 import { AppError } from "@/server/http";
+import { warnAboutWeakSecretsOnce } from "@/server/security-config";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,6 +16,7 @@ const MAX_WEBHOOK_BODY_LENGTH = 256_000;
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    warnAboutWeakSecretsOnce();
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
     if (!secret) throw new AppError(503, "Telegram webhook ещё не настроен.");
     const receivedSecret = request.headers.get("x-telegram-bot-api-secret-token") ?? "";
