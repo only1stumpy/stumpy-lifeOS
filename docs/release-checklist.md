@@ -7,9 +7,9 @@
 - [ ] CI на `main` зелёный, защита ветки включена.
 - [ ] `/api/health` на production отдаёт версию из `package.json`; Vercel Production собран из merge commit.
 - [ ] Применены все миграции из `drizzle/` (сверить с `drizzle.__drizzle_migrations`).
-- [ ] В логах Vercel нет предупреждения о слабых `CRON_SECRET` и `TELEGRAM_WEBHOOK_SECRET`.
-- [ ] Учения восстановления Neon пройдены ([operations.md](operations.md), «Проверка восстановления»).
-- [ ] Текст [privacy-policy.md](privacy-policy.md) прочитан и подтверждён владельцем.
+- [x] `CRON_SECRET` и `TELEGRAM_WEBHOOK_SECRET` не слабее 32 символов (проверено 2026-11-15, 64 hex).
+- [ ] Учения восстановления Neon (ветка и PITR) пройдены ([operations.md](operations.md), «Проверка восстановления»); восстановление на уровне приложения уже проверено 2026-11-15.
+- [ ] Возрастной порог в [privacy-policy.md](privacy-policy.md) подтверждён на legis.md и текст прошёл юридическую проверку (сроки уведомления сверены 2026-11-15).
 
 ## Вход и согласие
 
