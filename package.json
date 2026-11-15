@@ -2,6 +2,8 @@
   "name": "stumpy-lifeos",
   "version": "0.22.0",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Евгений Степанов (https://github.com/only1stumpy)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
