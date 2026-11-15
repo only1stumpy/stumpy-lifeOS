@@ -38,6 +38,7 @@
 |---|---|
 | [roadmap.md](roadmap.md) | Краткая дорожная карта до 1.0.0 |
 | [release-plan.md](release-plan.md) | План до релиз-кандидата: блокеры, этапы, решения владельца |
+| [release-checklist.md](release-checklist.md) | Ручной чек-лист перед выпуском релиз-кандидата |
 | [implementation-plan.md](implementation-plan.md) | Сквозные проверки по модулям, которых ещё не хватает |
 
 ## Аудиты и история
