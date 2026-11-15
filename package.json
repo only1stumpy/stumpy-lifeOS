@@ -16,6 +16,7 @@
     "telegram:register": "tsx scripts/register-webhook.ts",
     "backup:export": "tsx scripts/backup.ts export",
     "backup:restore": "tsx scripts/backup.ts restore",
+    "smoke": "node scripts/smoke.mjs",
     "docs:readme": "tsx scripts/sync-readme.ts",
     "docs:readme:check": "tsx scripts/sync-readme.ts --check",
     "version": "npm run docs:readme && git add README.md"

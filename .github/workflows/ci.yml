@@ -28,6 +28,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Smoke test of the production build
+        run: npm run smoke
 
   # После зелёных проверок CI сам приводит бейджи и версию в README к package.json
   # и коммитит изменение в ветку PR. Токен по умолчанию не запускает повторный CI;

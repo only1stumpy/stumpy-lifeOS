@@ -151,6 +151,7 @@ npm run telegram:register
 | `npm test` | Тесты на `node --test` (`tests/*.test.ts`) |
 | `npm run db:generate` | Генерация SQL-миграции из `src/db/schema.ts` |
 | `npm run db:migrate` | Применение миграций из `drizzle/` |
+| `npm run smoke` | Дымовая проверка собранного приложения (после `npm run build`): запускает `next start` с заглушками секретов, проверяет `/`, `/api/health`, заголовки и отказ неподписанным запросам; то же идёт в CI |
 | `npm run docs:readme` | Обновляет бейджи и версию в README из `package.json` (CI делает это сам после зелёных проверок; также срабатывает при `npm version`) |
 | `npm run docs:readme:check` | Проверяет, что README соответствует `package.json` |
 | `npm run telegram:register` | Регистрация Telegram webhook |
