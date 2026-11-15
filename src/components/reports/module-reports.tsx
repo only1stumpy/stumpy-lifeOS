@@ -1,5 +1,6 @@
 "use client";
 
+import { plural } from "@/domain/plural";
 import { useId, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { formatMoney } from "@/domain/currencies";
@@ -70,13 +71,6 @@ function moneyLabel(currency: string, minor: number): string {
   return formatMoney(Math.abs(minor), currency);
 }
 
-function plural(value: number, one: string, few: string, many: string): string {
-  const n = Math.abs(value) % 100;
-  const last = n % 10;
-  if (n > 10 && n < 20) return many;
-  if (last > 1 && last < 5) return few;
-  return last === 1 ? one : many;
-}
 
 function ChartTable({ label, points, formatValue }: { label: string; points: TrendPoint[]; formatValue(value: number): string }) {
   return (

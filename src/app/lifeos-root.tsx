@@ -727,7 +727,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           {showAiQuotas && initData && <AiQuotasPanel key="ai-quotas" initData={initData} onClose={closeAiQuotas} />}
         </AnimatePresence>
         <AnimatePresence initial={false}>
-          {editor && <EditorDialog key={editorIdentity(editor)} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => { if (editor.kind === "whats-new") void sendCommand({ type: "version.seen", version: APP_VERSION }); else setEditor(null); }} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
+          {editor && <EditorDialog key={editorIdentity(editor)} onConnectAi={() => { setEditor(null); setSettingsPage("menu"); setShowAiProviders(true); }} editor={editor} snapshot={snapshot} pending={pending} error={error} onClose={() => { if (editor.kind === "whats-new") void sendCommand({ type: "version.seen", version: APP_VERSION }); else setEditor(null); }} onChange={openEditor} onCommand={sendCommand} onRegisterTelegramBackHandler={registerEditorBackHandler} restoreValues={restoreValues} onRememberForm={(values) => { formMemoryRef.current = values; }} />}
         </AnimatePresence>
         {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
         <AnimatePresence>
