@@ -7,7 +7,7 @@
 ## Что нужно заранее
 
 - Аккаунты Telegram (BotFather), GitHub, Vercel, Neon и cron-job.org.
-- Node.js 22 или новее и npm (`engines.node >=22` в `package.json`) для локальных команд.
+- Node.js 24 или новее и npm (`engines.node >=24` в `package.json`) для локальных команд.
 - Клон репозитория и `npm ci`.
 - Для применения миграций вручную — клиент `psql` (или SQL-консоль Neon).
 

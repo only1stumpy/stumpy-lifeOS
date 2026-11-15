@@ -4,7 +4,7 @@
 
 ![Версия](https://img.shields.io/badge/версия-0.25.0-8b1e3f)
 ![Статус](https://img.shields.io/badge/статус-бета-orange)
-![Node.js](https://img.shields.io/badge/node-%3E%3D22-339933)
+![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933)
 ![Лицензия](https://img.shields.io/badge/лицензия-AGPL--3.0-blue)
 
 > Проект в бете: код трёх модулей написан, но сквозная проверка на реальных сервисах и устройствах не завершена. Подробности — в разделе [Статус и дорожная карта](#статус-и-дорожная-карта).
@@ -84,7 +84,7 @@ flowchart LR
 
 ### Требования
 
-- Node.js 22 или новее и npm.
+- Node.js 24 или новее и npm.
 - PostgreSQL-база (в проекте используется Neon Serverless).
 - Telegram-бот (токен от BotFather).
 - Публичный HTTPS-адрес для webhook и Mini App (для регистрации webhook).
