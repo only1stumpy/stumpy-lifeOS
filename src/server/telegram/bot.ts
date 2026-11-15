@@ -1,5 +1,5 @@
 import { and, desc, eq, lt, lte, or, sql } from "drizzle-orm";
-import { Bot, InlineKeyboard, type Context } from "grammy";
+import { Bot, InlineKeyboard, InputFile, type Context } from "grammy";
 import type { InlineKeyboardButton, InlineKeyboardMarkup, Update } from "grammy/types";
 import type { MacroValues } from "@/domain/types";
 import * as schema from "@/db/schema";
@@ -21,6 +21,9 @@ import { AIAnalysisError } from "@/server/ai/types";
 import { formatBulkSummary, formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
 import { currentTelegramUserId, resolveTelegramUserId, withTelegramUser } from "@/server/owner-context";
 import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
+import { createBackup, type BackupDatabase } from "@/server/backup";
+import { PRIVACY_POLICY_URL, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const TELEGRAM_FILE_TIMEOUT_MS = 20_000;
@@ -37,6 +40,22 @@ function getBot(): Bot<Context> {
   if (!token) throw new AppError(503, "Telegram ещё не настроен.");
 
   const bot = new Bot(token);
+  // Nothing is stored or answered until the user has accepted the current privacy policy.
+  bot.use(async (ctx, next) => {
+    if (ctx.chat?.type !== "private") return next();
+    const owner = await ensureOwner();
+    if (owner.privacyPolicyVersion === PRIVACY_POLICY_VERSION) return next();
+    if (ctx.callbackQuery?.data === "privacy:accept") {
+      await executeCommand({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION });
+      await ctx.answerCallbackQuery().catch(() => undefined);
+      await ctx.reply("Спасибо, согласие записано. Можно писать боту или открыть приложение.");
+      return;
+    }
+    await ctx.reply(
+      "Перед началом работы нужно принять политику конфиденциальности. Бот хранит ваши записи о питании, финансах и тренировках, а ключи ИИ только в зашифрованном виде. Данные можно выгрузить или удалить в любой момент: Mini App, Настройки, Данные и приватность.",
+      { reply_markup: new InlineKeyboard().url("Политика конфиденциальности", PRIVACY_POLICY_URL).row().text("Принимаю", "privacy:accept") },
+    );
+  });
   /** Enabled modules and features of the current owner, used to tailor start and help texts. */
   const welcomeInput = async () => {
     const owner = await ensureOwner();
@@ -104,6 +123,15 @@ function getBot(): Bot<Context> {
   bot.command("today", async (ctx) => {
     if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
     await sendToday(ctx);
+  });
+
+  bot.command("export", async (ctx) => {
+    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
+    try {
+      await sendExportToChat(String(ctx.from?.id));
+    } catch (error) {
+      await ctx.reply(error instanceof AppError ? error.message : "Не удалось отправить копию данных. Попробуйте позже.");
+    }
   });
 
   bot.command("cancel", async (ctx) => {
@@ -545,6 +573,17 @@ function getBot(): Bot<Context> {
   return bot;
 }
 
+/** Sends the user's JSON data export into their private chat as a file. */
+export async function sendExportToChat(telegramUserId: string): Promise<void> {
+  if (!/^[1-9]\d{0,19}$/.test(telegramUserId)) throw new AppError(400, "Некорректный профиль Telegram.");
+  await enforceRateLimit(RATE_LIMITS.export, telegramUserId);
+  const backup = await createBackup(getDb() as unknown as BackupDatabase, telegramUserId);
+  const date = new Date().toISOString().slice(0, 10);
+  await getBot().api.sendDocument(Number(telegramUserId), new InputFile(Buffer.from(JSON.stringify(backup), "utf8"), `lifeos-backup-${date}.json`), {
+    caption: "Копия ваших данных LifeOS (JSON). Храните файл в безопасном месте: в нём ваши записи.",
+  });
+}
+
 export function getTelegramBot(): Bot<Context> {
   return getBot();
 }
@@ -815,6 +854,14 @@ export async function processStoredTelegramUpdate(updateRowId: string): Promise<
       .set({ status: "failed", processingStartedAt: null, lastError: "handler_failed" })
       .where(eq(schema.telegramUpdates.id, updateRowId));
   }
+}
+
+/** Technical update records (and any payload kept for failed ones) are deleted after 14 days. */
+export const TELEGRAM_UPDATE_RETENTION_DAYS = 14;
+
+export async function purgeOldTelegramUpdates(now: Date = new Date()): Promise<void> {
+  const cutoff = new Date(now.getTime() - TELEGRAM_UPDATE_RETENTION_DAYS * 24 * 3600 * 1000);
+  await getDb().delete(schema.telegramUpdates).where(lt(schema.telegramUpdates.receivedAt, cutoff));
 }
 
 export async function retryFailedTelegramUpdates(): Promise<void> {

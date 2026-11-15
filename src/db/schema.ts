@@ -46,6 +46,8 @@ export const ownerSettings = pgTable(
     weightReminderEnabled: boolean("weight_reminder_enabled").default(false).notNull(),
     summaryTime: text("summary_time"),
     lastSeenVersion: text("last_seen_version"),
+    privacyAcceptedAt: timestamp("privacy_accepted_at", { withTimezone: true, mode: "date" }),
+    privacyPolicyVersion: text("privacy_policy_version"),
     enabledModules: text("enabled_modules").array().default(sql`ARRAY['nutrition','finance','gym']::text[]`).notNull(),
     modulesConfigured: boolean("modules_configured").default(false).notNull(),
     disabledFeatures: text("disabled_features").array().default(sql`ARRAY[]::text[]`).notNull(),

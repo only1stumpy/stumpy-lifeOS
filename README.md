@@ -2,7 +2,7 @@
 
 Личный LifeOS в Telegram: питание только по КБЖУ, деньги и тренировки. Бот принимает обычные сообщения, Mini App даёт полный ручной ввод и обзор дня, а ИИ (ваши собственные ключи) лишь ускоряет ввод.
 
-![Версия](https://img.shields.io/badge/версия-0.22.0-8b1e3f)
+![Версия](https://img.shields.io/badge/версия-0.25.0-8b1e3f)
 ![Статус](https://img.shields.io/badge/статус-бета-orange)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D22-339933)
 ![Лицензия](https://img.shields.io/badge/лицензия-AGPL--3.0-blue)
@@ -169,7 +169,7 @@ src/
   server/         Серверная логика: ai (провайдеры, очередь моделей, разбор),
                   telegram, резервные копии, HTTP-утилиты, доступ к данным
   db/             Схема Drizzle и клиент Neon
-drizzle/          SQL-миграции (0000-0013) и метаданные
+drizzle/          SQL-миграции (0000-0015) и метаданные
 scripts/          Регистрация webhook, резервное копирование, загрузка окружения
 tests/            Тесты на node --test
 docs/             Продукт, архитектура, план, исследования, аудиты, визуальный эталон
@@ -181,7 +181,7 @@ docs/             Продукт, архитектура, план, исслед
 
 1. Создайте базу Neon и задайте `DATABASE_URL`; примените `npm run db:migrate`.
 2. Подключите репозиторий к Vercel и задайте переменные окружения из таблицы выше.
-3. Выпускайте изменения через ветку, PR и Vercel Preview, затем слияние в `main` (правила — в [CLAUDE.md](CLAUDE.md) и [AGENTS.md](AGENTS.md)). Preview не получает Telegram- и Neon-переменных, поэтому Mini App API там без них не проверить.
+3. Выпускайте изменения через ветку, PR и Vercel Preview, затем слияние в `main` (правила: [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md)). Preview не получает Telegram- и Neon-переменных, поэтому Mini App API там без них не проверить.
 4. Зарегистрируйте webhook командой `npm run telegram:register` с production `APP_URL`.
 5. Настройте cron-job.org на регулярный вызов `<APP_URL>/api/cron` с заголовком `Authorization: Bearer <CRON_SECRET>`.
 6. Укажите URL Mini App в BotFather.
@@ -202,17 +202,21 @@ docs/             Продукт, архитектура, план, исслед
 
 | Документ | Что в нём |
 |---|---|
+| [docs/README.md](docs/README.md) | Навигация по всей документации |
+| [docs/status.md](docs/status.md) | Что проверено и что нет |
+| [docs/deployment.md](docs/deployment.md), [docs/operations.md](docs/operations.md), [docs/configuration.md](docs/configuration.md), [docs/database.md](docs/database.md) | Развёртывание, эксплуатация, переменные окружения, база данных |
+| [docs/privacy-policy.md](docs/privacy-policy.md) | Проект политики конфиденциальности |
 | [docs/product.md](docs/product.md) | Бизнес-сценарии и границы продукта |
 | [docs/architecture.md](docs/architecture.md) | Стек, схема, API, переменные, ограничения |
 | [DESIGN.md](DESIGN.md) | Направление Liquid Glass и состояние интерфейса |
 | [docs/reference/README.md](docs/reference/README.md) | Утверждённый визуальный эталон |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Что сделано и что осталось до первой версии |
 | [CHANGELOG.md](CHANGELOG.md) | Изменения по выпускам |
-| [docs/research.md](docs/research.md) | Исследование открытых решений и лицензий |
+| [docs/archive/research.md](docs/archive/research.md) | Исследование открытых решений и лицензий |
 | [docs/release-plan.md](docs/release-plan.md) | План до релиз-кандидата: блокеры, этапы, решения владельца |
 | [docs/audit/](docs/audit/) | Аудиты: код, архитектура и SOLID, безопасность, документация, готовность к релизу |
 | [docs/ux-audit/](docs/ux-audit/README.md) | UX-аудит по модулям и план исправлений |
-| [docs/audit-2026-11-12.md](docs/audit-2026-11-12.md), [docs/unslop-audit.md](docs/unslop-audit.md) | Предыдущие аудиты |
+| [docs/archive/audit-2026-11-12.md](docs/archive/audit-2026-11-12.md), [docs/archive/unslop-audit.md](docs/archive/unslop-audit.md) | Предыдущие аудиты |
 | [AGENTS.md](AGENTS.md) | Правила работы с кодом и проектом |
 
 Визуальный эталон (исторический макет, не само приложение):
@@ -221,13 +225,13 @@ docs/             Продукт, архитектура, план, исслед
 
 ## Статус и дорожная карта
 
-Версия `0.22.0`, бета; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
+Версия `0.25.0`, бета; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
 
 | Что | Состояние |
 |---|---|
 | Три модуля (питание, финансы, зал) | Реализованы в коде |
 | Production: Vercel, Neon, Telegram webhook | Подключены, webhook обрабатывал production updates |
-| Миграции в production | Применены `0000`-`0013` (мультивалютность и `message_id` черновиков накатаны отдельно); часть документов ещё указывает `0000`-`0011` и обновляется |
+| Миграции в production | Применены `0000`-`0014` (мультивалютность и `message_id` черновиков накатаны отдельно); часть документов ещё указывает `0000`-`0011` и обновляется |
 | cron-job.org | Тестовый вызов `/api/cron` вернул `200 OK`; доставка сводок не подтверждена |
 | Разбор ИИ, подключение ключей BYOK, квоты | Требуют сквозной проверки на реальных сервисах |
 | Долги, мультивалютность, планы покупок | Требуют проверки на личных данных |

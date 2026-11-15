@@ -14,6 +14,9 @@ import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
 import { LifeOSBootSkeleton, NeutralBootLoader } from "@/components/loading/loading-skeletons";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { PersonalizationPage } from "@/components/settings/personalization-page";
+import { PrivacyPage } from "@/components/settings/privacy-page";
+import { ConsentScreen } from "@/components/privacy/consent-screen";
+import { DELETE_CONFIRMATION_WORD, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
 import { SettingsMenu, SettingsSubpage, type SettingsPage } from "@/components/settings/settings-menu";
 import { MotionProvider, motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
@@ -207,6 +210,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [showAiQuotas, setShowAiQuotas] = useState(false);
   const [showAiProviders, setShowAiProviders] = useState(false);
   const [settingsPage, setSettingsPage] = useState<SettingsPage>("menu");
+  const [accountDeleted, setAccountDeleted] = useState(false);
   const [onboardingActive, setOnboardingActive] = useState(false);
   // Only a device that already finished onboarding gets the dashboard skeleton; everyone else a neutral loader.
   const returningDevice = useSyncExternalStore(subscribeNothing, readReturning, () => false);
@@ -461,6 +465,12 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       const payload = await responseBody(response);
       if (!response.ok || isErrorPayload(payload)) throw new Error(responseError(payload, response.status));
       triggerTelegramHaptic("success");
+      if (parsed.data.type === "account.delete") {
+        // The account no longer exists, so there is no snapshot to load.
+        setAccountDeleted(true);
+        setEditor(null);
+        return true;
+      }
 
       try {
         // The server answers a command with a fresh snapshot for today: no second request needed unless another day is open.
@@ -505,6 +515,26 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     setShowAiProviders(false);
     setSettingsPage("menu");
   }, []);
+  const sendExport = useCallback(async (): Promise<boolean> => {
+    if (!initData || pendingRef.current) return false;
+    pendingRef.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/export", { method: "POST", headers: { Authorization: `tma ${initData}` }, cache: "no-store" });
+      const payload = await responseBody(response);
+      if (!response.ok || isErrorPayload(payload)) throw new Error(responseError(payload, response.status));
+      setNotice("Копия данных отправлена в чат с ботом.");
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось отправить копию данных.");
+      return false;
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  }, [initData]);
+
   const savePersonalization = useCallback(async (commands: AppCommand[]): Promise<boolean> => {
     for (const command of commands) {
       if (!(await sendCommand(command, true))) return false;
@@ -625,6 +655,24 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     );
   }
 
+  if (accountDeleted) {
+    return (
+      <MotionProvider>
+        <main className="setup-notice" role="status" aria-live="polite">
+          <p>Все ваши данные удалены. Если захотите вернуться, откройте LifeOS заново: профиль создастся с нуля.</p>
+        </main>
+      </MotionProvider>
+    );
+  }
+
+  if (snapshot.settings.privacyAcceptedVersion !== PRIVACY_POLICY_VERSION) {
+    return (
+      <MotionProvider>
+        <ConsentScreen pending={pending} error={error} onAccept={() => void sendCommand({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION }, true)} />
+      </MotionProvider>
+    );
+  }
+
   if (onboardingActive) {
     return (
       <MotionProvider>
@@ -664,6 +712,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           aiSettingsActive={showAiProviders}
           aiSettingsContent={showAiProviders && initData ? (
             settingsPage === "menu" ? <SettingsMenu onOpen={setSettingsPage} />
+              : settingsPage === "privacy" ? <SettingsSubpage><PrivacyPage snapshot={snapshot} pending={pending} onSendExport={sendExport} onDelete={() => sendCommand({ type: "account.delete", confirmation: DELETE_CONFIRMATION_WORD }, true)} /></SettingsSubpage>
               : settingsPage === "personalization" ? <SettingsSubpage><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} /></SettingsSubpage>
               : <SettingsSubpage><AiProvidersPanel key="ai-providers" initData={initData} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => setShowAiQuotas(true)} /></SettingsSubpage>
           ) : null}

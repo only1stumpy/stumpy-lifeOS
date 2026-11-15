@@ -1,5 +1,7 @@
 # Исследование открытых решений
 
+> Исторический документ, не отражает текущее состояние. Актуальный статус — в [docs/status.md](../status.md), справочные документы — в [docs/README.md](../README.md).
+
 Сводка исследования от 27 октября 2026 года. Просматривались репозитории и документация; приложения не разворачивались для сравнительного пользовательского теста. Статус репозиториев и лицензии могут меняться: перед заимствованием проверить конкретную ревизию и каждый используемый ресурс.
 
 Ни одно полноценное приложение не принято как база LifeOS. Берём идеи сценариев, а совместимый код или данные — только после отдельной проверки. Стек и библиотека grammY приняты независимо от этого сравнения.
@@ -52,7 +54,7 @@
 
 [grammY](https://github.com/grammyjs/grammY), MIT, принят как библиотека Telegram-бота.
 
-Для Liquid Glass изучены [Apple WWDC](https://developer.apple.com/videos/play/wwdc2025/219/), [Aave](https://aave.com/design/building-glass-for-the-web), [liquidglass.dev](https://liquidglass.dev/) и [liquid-glass-react](https://github.com/rdev/liquid-glass-react). Последний не выбран зависимостью. Утверждённый результат и Medeo описаны в [DESIGN.md](../DESIGN.md).
+Для Liquid Glass изучены [Apple WWDC](https://developer.apple.com/videos/play/wwdc2025/219/), [Aave](https://aave.com/design/building-glass-for-the-web), [liquidglass.dev](https://liquidglass.dev/) и [liquid-glass-react](https://github.com/rdev/liquid-glass-react). Последний не выбран зависимостью. Утверждённый результат и Medeo описаны в [DESIGN.md](../../DESIGN.md).
 
 Установленный для разработки [liquid-glass-design skill](https://github.com/xinlingfeiwu/liquid-glass-design-skill) использовался как руководство, не как библиотека приложения. Проверенный источник скилла: ревизия `2e6d7568a3df4888fe9dd00d23dd30a6ceb84349`, MIT. Наличие скилла на машине не требуется для чтения этой документации.
 

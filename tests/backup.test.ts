@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { and, eq } from "drizzle-orm";
+import { and, eq, is } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
 import * as schema from "@/db/schema";
 import {
   BACKUP_VERSION,
@@ -13,7 +14,7 @@ import {
   validateBackup,
   type BackupDatabase,
 } from "@/server/backup";
-import { setPendingMoneyDraftCategory } from "@/server/lifeos";
+import { deleteOwnerData, setPendingMoneyDraftCategory } from "@/server/lifeos";
 import type { Transaction } from "@/db/client";
 
 const OWNER_ID = "123456789";
@@ -586,5 +587,38 @@ test("backup round-trips all persistent tables and leaves ephemeral references c
   } finally {
     await sourceClient.close();
     await targetClient.close();
+  }
+});
+
+test("удаление владельца стирает все его данные во всех таблицах и не трогает чужие", async () => {
+  const client = new PGlite();
+  const database = drizzle(client, { schema });
+  try {
+    await migrate(client);
+    await seed(database);
+    // A second owner with its own rows must survive the deletion.
+    const [other] = await database.insert(schema.ownerSettings).values({ telegramUserId: "999000111" }).returning();
+    await database.insert(schema.rateLimitCounters).values([
+      { key: `commands:${OWNER_ID}`, windowStart: new Date("2026-11-15T10:00:00Z"), count: 3 },
+      { key: "commands:999000111", windowStart: new Date("2026-11-15T10:00:00Z"), count: 2 },
+    ]);
+
+    await database.transaction(async (tx) => {
+      await deleteOwnerData(tx as unknown as Transaction, { id: OWNER_UUID, telegramUserId: OWNER_ID });
+    });
+
+    const tables = (Object.values(schema) as unknown[]).filter((value): value is PgTable => is(value, PgTable));
+    const remaining: Record<string, number> = {};
+    for (const table of tables) {
+      const rows = await database.select().from(table);
+      if (rows.length) remaining[(table as unknown as Record<symbol, string>)[Symbol.for("drizzle:Name")]] = rows.length;
+    }
+    assert.deepEqual(remaining, { owner_settings: 1, rate_limit_counters: 1 });
+    const [survivor] = await database.select().from(schema.ownerSettings);
+    assert.equal(survivor.id, other.id);
+    const [counter] = await database.select().from(schema.rateLimitCounters);
+    assert.equal(counter.key, "commands:999000111");
+  } finally {
+    await client.close();
   }
 });

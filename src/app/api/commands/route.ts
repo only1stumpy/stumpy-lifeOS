@@ -16,7 +16,10 @@ export async function POST(request: Request) {
     let data: unknown;
     try { data = JSON.parse(raw); } catch { throw new AppError(400, "Некорректный запрос."); }
     return await withTelegramUser(String(user.id), async () => {
-      await executeCommand(commandSchema.parse(data));
+      const command = commandSchema.parse(data);
+      await executeCommand(command);
+      // After deleting the account there is nothing to load: loading would silently create a new empty profile.
+      if (command.type === "account.delete") return Response.json({ deleted: true }, { headers: { "Cache-Control": "no-store" } });
       return Response.json(await loadSnapshot(), { headers: { "Cache-Control": "no-store" } });
     });
   } catch (error) {

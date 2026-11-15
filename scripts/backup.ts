@@ -37,7 +37,7 @@ async function main() {
       if (Buffer.byteLength(contents, "utf8") > BACKUP_MAX_BYTES) {
         throw new AppError(413, "Резервная копия превышает допустимый размер.");
       }
-      await writeFile(path, contents, { encoding: "utf8", flag: "wx" });
+      await writeFile(path, contents, { encoding: "utf8", flag: "wx", mode: 0o600 });
       process.stdout.write(`Резервная копия сохранена: ${path}\n`);
       return;
     }

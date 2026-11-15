@@ -19,6 +19,8 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("notifications.save"), settings: notificationSettingsSchema }),
   z.object({ type: z.literal("personalization.save"), modules: enabledModulesSchema, disabledFeatures: disabledFeaturesSchema, settings: notificationSettingsSchema }),
   z.object({ type: z.literal("version.seen"), version: z.string().min(1).max(20) }),
+  z.object({ type: z.literal("privacy.accept"), version: z.string().min(1).max(20) }),
+  z.object({ type: z.literal("account.delete"), confirmation: z.literal("УДАЛИТЬ") }),
   z.object({ type: z.literal("modules.save"), modules: enabledModulesSchema, disabledFeatures: disabledFeaturesSchema.optional() }),
   z.object({
     type: z.literal("onboarding.complete"),

@@ -143,3 +143,20 @@
 .ok {
   color: #3d6b4f;
 }
+
+.danger {
+  min-height: 48px;
+  border: 1px solid #a3261f66;
+  border-radius: 16px;
+  padding: 12px 18px;
+  background: transparent;
+  color: #a3261f;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.danger:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
