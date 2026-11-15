@@ -1,6 +1,6 @@
 import { verifyTelegramInitData } from "./telegram/auth";
 export class AppError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public retryAfterSeconds?: number) { super(message); }
 }
 export function requireOwner(request: Request) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -20,7 +20,7 @@ export function requireConfiguredOwner(request: Request) {
   return user;
 }
 export function errorResponse(error: unknown) {
-  if (error instanceof AppError) return Response.json({ error: error.message }, { status: error.status });
+  if (error instanceof AppError) return Response.json({ error: error.message }, { status: error.status, headers: error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds) } : undefined });
   if (error instanceof Error && error.name === "ZodError") return Response.json({ error: "Проверьте значения полей." }, { status: 400 });
   console.error("LifeOS request failed", error instanceof Error ? error.name : "unknown");
   return Response.json({ error: "Не удалось выполнить действие. Данные не подтверждены." }, { status: 500 });

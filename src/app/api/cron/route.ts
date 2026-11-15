@@ -5,6 +5,7 @@ import * as schema from "@/db/schema";
 import { dateKey } from "@/domain/math";
 import { AppError } from "@/server/http";
 import { withTelegramUser } from "@/server/owner-context";
+import { purgeOldRateLimitCounters } from "@/server/rate-limit";
 import { warnAboutWeakSecretsOnce } from "@/server/security-config";
 import {
   retryFailedTelegramUpdates,
@@ -45,6 +46,7 @@ async function runCron(request: Request): Promise<Response> {
     const sent: string[] = [];
 
     await retryFailedTelegramUpdates();
+    await purgeOldRateLimitCounters().catch(() => console.error("LifeOS cron: rate limit cleanup failed"));
     const owners = await getDb().select().from(schema.ownerSettings).orderBy(schema.ownerSettings.createdAt);
     let failed = 0;
     for (const owner of owners) {

@@ -1,6 +1,7 @@
 import { getAiProviderUsage } from "@/server/ai/provider-accounts";
 import { getGeminiQuotaSnapshot } from "@/server/ai/quotas";
 import { errorResponse, requireOwner } from "@/server/http";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { ensureOwner } from "@/server/lifeos";
 import { withTelegramUser } from "@/server/owner-context";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request): Promise<Response> {
   try {
     const user = requireOwner(request);
+    await enforceRateLimit(RATE_LIMITS.aiQuotas, user.id);
     return await withTelegramUser(String(user.id), async () => {
       const owner = await ensureOwner();
       const providers = await getAiProviderUsage(owner.id);

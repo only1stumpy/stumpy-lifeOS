@@ -10,6 +10,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -174,6 +175,21 @@ export const telegramUpdates = pgTable(
     index("telegram_updates_owner_received_idx").on(table.ownerId, table.receivedAt),
     check("telegram_updates_status_valid", sql`${table.status} in ('received', 'processing', 'processed', 'failed')`),
     check("telegram_updates_attempt_count_nonnegative", sql`${table.attemptCount} >= 0`),
+  ],
+);
+
+/** Fixed-window request counters used by the rate limiter; rows older than two days are purged by the cron job. */
+export const rateLimitCounters = pgTable(
+  "rate_limit_counters",
+  {
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true, mode: "date" }).notNull(),
+    count: integer("count").default(0).notNull(),
+  },
+  (table) => [
+    primaryKey({ name: "rate_limit_counters_pk", columns: [table.key, table.windowStart] }),
+    index("rate_limit_counters_window_idx").on(table.windowStart),
+    check("rate_limit_counters_count_nonnegative", sql`${table.count} >= 0`),
   ],
 );
 

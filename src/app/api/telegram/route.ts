@@ -6,6 +6,7 @@ import * as schema from "@/db/schema";
 import { ensureOwner } from "@/server/lifeos";
 import { processStoredTelegramUpdate } from "@/server/telegram/bot";
 import { AppError } from "@/server/http";
+import { consumeRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { warnAboutWeakSecretsOnce } from "@/server/security-config";
 
 export const runtime = "nodejs";
@@ -42,6 +43,12 @@ export async function POST(request: Request): Promise<Response> {
     const actorId = getActorId(payload);
     if (actorId === null || !isPrivateUpdate(payload)) {
       // Telegram expects an acknowledgement for updates outside private chats.
+      return Response.json({ ok: true });
+    }
+    // Beyond the per-user limit the update is acknowledged and dropped, so Telegram does not retry it.
+    const messageLimit = await consumeRateLimit(getDb(), RATE_LIMITS.telegramMessages, String(actorId));
+    if (!messageLimit.allowed) {
+      console.warn("LifeOS telegram rate limit exceeded");
       return Response.json({ ok: true });
     }
     const owner = await ensureOwner(String(actorId));
