@@ -9,7 +9,7 @@ const { version } = JSON.parse(readFileSync(join(process.cwd(), "package.json"),
 function releaseHistory(): { version: string; notes: string[] }[] {
   const releases: { version: string; notes: string[] }[] = [];
   for (const line of readFileSync(join(process.cwd(), "CHANGELOG.md"), "utf8").split("\n")) {
-    const heading = /^## (\d+\.\d+\.\d+)/.exec(line);
+    const heading = /^## (\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)/.exec(line);
     if (heading) releases.push({ version: heading[1], notes: [] });
     else if (line.startsWith("- ") && releases.length) releases[releases.length - 1].notes.push(line.slice(2).trim());
   }

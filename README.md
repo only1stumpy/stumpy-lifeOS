@@ -3,8 +3,8 @@
 Личный LifeOS в Telegram: питание только по КБЖУ, деньги и тренировки. Бот принимает обычные сообщения, Mini App даёт полный ручной ввод и обзор дня, а ИИ (ваши собственные ключи) лишь ускоряет ввод.
 
 <!-- badges:start -->
-![Версия](https://img.shields.io/badge/версия-0.26.2-8b1e3f)
-![Статус](https://img.shields.io/badge/статус-бета-orange)
+![Версия](https://img.shields.io/badge/версия-1.0.0--rc.1-8b1e3f)
+![Статус](https://img.shields.io/badge/статус-релиз--кандидат-yellow)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933)
 ![Лицензия](https://img.shields.io/badge/лицензия-AGPL--3.0-blue)
 <!-- badges:end -->
@@ -230,7 +230,7 @@ docs/             Продукт, архитектура, план, исслед
 
 ## Статус и дорожная карта
 
-Версия <!-- version -->`0.26.2`<!-- /version -->, бета; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
+Версия <!-- version -->`1.0.0-rc.1`<!-- /version -->, релиз-кандидат; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
 
 | Что | Состояние |
 |---|---|
