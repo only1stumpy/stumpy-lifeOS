@@ -11,6 +11,7 @@ import { parseMinor } from "@/domain/math";
 import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import { APP_VERSION, releasesSince } from "@/domain/release";
+import { plural } from "@/domain/plural";
 import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { CurrencyPicker } from "@/components/finance/currency-picker";
@@ -50,6 +51,8 @@ type EditorDialogProps = {
   restoreValues?: FormValues | null;
   onRememberForm?(values: FormValues): void;
   onRegisterTelegramBackHandler?(handler: (() => void) | null): void;
+  /** Opens the AI provider settings; offered next to the «ИИ пока не настроен» message. */
+  onConnectAi?(): void;
 };
 
 const moneyDecimal = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -157,7 +160,7 @@ function MacroFields({ values }: { values?: { calories: number; proteinGrams: nu
   );
 }
 
-export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm }: EditorDialogProps) {
+export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm, onConnectAi }: EditorDialogProps) {
   const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -1018,6 +1021,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         </button>
       </header>
       <AnimatePresence initial={false} mode="wait">{activeError && <motion.p key="editor-error" className="error" role="alert" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">{activeError}</motion.p>}</AnimatePresence>
+      {onConnectAi && activeError?.includes("ИИ пока не настроен") && <div className="actions"><button type="button" onClick={onConnectAi}>Подключить ИИ</button></div>}
       <AnimatePresence initial={false} mode="wait">
         {saved ? <motion.p key="editor-saved" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохранено.</motion.p> : null}
       </AnimatePresence>
@@ -1092,10 +1096,3 @@ function frequencyLabel(frequency: "weekly" | "monthly" | "yearly"): string {
   return "ежемесячно";
 }
 
-function plural(value: number, one: string, few: string, many: string): string {
-  const absolute = Math.abs(value) % 100;
-  const last = absolute % 10;
-  if (absolute > 10 && absolute < 20) return many;
-  if (last > 1 && last < 5) return few;
-  return last === 1 ? one : many;
-}

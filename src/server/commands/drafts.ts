@@ -1,0 +1,90 @@
+import { and, eq } from "drizzle-orm";
+import type { Transaction } from "@/db/client";
+import * as s from "@/db/schema";
+import { AppError } from "../http";
+import { account, category, toMinor, macroNumbers, macroStrings, rateAt } from "./shared";
+import type { CommandHandlers } from "./types";
+import { saveDebtRepayment, saveDebtTransfer } from "./debts";
+
+export async function setPendingMoneyDraftCategory(
+  tx: Transaction,
+  ownerId: string,
+  draftId: string,
+  name: string,
+): Promise<void> {
+  const [draft] = await tx.select().from(s.captureDrafts)
+    .where(and(eq(s.captureDrafts.id, draftId), eq(s.captureDrafts.ownerId, ownerId)))
+    .for("update");
+  if (!draft) throw new AppError(404, "Черновик не найден.");
+  if (draft.status !== "pending") throw new AppError(409, "Черновик уже отменён.");
+
+  const [money] = await tx.select().from(s.moneyDrafts)
+    .where(and(eq(s.moneyDrafts.captureDraftId, draftId), eq(s.moneyDrafts.ownerId, ownerId)));
+  if (!money) throw new AppError(400, "Черновик не содержит финансовую операцию.");
+
+  const group = await category(tx, ownerId, name, money.entryType as "expense" | "income");
+  await tx.update(s.moneyDrafts)
+    .set({ categoryId: group.id, proposedCategory: group.name })
+    .where(and(eq(s.moneyDrafts.captureDraftId, draftId), eq(s.moneyDrafts.ownerId, ownerId)));
+}
+
+export function missingMoneyCategoryMessage(entryType: "expense" | "income"): string {
+  const categoryKind = entryType === "income" ? "дохода" : "расхода";
+  return `Уточните категорию ${categoryKind} через «Исправить».`;
+}
+
+export const draftsHandlers = {
+  "draft.reject": async ({ tx, owner }, command) => {
+    const [draft] = await tx.select({ status: s.captureDrafts.status }).from(s.captureDrafts)
+      .where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
+    if (!draft) throw new AppError(404, "Черновик не найден.");
+    if (draft.status === "confirmed") throw new AppError(409, "Черновик уже записан, отменить его нельзя. Удалите запись.");
+    if (draft.status === "pending") await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id)));
+  },
+  "draft.money-category.set": async ({ tx, owner }, command) => {
+    await setPendingMoneyDraftCategory(tx, owner.id, command.id, command.category);
+  },
+  "draft.confirm": async ({ tx, owner }, command) => {
+    const [draft] = await tx.select().from(s.captureDrafts).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
+    if (!draft) throw new AppError(404, "Черновик не найден.");
+    if (draft.status === "confirmed") return;
+    if (draft.status !== "pending") throw new AppError(409, "Черновик уже отменён.");
+    const [food] = await tx.select().from(s.nutritionDrafts).where(eq(s.nutritionDrafts.captureDraftId, draft.id));
+    const [money] = await tx.select().from(s.moneyDrafts).where(eq(s.moneyDrafts.captureDraftId, draft.id));
+    const [debt] = await tx.select().from(s.financeDebtDrafts)
+      .where(and(eq(s.financeDebtDrafts.captureDraftId, draft.id), eq(s.financeDebtDrafts.ownerId, owner.id)));
+    if (food) await tx.insert(s.nutritionEntries).values({ ownerId: owner.id, captureDraftId: draft.id, name: food.name, portionLabel: food.portionLabel, ...macroStrings(macroNumbers(food)), occurredAt: food.occurredAt, estimated: food.estimated });
+    if (money) {
+      if (!money.proposedCategory && !money.categoryId) throw new AppError(400, missingMoneyCategoryMessage(money.entryType === "income" ? "income" : "expense"));
+      const chosen = await account(tx, owner.id, money.accountId ?? undefined, money.currency);
+      const group = money.categoryId ? null : await category(tx, owner.id, money.proposedCategory!, money.entryType as "expense" | "income");
+      const rate = await rateAt(tx, owner.id, chosen.currency, money.occurredAt);
+      await tx.insert(s.financeEntries).values({ ownerId: owner.id, captureDraftId: draft.id, accountId: chosen.id, categoryId: money.categoryId ?? group!.id, entryType: money.entryType, name: money.name, amount: money.amount, currency: chosen.currency, rateToBase: rate, occurredAt: money.occurredAt });
+    }
+    if (debt) {
+      if (debt.operation === "create") {
+        await saveDebtTransfer(tx, owner.id, {
+          personName: debt.personName,
+          direction: debt.direction as "i_owe" | "owed_to_me",
+          amountMinor: toMinor(debt.amount),
+          openedAs: debt.openedAs as "transfer" | "opening_balance",
+          accountId: debt.accountId ?? undefined,
+          occurredAt: debt.occurredAt,
+          dueOn: debt.dueOn,
+          note: debt.note,
+          captureDraftId: draft.id,
+        });
+      } else {
+        if (!debt.debtId || !debt.accountId) throw new AppError(400, "В черновике возврата не хватает долга или счёта.");
+        await saveDebtRepayment(tx, owner.id, {
+          debtId: debt.debtId,
+          amountMinor: toMinor(debt.amount),
+          accountId: debt.accountId,
+          occurredAt: debt.occurredAt,
+          captureDraftId: draft.id,
+        });
+      }
+    }
+    await tx.update(s.captureDrafts).set({ status: "confirmed", confirmedAt: new Date() }).where(eq(s.captureDrafts.id, draft.id));
+  },
+} satisfies Partial<CommandHandlers>;

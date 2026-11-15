@@ -20,7 +20,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   experimental: { useTypeScriptCli: false },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders() }];
+    return [
+      { source: "/:path*", headers: securityHeaders() },
+      // Fonts never change under the same file name, so browsers can keep them for a year.
+      { source: "/fonts/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+    ];
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,

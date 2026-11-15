@@ -1,5 +1,6 @@
 "use client";
 
+import { plural as pluralWord } from "@/domain/plural";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AiQuotaMetric, AiQuotaSnapshot } from "@/domain/ai-quotas";
@@ -74,13 +75,7 @@ function formatTimestamp(value: string | null): string | null {
 }
 
 function plural(value: number, forms: [string, string, string]): string {
-  const integer = Math.abs(Math.trunc(value));
-  const lastTwo = integer % 100;
-  if (lastTwo >= 11 && lastTwo <= 19) return forms[2];
-  const last = integer % 10;
-  if (last === 1) return forms[0];
-  if (last >= 2 && last <= 4) return forms[1];
-  return forms[2];
+  return pluralWord(value, forms[0], forms[1], forms[2]);
 }
 
 function amount(value: number, unit: AiQuotaMetric["unit"]): string {

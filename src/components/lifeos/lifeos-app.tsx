@@ -3,6 +3,7 @@
 import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { formatMoneyAmount } from "@/domain/math";
 import { GOALS } from "@/domain/nutrition";
+import { plural as pluralize } from "@/domain/plural";
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -1031,13 +1032,6 @@ function ActionSheet({
   );
 }
 
-function pluralize(value: number, one: string, few: string, many: string): string {
-  const absolute = Math.abs(value) % 100;
-  const last = absolute % 10;
-  if (absolute > 10 && absolute < 20) return many;
-  if (last > 1 && last < 5) return few;
-  return last === 1 ? one : many;
-}
 
 export { LifeOSApp };
 export type { LifeOSAppProps };

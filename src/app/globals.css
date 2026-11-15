@@ -3,7 +3,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/DNFDEVS/medeo-font@4992444ff40203bd420478076abeb85d068bc98a/fonts/MedeoSans/webfonts/MedeoSansVariable.woff2") format("woff2");
+  src: url("/fonts/medeo/MedeoSansVariable.woff2") format("woff2");
 }
 
 @font-face {
@@ -11,7 +11,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/DNFDEVS/medeo-font@4992444ff40203bd420478076abeb85d068bc98a/fonts/MedeoMono/webfonts/MedeoMonoVariable.woff2") format("woff2");
+  src: url("/fonts/medeo/MedeoMonoVariable.woff2") format("woff2");
 }
 
 :root {

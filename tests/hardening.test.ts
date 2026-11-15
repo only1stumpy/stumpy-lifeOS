@@ -69,3 +69,13 @@ test("удаление аккаунта требует точного слова
   assert.equal(commandSchema.safeParse({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION }).success, true);
   assert.equal(commandSchema.safeParse({ type: "privacy.accept" }).success, false);
 });
+
+test("склонение по числу даёт верную форму, включая 11-14 и дробные значения", async () => {
+  const { plural } = await import("../src/domain/plural");
+  const forms = (n: number) => plural(n, "запись", "записи", "записей");
+  assert.deepEqual([0, 1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111, 112].map(forms), [
+    "записей", "запись", "записи", "записи", "записей", "записей", "записей", "записей", "запись", "записи", "записей", "запись", "записей", "записей",
+  ]);
+  assert.equal(forms(2.9), "записи");
+  assert.equal(forms(-1), "запись");
+});
