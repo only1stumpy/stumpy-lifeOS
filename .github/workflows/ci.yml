@@ -18,13 +18,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # Схема в src/db/schema.ts и миграции в drizzle/ не должны расходиться: generate не должен создать ничего нового.
+      - name: Schema matches migrations
+        run: |
+          npx drizzle-kit check
+          DATABASE_URL=postgres://ci:ci@127.0.0.1:1/ci npx drizzle-kit generate --name ci_drift_check
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            echo "Схема расходится с миграциями: выполните npm run db:generate и закоммитьте результат"
+            git status --porcelain drizzle
+            exit 1
+          fi
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
@@ -44,11 +54,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.README_SYNC_TOKEN || github.token }}
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm

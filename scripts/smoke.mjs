@@ -53,6 +53,10 @@ try {
     check(`${path} refuses unsigned requests`, (await get(`${base}${path}`)).status === 401);
   }
   check("/api/cron refuses without secret", (await get(`${base}/api/cron`)).status === 401);
+  check("/api/ready refuses without secret", (await get(`${base}/api/ready`)).status === 401);
+  // No real database in smoke: with the right secret the probe must authenticate and then report 503 itself.
+  const ready = await get(`${base}/api/ready`, { headers: { authorization: `Bearer ${"c".repeat(40)}` } });
+  check("/api/ready authenticates and reports unreachable database", ready.status === 503 && (await ready.json()).status === "database_unavailable", String(ready.status));
   check("/api/telegram refuses without secret", (await get(`${base}/api/telegram`, { method: "POST", body: "{}" })).status === 401);
 } catch (error) {
   failures.push(String(error));

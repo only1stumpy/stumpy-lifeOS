@@ -36,36 +36,40 @@ openssl rand -base64 32   # AI_PROVIDER_ENCRYPTION_KEY (32 байта в base64)
 
 ## 4. Миграции
 
-Миграции применяются к базе до первого запуска приложения. Для этого проекта на практике применяется ручная процедура: `npm run db:migrate` (drizzle-kit) в этом проекте завершался без сообщения, поэтому SQL из `drizzle/` выполняют сами, транзакцией, и записывают применение в журнал `drizzle.__drizzle_migrations`. Это практика владельца проекта (см. [CHANGELOG](../CHANGELOG.md) и [database.md](database.md)); формат записи журнала сверен по исходному коду `drizzle-orm/migrator`.
+**Правило: сначала SQL миграции в production, потом merge PR.** Код, который читает колонку раньше, чем она появилась, роняет маршруты до применения миграции. Новую миграцию применяют к production, проверяют `/api/ready` (ниже) и только затем сливают PR; вместе с кодом миграция в Vercel не выкатывается.
 
-Журнал, который ведёт drizzle: таблица `drizzle.__drizzle_migrations (id serial, hash text, created_at bigint)`; `hash` — SHA-256 SQL-файла, `created_at` — поле `when` соответствующей записи в `drizzle/meta/_journal.json`. Штатный мигратор применяет только те миграции, у которых `when` больше `created_at` последней записи журнала, поэтому применять и записывать нужно строго по порядку номеров.
-
-Новая пустая база:
+Один рабочий путь — `npm run db:migrate` (drizzle-kit) с production-переменными и системным прокси:
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS drizzle' \
-  -c 'CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint)'
+vercel env pull .env.vercel.local --environment=production   # файл в .gitignore, не коммитить
+NODE_USE_ENV_PROXY=1 NODE_OPTIONS=--env-file=.env.vercel.local npm run db:migrate
 ```
 
-Затем для каждого файла по порядку (`0000` ... последний). Метка `--> statement-breakpoint` внутри файлов — обычный SQL-комментарий, поэтому файл можно подавать в `psql` целиком:
+- `NODE_USE_ENV_PROXY=1` нужен за корпоративным HTTPS-прокси: без него Node не доходит до Neon (`ETIMEDOUT`), вероятная причина прежнего «молчания» `db:migrate` (на машине владельца причина не воспроизводилась, к production не подключались).
+- `.env.local` обычно без `DATABASE_URL`; `--env-file` подставляет production-значение, не перезаписывая то, что уже есть в окружении.
+- Перед миграцией production сделайте точку восстановления (ветка Neon или резервная копия, см. [runbook](operations.md)). Откатов drizzle-kit не делает.
+
+Если `db:migrate` всё равно завершился без вывода, не считайте миграцию применённой: проверьте журнал запросом ниже. Резервный способ — выполнить SQL файла и запись в журнал одной транзакцией:
 
 ```bash
-f=drizzle/0014_rate_limit_counters.sql
+f=drizzle/0017_command_requests.sql
 hash=$(sha256sum "$f" | cut -d' ' -f1)
-when=$(node -e 'const t=process.argv[1];console.log(require("./drizzle/meta/_journal.json").entries.find(e=>e.tag===t).when)' 0014_rate_limit_counters)
+when=$(node -e 'const t=process.argv[1];console.log(require("./drizzle/meta/_journal.json").entries.find(e=>e.tag===t).when)' 0017_command_requests)
 { echo "BEGIN;"; cat "$f"; echo; echo "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('$hash', $when);"; echo "COMMIT;"; } \
   | psql "$DATABASE_URL" -v ON_ERROR_STOP=1
 ```
 
-Существующая база: сначала посмотрите, что уже записано, и применяйте только недостающие миграции:
+Журнал drizzle: `drizzle.__drizzle_migrations (id serial, hash text, created_at bigint)`; `hash` — SHA-256 SQL-файла, `created_at` — поле `when` записи в `drizzle/meta/_journal.json`. Мигратор применяет только миграции с `when` больше `created_at` последней записи, поэтому применять нужно строго по порядку номеров. Метка `--> statement-breakpoint` внутри файлов — обычный SQL-комментарий. Для пустой базы перед первой миграцией нужны `CREATE SCHEMA IF NOT EXISTS drizzle` и таблица журнала с колонками выше.
+
+Проверка после применения:
 
 ```sql
 SELECT id, hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id;
 ```
 
-Перед миграцией production сделайте точку восстановления (ветка Neon или резервная копия, см. [runbook](operations.md)). Откатов drizzle-kit не делает. Проверка после применения: записи в журнале по числу миграций и ответ `/api/health`; запрос к таблицам новой миграции.
+и `GET /api/ready` с `Authorization: Bearer $CRON_SECRET`: `200 {"status":"ready"}` значит, что база отвечает, а последняя запись журнала совпадает с последней миграцией в `drizzle/meta/_journal.json`; `503` с `migrations_pending` — миграция не применена, `database_unavailable` — база недоступна или журнала нет. Тело ответа не содержит секретов.
 
-Вариант `npm run db:migrate` остаётся штатным в `package.json`; если он работает в вашем окружении, пользуйтесь им и убедитесь, что журнал содержит запись на каждую миграцию.
+CI проверяет, что `src/db/schema.ts` и `drizzle/` согласованы (`drizzle-kit check` и `generate` без изменений); если схему меняли, выполните `npm run db:generate` и закоммитьте результат.
 
 ## 5. Vercel
 

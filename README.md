@@ -119,9 +119,13 @@ cp .env.example .env
 
 ### Миграции
 
+Локально (чистая база, свой `DATABASE_URL` в `.env.local`):
+
 ```bash
 npm run db:migrate
 ```
+
+Production: сначала применить SQL, потом сливать PR. Порядок, переменные и проверка `/api/ready` — в [развёртывании](docs/deployment.md#4-миграции).
 
 ### Запуск
 
