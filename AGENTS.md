@@ -10,7 +10,7 @@
 2. [docs/product.md](docs/product.md) — бизнес-сценарии и границы продукта.
 3. [docs/architecture.md](docs/architecture.md) — принятые технические решения и открытые вопросы.
 4. [DESIGN.md](DESIGN.md) и [визуальный эталон](docs/reference/README.md) — утверждённый интерфейс.
-5. [docs/status.md](docs/status.md) — что проверено и что нет; [docs/implementation-plan.md](docs/implementation-plan.md) и [docs/release-plan.md](docs/release-plan.md) — что осталось проверить и план до выпуска. Карта остальных документов (развёртывание, конфигурация, БД, эксплуатация) — [docs/README.md](docs/README.md).
+5. [docs/status.md](docs/status.md) — что проверено и что нет; [docs/release-plan.md](docs/release-plan.md) — план до выпуска. Карта остальных документов (развёртывание, конфигурация, БД, эксплуатация) — [docs/README.md](docs/README.md).
 
 При противоречии документации существующему коду следуйте реальным соглашениям кода, укажите найденное расхождение в результате и обновите документы в рамках задачи. Новое требование пользователя имеет приоритет. Не превращайте предложения и открытые вопросы в принятые решения молча.
 

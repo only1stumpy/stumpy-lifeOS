@@ -9,3 +9,13 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 
+
+# Локальные аудиты и архивные документы (не в git)
+docs/audit/
+docs/ux-audit/
+docs/archive/
+docs/roadmap.md
+docs/implementation-plan.md
+# Личные файлы и локальные аудиты — не коммитить
+codex audit/
+*.zip

@@ -215,13 +215,10 @@ docs/             Продукт, архитектура, план, исслед
 | [docs/architecture.md](docs/architecture.md) | Стек, схема, API, переменные, ограничения |
 | [DESIGN.md](DESIGN.md) | Направление Liquid Glass и состояние интерфейса |
 | [docs/reference/README.md](docs/reference/README.md) | Утверждённый визуальный эталон |
-| [docs/implementation-plan.md](docs/implementation-plan.md) | Что сделано и что осталось до первой версии |
 | [CHANGELOG.md](CHANGELOG.md) | Изменения по выпускам |
-| [docs/archive/research.md](docs/archive/research.md) | Исследование открытых решений и лицензий |
-| [docs/release-plan.md](docs/release-plan.md) | План до релиз-кандидата: блокеры, этапы, решения владельца |
-| [docs/audit/](docs/audit/) | Аудиты: код, архитектура и SOLID, безопасность, документация, готовность к релизу |
-| [docs/ux-audit/](docs/ux-audit/README.md) | UX-аудит по модулям и план исправлений |
-| [docs/archive/audit-2026-11-12.md](docs/archive/audit-2026-11-12.md), [docs/archive/unslop-audit.md](docs/archive/unslop-audit.md) | Предыдущие аудиты |
+| [docs/status.md](docs/status.md) | Что проверено на реальных сервисах и что нет |
+| [docs/release-plan.md](docs/release-plan.md) | План до `1.0.0`: обязательные исправления и этапы |
+| [docs/release-checklist.md](docs/release-checklist.md) | Ручной чек-лист перед выпуском |
 | [AGENTS.md](AGENTS.md) | Правила работы с кодом и проектом |
 
 Визуальный эталон (исторический макет, не само приложение):
@@ -230,7 +227,7 @@ docs/             Продукт, архитектура, план, исслед
 
 ## Статус и дорожная карта
 
-Версия <!-- version -->`1.0.0-rc.1`<!-- /version -->, релиз-кандидат; `1.0.0` выйдет после закрытия критериев первой полезной версии из [плана реализации](docs/implementation-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
+Версия <!-- version -->`1.0.0-rc.1`<!-- /version -->, релиз-кандидат; `1.0.0` выйдет после закрытия критериев из [плана релиза](docs/release-plan.md). Изменения по выпускам — в [CHANGELOG.md](CHANGELOG.md).
 
 | Что | Состояние |
 |---|---|
