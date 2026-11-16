@@ -1,10 +1,10 @@
 # База данных
 
-Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 34 таблицы и 20 миграций (`0000`–`0019`).
+Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. Число таблиц и миграций — в итоге ниже и в списке миграций.
 
 ## Принцип изоляции
 
-`owner_settings` — профиль пользователя; `owner_settings.telegram_user_id` уникален и берётся только из проверенной подписи Telegram (`initData`) или из Telegram update. Все остальные таблицы содержат `owner_id` с внешним ключом на `owner_settings.id` и `ON DELETE CASCADE`, поэтому удаление строки профиля каскадно удаляет данные пользователя (проверка каскада конкретной функцией удаления — на стороне тестов этой ветки, см. [CHANGELOG](../CHANGELOG.md)).
+`owner_settings` — профиль пользователя; `owner_settings.telegram_user_id` уникален и берётся только из проверенной подписи Telegram (`initData`) или из Telegram update. Все остальные таблицы содержат `owner_id` с внешним ключом на `owner_settings.id` и `ON DELETE CASCADE`, поэтому удаление строки профиля каскадно удаляет данные пользователя (каскад проверяет тест `deleteOwnerData`).
 
 ### Составные внешние ключи `(id, owner_id)`
 
@@ -31,7 +31,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 
 ## Таблицы по модулям
 
-### Профиль, ИИ, бот и служебные (9)
+### Профиль, ИИ, бот и служебные (12)
 
 | Таблица | Назначение |
 |---|---|
@@ -60,7 +60,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 
 `exercises` (встроенные и пользовательские упражнения), `workout_days` (дни программы), `workout_day_exercises` (упражнения дня), `workout_sessions` (тренировки), `workout_session_exercises`, `workout_sets` (подходы и кардио).
 
-Итого: 9 + 5 + 10 + 6 = 30.
+Итого: 12 + 5 + 10 + 6 = 33 таблицы (`pgTable` в `src/db/schema.ts`), 20 миграций (`0000`–`0019`).
 
 ## Миграции
 
@@ -87,7 +87,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0018 | `0018_admin_panel` | `admin_cron_runs`, `admin_kv`, колонки `owner_settings.last_active_date`, `ai_provider_usage_events.failure_kind` |
 | 0019 | `0019_privacy_health_consent` | `owner_settings.health_consent_at`, `owner_settings.health_consent_version` (отдельное согласие на данные о здоровье); разовая очистка: текст закрытых черновиков, старые черновики и уточнения, usage events старше 30 и deliveries старше 90 дней |
 
-Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах. Миграции этой ветки (`feat/data-rights-0-25`), если они появятся, нумеруются следующими числами и описываются в [CHANGELOG](../CHANGELOG.md).
+Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах.
 
 Журнал применённых миграций — таблица `drizzle.__drizzle_migrations` (`id`, `hash`, `created_at`); `hash` — SHA-256 содержимого SQL-файла, `created_at` — поле `when` из `drizzle/meta/_journal.json` (по исходному коду `drizzle-orm/migrator`).
 
