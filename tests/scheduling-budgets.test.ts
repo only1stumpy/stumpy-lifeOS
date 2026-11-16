@@ -110,5 +110,5 @@ test("cron: вне окна сводка не отправляется и не �
   const { runScheduledTasks } = await import("../src/server/cron");
   // 12:00 UTC is far from 03:00: with Telegram unreachable, any send attempt would count as a failure.
   const result = await runScheduledTasks({ now: new Date("2026-11-17T12:00:00Z") });
-  assert.deepEqual(result, { sent: 0, failed: 0, skippedOwners: 0 });
+  assert.deepEqual(result, { sent: 0, failed: 0, skippedOwners: 0, undeliverable: 0, errorClasses: {} });
 });

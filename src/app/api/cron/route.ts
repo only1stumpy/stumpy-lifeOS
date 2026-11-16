@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { AppError } from "@/server/http";
 import { warnAboutWeakSecretsOnce } from "@/server/security-config";
-import { runScheduledTasks } from "@/server/cron";
+import { runMonitoredCron } from "@/server/admin/monitoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,8 +25,9 @@ async function runCron(request: Request): Promise<Response> {
       throw new AppError(401, "Недействительный запрос планировщика.");
     }
 
-    const { sent, failed, skippedOwners } = await runScheduledTasks();
-    return Response.json({ ok: failed === 0, sent, failed, ...(skippedOwners ? { skippedOwners } : {}) });
+    const { sent, failed, skippedOwners } = await runMonitoredCron();
+    // A run with failures is not a 200: the external scheduler must see it too.
+    return Response.json({ ok: failed === 0, sent, failed, ...(skippedOwners ? { skippedOwners } : {}) }, { status: failed === 0 ? 200 : 500 });
   } catch (error) {
     if (error instanceof AppError) return Response.json({ error: error.message }, { status: error.status });
     return Response.json({ error: "Не удалось выполнить плановые задачи." }, { status: 503 });

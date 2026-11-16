@@ -365,8 +365,8 @@ export async function loadConfiguredAiProviderConfigs(ownerId: string): Promise<
   });
 }
 
-export async function recordAiProviderUsage(ownerId: string, accountId: string, modelId: string, outcome: "success" | "failure"): Promise<void> {
-  await getDb().insert(schema.aiProviderUsageEvents).values({ ownerId, accountId, modelId, outcome });
+export async function recordAiProviderUsage(ownerId: string, accountId: string, modelId: string, outcome: "success" | "failure", failureKind?: string): Promise<void> {
+  await getDb().insert(schema.aiProviderUsageEvents).values({ ownerId, accountId, modelId, outcome, failureKind: outcome === "failure" ? failureKind ?? "other" : null });
 }
 
 export async function getAiProviderUsage(ownerId: string): Promise<ProviderAccountUsageDto[]> {

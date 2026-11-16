@@ -127,6 +127,13 @@
       "when": 1794818781555,
       "tag": "0017_command_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794836198631,
+      "tag": "0018_admin_panel",
+      "breakpoints": true
     }
   ]
 }

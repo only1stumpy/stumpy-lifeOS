@@ -122,7 +122,7 @@ test("cron: сбой одного владельца не останавлива
   const { GET } = await import("../src/app/api/cron/route");
   const response = await GET(api("/api/cron", { headers: { authorization: `Bearer ${CRON_SECRET}` } }));
   const payload = await body(response);
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 500, "прогон со сбоем не отвечает 200");
   assert.equal(payload.failed, 1);
   assert.equal(payload.ok, false);
 });

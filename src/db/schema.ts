@@ -53,6 +53,8 @@ export const ownerSettings = pgTable(
     disabledFeatures: text("disabled_features").array().default(sql`ARRAY[]::text[]`).notNull(),
     /** Currency of the first account; totals, plans and debts are kept in it. Null until the first account. */
     baseCurrency: text("base_currency"),
+    /** Only a UTC date of the last visit (no content): feeds anonymous activity counts in the admin panel. */
+    lastActiveDate: date("last_active_date", { mode: "string" }),
     financeConfirmationRequired: boolean("finance_confirmation_required").default(true).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -148,6 +150,8 @@ export const aiProviderUsageEvents = pgTable(
     accountId: uuid("account_id").notNull().references(() => aiProviderAccounts.id, { onDelete: "cascade" }),
     modelId: text("model_id").notNull(),
     outcome: text("outcome").notNull(),
+    /** Failure class only (quota_exceeded, unavailable, ...); null for successes and older rows. */
+    failureKind: text("failure_kind"),
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
@@ -179,6 +183,30 @@ export const telegramUpdates = pgTable(
     check("telegram_updates_attempt_count_nonnegative", sql`${table.attemptCount} >= 0`),
   ],
 );
+
+/** One row per cron call: lets the admin panel show runs and detect a call that was killed mid-way. */
+export const adminCronRuns = pgTable(
+  "admin_cron_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+    ok: boolean("ok"),
+    sent: integer("sent"),
+    failed: integer("failed"),
+    skippedOwners: integer("skipped_owners"),
+    /** Safe class of the error (for example `AppError:503`), never a message. */
+    errorClass: text("error_class"),
+  },
+  (table) => [index("admin_cron_runs_started_idx").on(table.startedAt)],
+);
+
+/** Small technical key-value store of the admin panel: alert throttling, cached aggregates, backup status. No user data. */
+export const adminKv = pgTable("admin_kv", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<unknown>().notNull(),
+  updatedAt: updatedAt(),
+});
 
 /** Fixed-window request counters used by the rate limiter; rows older than two days are purged by the cron job. */
 export const rateLimitCounters = pgTable(

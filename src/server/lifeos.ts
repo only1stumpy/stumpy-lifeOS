@@ -69,6 +69,13 @@ export async function ensureOwner(explicitTelegramUserId?: string) {
   return owner;
 }
 
+/** Remembers only the UTC date of the user's last visit (at most one tiny update per user per day); the cron never calls it. */
+export async function touchActivity(owner: { id: string; lastActiveDate: string | null }, now: Date = new Date()): Promise<void> {
+  const today = now.toISOString().slice(0, 10);
+  if (owner.lastActiveDate === today) return;
+  await getDb().update(s.ownerSettings).set({ lastActiveDate: today }).where(eq(s.ownerSettings.id, owner.id)).catch(() => undefined);
+}
+
 /** How many of the newest finance entries the snapshot carries to the client. */
 export const MAX_SNAPSHOT_FINANCE_ENTRIES = 1000;
 

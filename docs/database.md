@@ -1,6 +1,6 @@
 # База данных
 
-Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 32 таблицы и 18 миграций (`0000`–`0017`).
+Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 34 таблицы и 19 миграций (`0000`–`0018`).
 
 ## Принцип изоляции
 
@@ -41,6 +41,8 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | `ai_provider_model_selections` | Выбранные пользователем модели и порядок очереди; уникально `(owner_id, provider_id, model_id)` |
 | `ai_provider_usage_events` | События использования (аккаунт, модель, исход) для счётчиков за 24 часа; тексты запросов не хранятся |
 | `telegram_updates` | Принятые update: статус `received`/`processing`/`processed`/`failed`, число попыток, `last_error`; payload после обработки очищается |
+| `admin_cron_runs` | Запуски cron: начало, конец, результат, класс ошибки; хранятся 14 дней (админ-панель, алерты) |
+| `admin_kv` | Служебное хранилище админ-панели: окна подавления алертов, кеш статистики и статуса бэкапа; без данных пользователей |
 | `rate_limit_counters` | Счётчики rate limit: ключ `bucket:subject`, начало окна, число; PK `(key, window_start)`; записи старше двух суток удаляет cron |
 | `notification_deliveries` | Журнал отправленных уведомлений для дедупликации |
 | `command_requests` | Id запросов ручных записей (`client_request_id`): повтор с тем же id не создаёт вторую запись |
@@ -82,6 +84,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0015 | `0015_privacy_consent` | `owner_settings.privacy_accepted_at`, `owner_settings.privacy_policy_version` (согласие с политикой) |
 | 0016 | `0016_finance_debt_links` | `finance_entries.debt_id` (операция открытия долга; составной FK с `owner_id`, `restrict`) с заполнением старых записей по совпадению времени создания; курс `rate_to_base` — `numeric(20,10)` в `exchange_rates`, `finance_entries`, `money_drafts` |
 | 0017 | `0017_command_requests` | `command_requests` |
+| 0018 | `0018_admin_panel` | `admin_cron_runs`, `admin_kv`, колонки `owner_settings.last_active_date`, `ai_provider_usage_events.failure_kind` |
 
 Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах. Миграции этой ветки (`feat/data-rights-0-25`), если они появятся, нумеруются следующими числами и описываются в [CHANGELOG](../CHANGELOG.md).
 

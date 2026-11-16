@@ -1,0 +1,13 @@
+.admin { padding: calc(16px + var(--lifeos-inset-top)) 16px calc(32px + var(--lifeos-inset-bottom)); max-width: 720px; margin: 0 auto; color: #35272c; }
+.admin h1 { font-size: 22px; margin: 0 0 4px; }
+.admin h2 { font-size: 15px; margin: 24px 0 8px; color: #7a1f3d; }
+.admin .muted { color: #8a7a7e; font-size: 13px; }
+.admin .panel { background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(122, 31, 61, 0.12); border-radius: 18px; padding: 12px 14px; }
+.admin .row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 14px; border-bottom: 1px solid rgba(122, 31, 61, 0.06); }
+.admin .row:last-child { border-bottom: 0; }
+.admin .big { font-family: "Medeo Mono", monospace; font-size: 20px; }
+.admin .bad { color: #b3261e; }
+.admin .good { color: #1b6e3c; }
+.admin button { font: inherit; border: 0; border-radius: 14px; background: #7a1f3d; color: #fff; padding: 10px 14px; margin: 8px 8px 0 0; }
+.admin button:disabled { opacity: 0.5; }
+.admin a { color: #7a1f3d; }
