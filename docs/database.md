@@ -78,6 +78,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0013 | `0013_draft_message_id` | `capture_drafts.telegram_message_id` |
 | 0014 | `0014_rate_limit_counters` | `rate_limit_counters` |
 | 0015 | `0015_privacy_consent` | `owner_settings.privacy_accepted_at`, `owner_settings.privacy_policy_version` (согласие с политикой) |
+| 0016 | `0016_finance_debt_links` | `finance_entries.debt_id` (операция открытия долга; составной FK с `owner_id`, `restrict`) с заполнением старых записей по совпадению времени создания; курс `rate_to_base` — `numeric(20,10)` в `exchange_rates`, `finance_entries`, `money_drafts` |
 
 Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах. Миграции этой ветки (`feat/data-rights-0-25`), если они появятся, нумеруются следующими числами и описываются в [CHANGELOG](../CHANGELOG.md).
 

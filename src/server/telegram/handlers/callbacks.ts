@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { InlineKeyboard, type Bot, type Context } from "grammy";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
+import { debtRemainingMinor } from "@/domain/debts";
 import { executeCommand, ensureOwner, loadSnapshot } from "@/server/lifeos";
 import { AppError } from "@/server/http";
 import { formatBulkSummary, formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
@@ -14,7 +15,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
       return;
     }
 
-    const [action, id] = ctx.callbackQuery.data.split(":");
+    const [action, id, dueOn] = ctx.callbackQuery.data.split(":");
     if (!id) {
       await ctx.answerCallbackQuery({ text: "Кнопка устарела." });
       return;
@@ -145,7 +146,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
           if (!record) throw new AppError(404, "Долг не найден.");
           const repayments = await getDb().select().from(schema.financeDebtRepayments)
             .where(and(eq(schema.financeDebtRepayments.debtId, record.id), eq(schema.financeDebtRepayments.ownerId, owner.id)));
-          const remaining = Math.max(0, Math.round(Number(record.originalAmount) * 100) - repayments.reduce((sum, row) => sum + Math.round(Number(row.amount) * 100), 0));
+          const remaining = debtRemainingMinor(Math.round(Number(record.originalAmount) * 100), repayments.map((row) => Math.round(Number(row.amount) * 100)));
           const actionText = debtDraft.direction === "i_owe" ? "Вернул " + debtDraft.personName : debtDraft.personName + " вернул тебе";
           await ctx.answerCallbackQuery({ text: "Возврат записан." });
           await markMessage(ctx, "Записал: " + actionText + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), owner.baseCurrency ?? "") + "\nОстаток долга: " + formatMoney(remaining, owner.baseCurrency ?? ""));
@@ -218,7 +219,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
           .where(and(eq(schema.recurringPayments.id, id), eq(schema.recurringPayments.ownerId, owner.id)))
           .limit(1);
         if (!payment) throw new AppError(404, "Платёж не найден.");
-        await executeCommand({ type: "recurring.confirm", id });
+        await executeCommand({ type: "recurring.confirm", id, dueOn });
         const confirmation = formatRecurringConfirmation({
           ...payment,
           amount: payment.amount,

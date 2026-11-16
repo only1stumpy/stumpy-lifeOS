@@ -1,3 +1,4 @@
+import { rubleMarkerContradictsBase } from "@/domain/currencies";
 import type { AnalysisMoney, ClarificationMessage } from "./types";
 
 export const CLARIFICATION_TTL_MS = 30 * 60 * 1_000;
@@ -216,7 +217,10 @@ function parseExplicitMoneyAmount(
   try {
     const minor = BigInt(wholePart!) * 100n + BigInt((fractionPart + "00").slice(0, 2));
     if (minor <= 0n || minor > BigInt(Number.MAX_SAFE_INTEGER)) return null;
-    const currency = /(?:\$|USD|доллар|долл)/iu.test(rawCurrency) ? "USD" : defaultCurrency;
+    const dollars = /(?:\$|USD|доллар|долл)/iu.test(rawCurrency);
+    // «руб.» is taken for the base currency only when that currency is a ruble; otherwise let the model ask.
+    if (!dollars && rubleMarkerContradictsBase(`0 ${rawCurrency}`, defaultCurrency)) return null;
+    const currency = dollars ? "USD" : defaultCurrency;
     return { amountMinor: Number(minor), currency };
   } catch {
     return null;

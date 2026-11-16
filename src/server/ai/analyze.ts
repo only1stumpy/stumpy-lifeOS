@@ -117,7 +117,7 @@ const SYSTEM_PROMPT = `Ты разбираешь сообщения и фото�
 - Если нечего уверенно предложить, верни entries=[] и короткий вопрос в clarification. У каждой записи должен быть food, money или оба поля.
 
 ФОРМАТ
-Верни только объект JSON с ключами entries и clarification. У каждой записи ключи food, money, occurredAt. food — null или объект с label, portionLabel, calories, proteinGrams, fatGrams, carbsGrams, estimated. money — null или объект с label, amountMinor, currency (PRB/USD), kind (expense/income), category (строка). clarification — строка или null. Не оборачивай JSON в markdown.`;
+Верни только объект JSON с ключами entries и clarification. У каждой записи ключи food, money, occurredAt. food — null или объект с label, portionLabel, calories, proteinGrams, fatGrams, carbsGrams, estimated. money — null или объект с label, amountMinor, currency (код из 3–5 латинских букв), kind (expense/income), category (строка). clarification — строка или null. Не оборачивай JSON в markdown.`;
 
 const REFERENCE_SYSTEM_PROMPT = `Ты — личный справочник LifeOS. Коротко и дружелюбно отвечай по-русски, обращайся на «ты».
 

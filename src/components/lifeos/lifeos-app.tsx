@@ -806,6 +806,8 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
               currency={snapshot.settings.baseCurrency}
               onAdd={() => openDebt()}
               onRepay={(debt) => openDebt(debt)}
+              onDelete={(debt) => onAction({ type: "finance.debt.delete", id: debt.id })}
+              onDeleteRepayment={(id) => onAction({ type: "finance.debt.repayment.delete", id })}
             />
           </GlassSurface>
         )}
