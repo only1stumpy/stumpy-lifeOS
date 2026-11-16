@@ -6,7 +6,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "@/db/schema";
-import { useDatabaseForTests as setTestDatabase } from "@/db/client";
+import { getDb, useDatabaseForTests as setTestDatabase } from "@/db/client";
+import { HEALTH_CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
 import { commandSchema } from "@/domain/commands";
 import { AppError } from "@/server/http";
 import { executeCommand, loadSnapshot } from "@/server/lifeos";
@@ -33,16 +34,26 @@ let nextTelegramId = 7_000_000_000;
 /** A Telegram ID unique within the shared test process. */
 export const newTelegramId = () => String(nextTelegramId += 1);
 
-/** Parses a raw command through the real schema and runs it as the given Telegram user. */
-export async function run(telegramId: string, command: Record<string, unknown>) {
+/** Gives the user current consent so that command tests exercise the commands, not the consent gate. */
+export async function grantConsent(telegramId: string) {
+  await withTelegramUser(telegramId, () => loadSnapshot());
+  const now = new Date();
+  await getDb().update(schema.ownerSettings)
+    .set({ privacyPolicyVersion: PRIVACY_POLICY_VERSION, privacyAcceptedAt: now, healthConsentVersion: HEALTH_CONSENT_VERSION, healthConsentAt: now })
+    .where(eq(schema.ownerSettings.telegramUserId, telegramId));
+}
+
+/** Parses a raw command through the real schema and runs it as the given Telegram user (with consent, unless `consent: false`). */
+export async function run(telegramId: string, command: Record<string, unknown>, options: { consent?: boolean } = {}) {
   const parsed = commandSchema.parse(command);
+  if (options.consent !== false) await grantConsent(telegramId);
   return withTelegramUser(telegramId, () => executeCommand(parsed));
 }
 export const snapshotOf = (telegramId: string, date?: string) => withTelegramUser(telegramId, () => loadSnapshot(date));
 
 /** Creates the owner profile through the real code path and returns its row. */
 export async function ownerOf(db: CommandDb, telegramId: string) {
-  await withTelegramUser(telegramId, () => loadSnapshot());
+  await grantConsent(telegramId);
   const [owner] = await db.select().from(schema.ownerSettings).where(eq(schema.ownerSettings.telegramUserId, telegramId));
   assert.ok(owner, "owner row must exist");
   return owner;

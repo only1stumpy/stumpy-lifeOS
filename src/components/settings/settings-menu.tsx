@@ -8,7 +8,7 @@ export type SettingsPage = "menu" | "ai" | "personalization" | "privacy";
 const ITEMS: { page: Exclude<SettingsPage, "menu">; title: string; description: string }[] = [
   { page: "personalization", title: "Персонализация", description: "Разделы и функции, сводки и напоминания." },
   { page: "ai", title: "ИИ-провайдеры", description: "Ключи и модели, которыми бот разбирает сообщения." },
-  { page: "privacy", title: "Данные и приватность", description: "Политика, копия данных и удаление." },
+  { page: "privacy", title: "Данные и приватность", description: "Политика, согласия, копия данных, удаление и исходный код." },
 ];
 
 export function SettingsMenu({ onOpen }: { onOpen(page: Exclude<SettingsPage, "menu">): void }) {

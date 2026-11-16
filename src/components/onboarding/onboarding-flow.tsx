@@ -97,7 +97,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   const parsedProfile = parseProfile(profile);
   const norm = parsedProfile ? suggestTargets(parsedProfile) : null;
   const invalid = {
-    age: profile.age !== "" && !(Number.isInteger(num(profile.age)) && num(profile.age) >= 16 && num(profile.age) <= 90),
+    age: profile.age !== "" && !(Number.isInteger(num(profile.age)) && num(profile.age) >= 18 && num(profile.age) <= 90),
     heightCm: profile.heightCm !== "" && !(num(profile.heightCm) >= 100 && num(profile.heightCm) <= 250),
     weightKg: profile.weightKg !== "" && !(num(profile.weightKg) >= 30 && num(profile.weightKg) <= 350),
   };
@@ -250,7 +250,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
               </label>
               <label className={styles.field}>Возраст
                 <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={missing.age} />
-                {missing.age && <small className={styles.fieldError}>{profile.age === "" ? "Укажите возраст" : "От 16 до 90"}</small>}
+                {missing.age && <small className={styles.fieldError}>{profile.age === "" ? "Укажите возраст" : "От 18 до 90"}</small>}
               </label>
               <label className={styles.field}>Рост, см
                 <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={missing.heightCm} />

@@ -1,3 +1,4 @@
+import { SOURCE_CODE_URL } from "./privacy";
 import type { LifeFeature, LifeModule } from "./modules";
 
 const h = (title: string) => `<b>${title}</b>`;
@@ -125,6 +126,9 @@ export function buildHelpSection(id: HelpSectionId, { modules, features }: Welco
     "• Фото тоже подойдёт: еда, этикетка или чек.",
     "/today — что уже есть за сегодня",
     "/cancel — отменить исправление",
+    "/export — получить копию своих данных",
+    "/delete — удалить все свои данные",
     "/help — эта справка",
+    `Исходный код (AGPL-3.0): <a href="${SOURCE_CODE_URL}">GitHub</a>`,
   ].join("\n");
 }

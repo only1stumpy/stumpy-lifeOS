@@ -66,7 +66,8 @@ test("удаление аккаунта требует точного слова
   assert.equal(commandSchema.safeParse({ type: "account.delete", confirmation: "УДАЛИТЬ" }).success, true);
   assert.equal(commandSchema.safeParse({ type: "account.delete", confirmation: "удалить" }).success, false);
   assert.equal(commandSchema.safeParse({ type: "account.delete" }).success, false);
-  assert.equal(commandSchema.safeParse({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION, adultConfirmed: true }).success, true);
+  assert.equal(commandSchema.safeParse({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION }).success, false, "без подтверждения 18+ согласие не принимается");
   assert.equal(commandSchema.safeParse({ type: "privacy.accept" }).success, false);
 });
 

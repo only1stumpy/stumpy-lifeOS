@@ -6,6 +6,7 @@ import { AppError } from "@/server/http";
 import { describeError, formatErrorInfo, isUndeliverable } from "@/server/diagnostics";
 import { getStats, STATS_TTL_MS } from "@/server/admin/stats";
 import { withTelegramUser } from "@/server/owner-context";
+import { runRetentionCleanup } from "@/server/retention";
 import { purgeOldRateLimitCounters } from "@/server/rate-limit";
 import {
   purgeOldTelegramUpdates,
@@ -77,6 +78,7 @@ export async function runScheduledTasks(options: { now?: Date; onPhase?: (phase:
   options.onPhase?.("cleanup");
   await purgeOldRateLimitCounters().catch(() => console.error("LifeOS cron: rate limit cleanup failed"));
   await purgeOldTelegramUpdates().catch(() => console.error("LifeOS cron: update cleanup failed"));
+  await runRetentionCleanup(now);
 
   options.onPhase?.("retry");
   await retryFailedTelegramUpdates({ maxUpdates: RETRY_UPDATES_PER_RUN, deadlineAt: startedAt + CRON_DEADLINE_MS })

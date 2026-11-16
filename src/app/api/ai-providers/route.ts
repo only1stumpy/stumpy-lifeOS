@@ -10,7 +10,7 @@ import {
   setAiProviderAccountEnabled,
   setAiProviderModelQueue,
 } from "@/server/ai/provider-accounts";
-import { AppError, errorResponse, requireOwner } from "@/server/http";
+import { AppError, assertConsent, errorResponse, requireOwner } from "@/server/http";
 import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { ensureOwner } from "@/server/lifeos";
 import { withTelegramUser } from "@/server/owner-context";
@@ -48,6 +48,7 @@ export async function GET(request: Request): Promise<Response> {
     await enforceRateLimit(RATE_LIMITS.aiProviders, user.id);
     return await withTelegramUser(String(user.id), async () => {
       const owner = await ensureOwner();
+      assertConsent(owner);
       const result = await listAiProviderCards(owner.id);
       return Response.json(result, { headers: { "Cache-Control": "no-store" } });
     });
@@ -71,6 +72,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return await withTelegramUser(String(user.id), async () => {
       const owner = await ensureOwner();
+      assertConsent(owner);
       switch (input.action) {
         case "connect": {
           const result = await connectAiProviderAccount(owner.id, {
@@ -117,6 +119,7 @@ export async function DELETE(request: Request): Promise<Response> {
 
     return await withTelegramUser(String(user.id), async () => {
       const owner = await ensureOwner();
+      assertConsent(owner);
       await deleteAiProviderAccount(owner.id, id);
       return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     });
