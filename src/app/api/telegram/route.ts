@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { timingSafeEqual } from "node:crypto";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
-import { ensureOwner } from "@/server/lifeos";
+import { ensureOwner, touchActivity } from "@/server/lifeos";
 import { processStoredTelegramUpdate } from "@/server/telegram/bot";
 import { AppError } from "@/server/http";
 import { consumeRateLimit, RATE_LIMITS } from "@/server/rate-limit";
@@ -52,6 +52,7 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ ok: true });
     }
     const owner = await ensureOwner(String(actorId));
+    await touchActivity(owner);
 
     const db = getDb();
     const updateId = Number(payload.update_id);
