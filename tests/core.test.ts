@@ -8,7 +8,7 @@ import { convertToBaseMinor, formatMoneyAmount, parseMinor } from "../src/domain
 import { ageOn, birthDateForAge, suggestTargets, targetFromAverage, weeklyAverageWeight } from "../src/domain/nutrition";
 import { parseWeightMessage } from "../src/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures, type LifeFeature, type LifeModule } from "../src/domain/modules";
-import { compareVersions, releasesSince } from "../src/domain/release";
+import { compareVersions, releasesSince, versionStageLabel } from "../src/domain/release";
 import { getAiProviderDefinition, listAiProviderDefinitions } from "../src/server/ai/provider-catalog";
 import { buildHelpSection, buildStartMessage, helpSections, isHelpSectionId, type HelpSectionId } from "../src/domain/welcome";
 import { parseDebtMessage } from "../src/domain/debt-message";
@@ -620,6 +620,9 @@ test("what's new lists every release missed since the last visit", () => {
   assert.equal(compareVersions("0.10.0", "0.9.0"), 1);
   assert.equal(compareVersions("1.0.0-rc.1", "0.26.2"), 1);
   assert.equal(compareVersions("1.0.0-rc.1", "1.0.0"), -1);
+  assert.equal(versionStageLabel("1.0.0-rc.2"), " · rc.2");
+  assert.equal(versionStageLabel("0.26.2"), " · бета");
+  assert.equal(versionStageLabel("1.0.0"), "");
   assert.equal(compareVersions("1.0.0", "1.0.0-rc.1"), 1);
   assert.equal(compareVersions("1.0.0-rc.2", "1.0.0-rc.10"), -1);
   assert.equal(compareVersions("1.0.0-rc.1", "1.0.0-rc.1"), 0);

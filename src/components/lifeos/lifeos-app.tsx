@@ -3,6 +3,7 @@
 import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { formatMoneyAmount } from "@/domain/math";
 import { GOALS } from "@/domain/nutrition";
+import { versionStageLabel } from "@/domain/release";
 import { plural as pluralize } from "@/domain/plural";
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject, SVGProps } from "react";
@@ -105,13 +106,20 @@ function dayKey(value: string, timeZone: string): string {
 }
 
 function DatePickButton({ className, value, max, label, onChange, children }: { className?: string; value: string; max?: string; label: string; onChange?(value: string): void; children: ReactNode }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   if (!onChange) return <span className={className}>{children}</span>;
+  // A real date input laid over the visible text: one focusable control, not an input nested in a button.
   return (
-    <button type="button" className={className} aria-label={label} style={{ position: "relative" }} onClick={() => { const input = inputRef.current; if (!input) return; try { input.showPicker(); } catch { input.focus(); input.click(); } }}>
+    <span className={`${className ?? ""} ${styles.dateControl}`}>
       {children}
-      <input ref={inputRef} type="date" tabIndex={-1} aria-hidden="true" value={value} max={max} onChange={(event) => event.target.value && onChange(event.target.value)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, pointerEvents: "none" }} />
-    </button>
+      <input
+        type="date"
+        aria-label={label}
+        value={value}
+        max={max}
+        onChange={(event) => event.target.value && onChange(event.target.value)}
+        onClick={(event) => { try { event.currentTarget.showPicker(); } catch { /* the native control opens itself */ } }}
+      />
+    </span>
   );
 }
 
@@ -227,7 +235,7 @@ function MacroRows({ consumed, target, compact = false }: { consumed: MacroValue
         const progress = goal && goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
         return (
           <motion.div className={styles.macroRow} key={row.key} variants={motionVariants.staggerItem}>
-            <span className={`${styles.macroLetter} ${row.tone}`} aria-label={row.title}>{row.label}</span>
+            <span className={`${styles.macroLetter} ${row.tone}`} aria-hidden="true">{row.label}</span>
             <div className={styles.macroTrack} role="progressbar" aria-label={row.title} aria-valuemin={0} aria-valuemax={goal ?? undefined} aria-valuenow={value}>
               {goal !== null && <motion.span className={row.tone} animate={{ transform: `scaleX(${progress / 100})` }} transition={prefersReducedMotion ? { duration: 0 } : motionSpring.gentle} style={{ transformOrigin: "left center" }} />}
             </div>
@@ -927,7 +935,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <AnimatePresence mode="wait">
             <motion.div key={aiSettingsActive ? "ai-settings" : `${section}:${selectedWorkoutId ?? ""}:${selectedExerciseId ?? ""}`} className={styles.screenMotion} variants={motionVariants.screen} initial="initial" animate="animate" exit="exit">
               {aiSettingsActive
-                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION} · бета</p></motion.div>
+                ? <motion.div className={styles.aiSettingsContent} variants={motionVariants.staggerItem}>{aiSettingsContent}<p className={styles.appVersion}>LifeOS {process.env.NEXT_PUBLIC_APP_VERSION}{versionStageLabel(process.env.NEXT_PUBLIC_APP_VERSION)}</p></motion.div>
                 : <>
                   <motion.div className={styles.pageHeading} variants={motionVariants.staggerItem}><h1>{titles[section]}</h1></motion.div>
                   <motion.div className={styles.screenContentMotion} variants={motionVariants.staggerGroup} initial="initial" animate="animate">{sectionContent[section]}</motion.div>

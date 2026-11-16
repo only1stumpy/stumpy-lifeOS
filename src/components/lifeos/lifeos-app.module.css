@@ -1786,3 +1786,25 @@ button.dateChip {
   font-size: inherit;
   color: inherit;
 }
+
+/* Date picker: a native date input laid over the visible text. */
+.dateControl {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.dateControl input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dateControl:has(input:focus-visible) {
+  outline: 3px solid #5b2439;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
