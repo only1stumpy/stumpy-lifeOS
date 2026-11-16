@@ -12,6 +12,7 @@ export type FinanceDebtViewItem = {
   dueOn: string | null;
   note: string | null;
   createdAt: string;
+  repayments: { id: string; amountMinor: number; occurredAt: string }[];
 };
 
 type FinanceDebtsViewProps = {
@@ -20,6 +21,8 @@ type FinanceDebtsViewProps = {
   currency: string;
   onAdd(): void;
   onRepay(debt: FinanceDebtViewItem): void;
+  onDelete(debt: FinanceDebtViewItem): void;
+  onDeleteRepayment(id: string): void;
 };
 
 
@@ -35,13 +38,17 @@ function DebtGroup({
   debts,
   currency,
   onRepay,
+  onDelete,
+  onDeleteRepayment,
 }: {
   title: string;
   description: string;
-  direction: FinanceDebtViewItem["direction"];
+  direction: FinanceDebtViewItem["direction"] | "closed";
   debts: FinanceDebtViewItem[];
   currency: string;
   onRepay(debt: FinanceDebtViewItem): void;
+  onDelete(debt: FinanceDebtViewItem): void;
+  onDeleteRepayment(id: string): void;
 }) {
   const total = debts.reduce((sum, debt) => sum + debt.remainingAmountMinor, 0);
 
@@ -61,7 +68,7 @@ function DebtGroup({
               <div className={styles.debtHeading}>
                 <div className={styles.debtIdentity}>
                   <strong>{debt.personName}</strong>
-                  <span>{direction === "i_owe" ? "Я должен" : "Мне должны"}</span>
+                  <span>{debt.direction === "i_owe" ? "Я должен" : "Мне должны"}</span>
                 </div>
                 <div className={styles.amounts}>
                   <strong className={styles.remaining}>{formatMoney(debt.remainingAmountMinor, currency)}</strong>
@@ -72,9 +79,24 @@ function DebtGroup({
                 {debt.dueOn && <span>Срок · {dateLabel(debt.dueOn)}</span>}
                 {debt.note && <p>{debt.note}</p>}
               </div>
-              <button type="button" className={styles.repayButton} onClick={() => onRepay(debt)}>
-                {direction === "i_owe" ? "Записать возврат" : "Записать получение"}
-              </button>
+              {debt.repayments.length > 0 && (
+                <ul className={styles.repaymentList} aria-label="Возвраты">
+                  {debt.repayments.map((repayment) => (
+                    <li key={repayment.id}>
+                      <span>{dateLabel(repayment.occurredAt)} · {formatMoney(repayment.amountMinor, currency)}</span>
+                      <button type="button" className={styles.linkButton} aria-label={`Удалить возврат ${formatMoney(repayment.amountMinor, currency)}`} onClick={() => onDeleteRepayment(repayment.id)}>Удалить</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className={styles.rowActions}>
+                {debt.remainingAmountMinor > 0 && (
+                  <button type="button" className={styles.repayButton} onClick={() => onRepay(debt)}>
+                    {debt.direction === "i_owe" ? "Записать возврат" : "Записать получение"}
+                  </button>
+                )}
+                <button type="button" className={styles.linkButton} aria-label={`Удалить долг: ${debt.personName}`} onClick={() => onDelete(debt)}>Удалить долг</button>
+              </div>
             </li>
           ))}
         </ul>
@@ -85,9 +107,10 @@ function DebtGroup({
   );
 }
 
-export default function FinanceDebtsView({ debts, currency, onAdd, onRepay }: FinanceDebtsViewProps) {
+export default function FinanceDebtsView({ debts, currency, onAdd, onRepay, onDelete, onDeleteRepayment }: FinanceDebtsViewProps) {
   const owedByMe = debts.filter((debt) => debt.direction === "i_owe" && debt.remainingAmountMinor > 0);
   const owedToMe = debts.filter((debt) => debt.direction === "owed_to_me" && debt.remainingAmountMinor > 0);
+  const closed = debts.filter((debt) => debt.remainingAmountMinor <= 0);
   const totalOwedByMe = owedByMe.reduce((sum, debt) => sum + debt.remainingAmountMinor, 0);
   const totalOwedToMe = owedToMe.reduce((sum, debt) => sum + debt.remainingAmountMinor, 0);
 
@@ -115,8 +138,9 @@ export default function FinanceDebtsView({ debts, currency, onAdd, onRepay }: Fi
         </div>
       </div>
 
-      <DebtGroup title="Я должен" description="Мои долги другим людям" direction="i_owe" debts={owedByMe} currency={currency} onRepay={onRepay} />
-      <DebtGroup title="Мне должны" description="Деньги, которые должны вернуть мне" direction="owed_to_me" debts={owedToMe} currency={currency} onRepay={onRepay} />
+      <DebtGroup title="Я должен" description="Мои долги другим людям" direction="i_owe" debts={owedByMe} currency={currency} onRepay={onRepay} onDelete={onDelete} onDeleteRepayment={onDeleteRepayment} />
+      <DebtGroup title="Мне должны" description="Деньги, которые должны вернуть мне" direction="owed_to_me" debts={owedToMe} currency={currency} onRepay={onRepay} onDelete={onDelete} onDeleteRepayment={onDeleteRepayment} />
+      {closed.length > 0 && <DebtGroup title="Закрытые" description="Полностью возвращённые долги" direction="closed" debts={closed} currency={currency} onRepay={onRepay} onDelete={onDelete} onDeleteRepayment={onDeleteRepayment} />}
     </section>
   );
 }

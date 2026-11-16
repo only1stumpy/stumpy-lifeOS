@@ -4,6 +4,7 @@ import type { InlineKeyboardMarkup } from "grammy/types";
 import type { MacroValues } from "@/domain/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
+import { debtReminderHeadline } from "@/domain/debts";
 import { dateKey, sumMacros, convertToBaseMinor } from "@/domain/math";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
@@ -58,7 +59,7 @@ export async function sendDeduplicatedOwnerNotification(
 }
 
 export async function sendDuePaymentReminder(paymentId: string, name: string, amountMinor: number, currency: string, dueOn: string): Promise<boolean> {
-  const keyboard = new InlineKeyboard().text("Оплата списана", `pay:${paymentId}`);
+  const keyboard = new InlineKeyboard().text("Оплата списана", `pay:${paymentId}:${dueOn}`);
   const text = `Похоже, подошёл срок платежа: ${name} · ${formatMoney(amountMinor, currency)} · ${dueOn}. Проверь, списались ли деньги. Расход запишу только после твоего подтверждения.`;
   return sendDeduplicatedOwnerNotification(`payment:${paymentId}:${dueOn}`, text, keyboard);
 }
@@ -72,9 +73,8 @@ export async function sendDueDebtReminder(
   localDate: string,
   baseCurrency: string,
 ): Promise<boolean> {
-  const message = direction === "i_owe"
-    ? "Сегодня срок возврата долга " + personName
-    : "Сегодня срок, когда " + personName + " должен вернуть долг";
+  const message = debtReminderHeadline(direction, personName, dueOn, localDate);
+  if (!message) return false;
   const text = message + " · остаток " + formatMoney(remainingAmountMinor, baseCurrency) + " · срок " + dueOn + ".";
   return sendDeduplicatedOwnerNotification("debt:" + debtId + ":" + localDate, text);
 }

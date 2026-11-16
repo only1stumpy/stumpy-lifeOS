@@ -1,10 +1,19 @@
 import { and, eq } from "drizzle-orm";
+import type { Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { dateKey } from "@/domain/math";
 import { advanceRecurrenceDate } from "@/domain/recurrence";
 import { AppError } from "../http";
 import { account, baseCurrencyOf, category, decimal, rateAt, ensureBaseCurrency } from "./shared";
 import type { CommandHandlers } from "./types";
+
+/** Debt operations change only together with the debt: delete the repayment or the debt in «Долги» and enter it again. */
+async function rejectDebtLinked(tx: Transaction, ownerId: string, entry: { id: string; debtId: string | null }, verb: string) {
+  if (entry.debtId) throw new AppError(409, `Эта операция открыла долг. Чтобы ${verb} её, удалите долг в разделе долгов и внесите заново.`);
+  const [linked] = await tx.select({ id: s.financeDebtRepayments.id }).from(s.financeDebtRepayments)
+    .where(and(eq(s.financeDebtRepayments.financeEntryId, entry.id), eq(s.financeDebtRepayments.ownerId, ownerId))).limit(1);
+  if (linked) throw new AppError(409, `Эта операция записана как возврат долга. Чтобы ${verb} её, удалите возврат в разделе долгов и внесите заново.`);
+}
 
 export const financeHandlers = {
   "account.save": async ({ tx, owner }, command) => {
@@ -28,18 +37,18 @@ export const financeHandlers = {
     const group = await category(tx, owner.id, command.category, command.kind);
     const at = new Date(command.occurredAt);
     const [old] = command.id ? await tx.select().from(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id))) : [];
+    if (old) await rejectDebtLinked(tx, owner.id, old, "изменить");
     const sameMinute = old && Math.floor(old.occurredAt.getTime() / 60_000) === Math.floor(at.getTime() / 60_000);
     const rate = old && old.currency === chosen.currency && sameMinute ? old.rateToBase : await rateAt(tx, owner.id, chosen.currency, at);
-    const values = { ownerId: owner.id, accountId: chosen.id, categoryId: group.id, name: command.label, entryType: command.kind, amount: decimal(command.amountMinor), currency: chosen.currency, rateToBase: rate, occurredAt: at, source: "mini_app" };
+    const values = { ownerId: owner.id, accountId: chosen.id, categoryId: group.id, name: command.label, entryType: command.kind, amount: decimal(command.amountMinor), currency: chosen.currency, rateToBase: rate, occurredAt: at };
     if (command.id) {
       if (!old) throw new AppError(404, "Операция не найдена.");
       await tx.update(s.financeEntries).set({ ...values, updatedAt: new Date() }).where(eq(s.financeEntries.id, old.id));
-    } else await tx.insert(s.financeEntries).values(values);
+    } else await tx.insert(s.financeEntries).values({ ...values, source: "mini_app" });
   },
   "money.delete": async ({ tx, owner }, command) => {
-    const [linked] = await tx.select({ id: s.financeDebtRepayments.id }).from(s.financeDebtRepayments)
-      .where(and(eq(s.financeDebtRepayments.financeEntryId, command.id), eq(s.financeDebtRepayments.ownerId, owner.id))).limit(1);
-    if (linked) throw new AppError(409, "Эта операция записана как возврат долга. Сначала удалите возврат в разделе долгов.");
+    const [old] = await tx.select().from(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id)));
+    if (old) await rejectDebtLinked(tx, owner.id, old, "удалить");
     await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, command.id), eq(s.financeEntries.ownerId, owner.id)));
   },
   "finance-plan.save": async ({ tx, owner }, command) => {
@@ -92,12 +101,17 @@ export const financeHandlers = {
     const nextDueOn = dateKey(command.nextDueAt, owner.timezone);
     const [, month, day] = nextDueOn.split("-").map(Number);
     const values = { ownerId: owner.id, accountId: chosen.id, categoryId: group.id, name: command.name, amount: decimal(command.amountMinor), currency: chosen.currency, nextDueOn, anchorDay: day, anchorMonth: month, intervalUnit: ({ weekly: "week", monthly: "month", yearly: "year" } as const)[command.frequency] };
-    if (command.id) await tx.update(s.recurringPayments).set(values).where(and(eq(s.recurringPayments.id, command.id), eq(s.recurringPayments.ownerId, owner.id)));
-    else await tx.insert(s.recurringPayments).values(values);
+    if (command.id) {
+      const updated = await tx.update(s.recurringPayments).set(values).where(and(eq(s.recurringPayments.id, command.id), eq(s.recurringPayments.ownerId, owner.id))).returning({ id: s.recurringPayments.id });
+      if (!updated.length) throw new AppError(404, "Платёж не найден.");
+    } else await tx.insert(s.recurringPayments).values(values);
   },
   "recurring.confirm": async ({ tx, owner }, command) => {
-    const [payment] = await tx.select().from(s.recurringPayments).where(and(eq(s.recurringPayments.id, command.id), eq(s.recurringPayments.ownerId, owner.id)));
+    const [payment] = await tx.select().from(s.recurringPayments).where(and(eq(s.recurringPayments.id, command.id), eq(s.recurringPayments.ownerId, owner.id))).for("update");
     if (!payment) throw new AppError(404, "Платёж не найден.");
+    // The button is bound to the period it was shown for: a repeated press for an already paid period does nothing.
+    if (command.dueOn && command.dueOn < payment.nextDueOn) return;
+    if (command.dueOn && command.dueOn > payment.nextDueOn) throw new AppError(409, "Дата платежа изменилась. Открой платёж заново.");
     const today = dateKey(new Date(), owner.timezone);
     if (payment.nextDueOn > today) throw new AppError(409, "Этот период уже оплачен или ещё не наступил.");
     const rate = await rateAt(tx, owner.id, payment.currency, new Date());

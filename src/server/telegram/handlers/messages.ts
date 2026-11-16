@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
 import { dateKey } from "@/domain/math";
 import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
+import { foreignCurrencyQuestion, rubleMarkerContradictsBase } from "@/domain/currencies";
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
@@ -90,6 +91,11 @@ export function registerMessages(bot: Bot<Context>): void {
       }
       if (!photo && !features.includes("finance.debts") && parseDebtMessage(text)) {
         await ctx.reply(disabledFeatureMessage("finance.debts"));
+        return;
+      }
+
+      if (!photo && (hasFinancePlanMarker(text) || parseDebtMessage(text)) && rubleMarkerContradictsBase(text, owner.baseCurrency)) {
+        await ctx.reply(foreignCurrencyQuestion(owner.baseCurrency ?? ""));
         return;
       }
 

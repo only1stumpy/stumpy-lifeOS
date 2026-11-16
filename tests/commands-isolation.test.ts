@@ -62,9 +62,9 @@ describe("изоляция владельцев на уровне команд",
     await run(b, { type: "money.delete", id: A.entry.id });
     await run(b, { type: "food.save", id: A.food.id, label: "Взлом", portionLabel: "1", occurredAt: T, calories: 1, proteinGrams: 1, fatGrams: 1, carbsGrams: 1 });
     await run(b, { type: "day.save", id: A.day.id, name: "Взлом", weekday: null });
-    await run(b, { type: "recurring.save", id: uuid(), name: "x", amountMinor: 1, accountId: B.acc.id, category: "x", frequency: "monthly", nextDueAt: T });
 
     // Команды с явным 404 / отказом.
+    await rejectsWith(run(b, { type: "recurring.save", id: uuid(), name: "x", amountMinor: 1, accountId: B.acc.id, category: "x", frequency: "monthly", nextDueAt: T }), 404);
     await rejectsWith(run(b, { type: "day.delete", id: A.day.id }), 404);
     await rejectsWith(run(b, { type: "money.save", id: A.entry.id, label: "Взлом", occurredAt: T, amountMinor: 1, accountId: B.acc.id, category: "Еда", kind: "expense" }), 404);
     await rejectsWith(run(b, { type: "money.save", label: "На чужой счёт", occurredAt: T, amountMinor: 1, accountId: A.acc.id, category: "Еда", kind: "expense" }), 400);

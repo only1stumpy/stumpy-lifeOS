@@ -164,7 +164,7 @@ function noticeFor(command: AppCommand): string | null {
     case "food.save": return "Запись еды сохранена.";
     case "money.save": return "Операция записана.";
     case "weight.save": return "Вес записан.";
-    case "food.delete": case "money.delete": case "finance-plan.delete": return "Удалено.";
+    case "food.delete": case "money.delete": case "finance-plan.delete": case "debt.delete": case "debt.repayment.delete": return "Удалено.";
     case "finance-plan.save": return "План сохранён.";
     case "finance-plan.purchase": return "Покупка записана, план закрыт.";
     case "debt.create": return "Долг записан.";
@@ -192,6 +192,8 @@ function editorIdentity(editor: EditorState): string {
     case "delete-food": return `delete-food:${editor.id}`;
     case "delete-money": return `delete-money:${editor.id}`;
     case "delete-finance-plan": return `delete-finance-plan:${editor.id}`;
+    case "delete-debt": return `delete-debt:${editor.id}`;
+    case "delete-debt-repayment": return `delete-debt-repayment:${editor.id}`;
     case "finish-session": return `finish-session:${editor.sessionId}`;
     case "target":
     case "weight":
@@ -601,6 +603,18 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         return;
       }
       case "finance.debt.add": openEditor({ kind: "debt-create" }); return;
+      case "finance.debt.delete": {
+        const debt = snapshot.finance.debts.find((item) => item.id === action.id);
+        if (debt) openEditor({ kind: "delete-debt", id: debt.id, label: debt.personName });
+        else setError("Долг уже изменился. Обновите данные и попробуйте ещё раз.");
+        return;
+      }
+      case "finance.debt.repayment.delete": {
+        const repayment = snapshot.finance.debts.flatMap((item) => item.repayments).find((item) => item.id === action.id);
+        if (repayment) openEditor({ kind: "delete-debt-repayment", id: repayment.id, label: "возврат" });
+        else setError("Возврат уже изменился. Обновите данные и попробуйте ещё раз.");
+        return;
+      }
       case "finance.debt.repay": {
         const debt = snapshot.finance.debts.find((item) => item.id === action.id);
         if (debt) openEditor({ kind: "debt-repayment", debt });

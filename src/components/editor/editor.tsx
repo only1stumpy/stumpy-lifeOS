@@ -37,6 +37,8 @@ export type EditorState =
   | { kind: "delete-food"; id: string; label: string }
   | { kind: "delete-money"; id: string; label: string }
   | { kind: "delete-finance-plan"; id: string; label: string }
+  | { kind: "delete-debt"; id: string; label: string }
+  | { kind: "delete-debt-repayment"; id: string; label: string }
   | { kind: "finish-session"; sessionId: string; done: number; total: number };
 
 type EditorDialogProps = {
@@ -726,7 +728,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               <strong>{item.name}</strong> · {amountLabel(item.amountMinor, item.currency)} · {item.category} · {frequencyLabel(item.frequency)} · следующее списание {dateLabel(item.nextDueAt)}
               <button type="button" onClick={() => onChange({ kind: "recurring", item })}>Изменить</button>
               {item.nextDueAt.slice(0, 10) <= snapshot.localDate
-                ? <button type="button" disabled={pending} onClick={() => runCommand({ type: "recurring.confirm", id: item.id }, true)}>Подтвердить списание</button>
+                ? <button type="button" disabled={pending} onClick={() => runCommand({ type: "recurring.confirm", id: item.id, dueOn: item.nextDueAt.slice(0, 10) }, true)}>Подтвердить списание</button>
                 : <small>Подтверждение будет доступно в дату списания.</small>}
             </li>
           ))}</ul> : <p>Платежей пока нет.</p>}
@@ -978,6 +980,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       case "delete-food": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "food.delete", id: editor.id })} />;
       case "delete-money": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "money.delete", id: editor.id })} />;
       case "delete-finance-plan": return <ConfirmDelete label={editor.label} pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "finance-plan.delete", id: editor.id })} />;
+      case "delete-debt": return <ConfirmDelete label={editor.label} note="Вместе с долгом удалятся его возвраты и связанные операции: балансы счетов пересчитаются." pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "debt.delete", id: editor.id })} />;
+      case "delete-debt-repayment": return <ConfirmDelete label={editor.label} note="Связанная операция тоже удалится, остаток долга вернётся." pending={pending} onCancel={onClose} onConfirm={() => runCommand({ type: "debt.repayment.delete", id: editor.id })} />;
       case "finish-session": return (
         <div>
           <p>{editor.total === 0 ? "В этой тренировке не было подходов." : editor.done >= editor.total ? `Все подходы выполнены: ${editor.total}.` : `Выполнено подходов: ${editor.done} из ${editor.total}. Остальные не попадут в журнал.`} Завершить тренировку?</p>
@@ -1056,8 +1060,8 @@ function StepField({ label, name, start, step, min, max }: { label: string; name
   );
 }
 
-function ConfirmDelete({ label, pending, onCancel, onConfirm }: { label: string; pending: boolean; onCancel(): void; onConfirm(): void }) {
-  return <div><p>Удалить «{label}»? Это действие нельзя отменить.</p><div className="actions"><button type="button" disabled={pending} onClick={onCancel}>Оставить</button><button className="submit" type="button" disabled={pending} onClick={onConfirm}>Удалить</button></div></div>;
+function ConfirmDelete({ label, note, pending, onCancel, onConfirm }: { label: string; note?: string; pending: boolean; onCancel(): void; onConfirm(): void }) {
+  return <div><p>Удалить «{label}»? Это действие нельзя отменить.</p>{note && <p>{note}</p>}<div className="actions"><button type="button" disabled={pending} onClick={onCancel}>Оставить</button><button className="submit" type="button" disabled={pending} onClick={onConfirm}>Удалить</button></div></div>;
 }
 
 function MoveButton({ direction, label, disabled, onClick }: { direction: "up" | "down"; label: string; disabled: boolean; onClick(): void }) {
@@ -1091,6 +1095,8 @@ function editorTitle(editor: EditorState): string {
     case "delete-food": return "Удалить запись еды";
     case "delete-money": return "Удалить операцию";
     case "delete-finance-plan": return "Удалить план";
+    case "delete-debt": return "Удалить долг";
+    case "delete-debt-repayment": return "Удалить возврат";
     case "finish-session": return "Завершить тренировку";
   }
 }

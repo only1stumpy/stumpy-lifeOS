@@ -52,6 +52,7 @@ export type FinanceDebt = {
   dueOn: string | null;
   note: string | null;
   createdAt: string;
+  repayments: { id: string; amountMinor: number; occurredAt: string }[];
 };
 
 export type ExerciseSet = {
@@ -122,6 +123,8 @@ export type LifeOSAction =
   | { type: "finance.plan.purchase"; id: string }
   | { type: "finance.debt.add" }
   | { type: "finance.debt.repay"; id: string }
+  | { type: "finance.debt.delete"; id: string }
+  | { type: "finance.debt.repayment.delete"; id: string }
   | { type: "finance.manage-accounts" }
   | { type: "finance.manage-recurring" }
   | { type: "gym.edit-program" }

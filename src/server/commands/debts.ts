@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import type { Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { AppError } from "../http";
+import { debtRemainingMinor } from "@/domain/debts";
 import { account, baseCurrencyOf, category, toMinor, debtAmountFromMinor } from "./shared";
 import type { CommandHandlers } from "./types";
 
@@ -39,6 +40,7 @@ export async function saveDebtTransfer(
       rateToBase: null,
       occurredAt: input.occurredAt,
       source: input.captureDraftId ? "chat" : "mini_app",
+      debtId: debt.id,
     });
   }
   return debt;
@@ -55,7 +57,7 @@ export async function saveDebtRepayment(
 
   const repayments = await tx.select().from(s.financeDebtRepayments)
     .where(and(eq(s.financeDebtRepayments.debtId, debt.id), eq(s.financeDebtRepayments.ownerId, ownerId)));
-  const remainingMinor = toMinor(debt.originalAmount) - repayments.reduce((sum, row) => sum + toMinor(row.amount), 0);
+  const remainingMinor = debtRemainingMinor(toMinor(debt.originalAmount), repayments.map((row) => toMinor(row.amount)));
   if (remainingMinor <= 0) throw new AppError(409, "Этот долг уже закрыт.");
   if (input.amountMinor > remainingMinor) throw new AppError(400, "Сумма возврата больше остатка долга.");
 
@@ -108,5 +110,28 @@ export const debtsHandlers = {
       accountId: command.accountId,
       occurredAt: new Date(command.occurredAt),
     });
+  },
+  // Deleting a debt removes its repayments and the operations they created, so balances stay consistent.
+  "debt.delete": async ({ tx, owner }, command) => {
+    const [debt] = await tx.select({ id: s.financeDebts.id }).from(s.financeDebts)
+      .where(and(eq(s.financeDebts.id, command.id), eq(s.financeDebts.ownerId, owner.id))).for("update");
+    if (!debt) throw new AppError(404, "Долг не найден.");
+    const repayments = await tx.select({ entryId: s.financeDebtRepayments.financeEntryId }).from(s.financeDebtRepayments)
+      .where(and(eq(s.financeDebtRepayments.debtId, debt.id), eq(s.financeDebtRepayments.ownerId, owner.id)));
+    await tx.delete(s.financeDebtRepayments).where(and(eq(s.financeDebtRepayments.debtId, debt.id), eq(s.financeDebtRepayments.ownerId, owner.id)));
+    // Chat drafts that point at the debt would block the delete (restrict); the debt they described no longer exists.
+    await tx.delete(s.financeDebtDrafts).where(and(eq(s.financeDebtDrafts.debtId, debt.id), eq(s.financeDebtDrafts.ownerId, owner.id)));
+    await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.ownerId, owner.id), or(
+      eq(s.financeEntries.debtId, debt.id),
+      repayments.length ? inArray(s.financeEntries.id, repayments.map((row) => row.entryId)) : undefined,
+    )));
+    await tx.delete(s.financeDebts).where(and(eq(s.financeDebts.id, debt.id), eq(s.financeDebts.ownerId, owner.id)));
+  },
+  "debt.repayment.delete": async ({ tx, owner }, command) => {
+    const [repayment] = await tx.select().from(s.financeDebtRepayments)
+      .where(and(eq(s.financeDebtRepayments.id, command.id), eq(s.financeDebtRepayments.ownerId, owner.id))).for("update");
+    if (!repayment) throw new AppError(404, "Возврат не найден.");
+    await tx.delete(s.financeDebtRepayments).where(eq(s.financeDebtRepayments.id, repayment.id));
+    await tx.delete(s.financeEntries).where(and(eq(s.financeEntries.id, repayment.financeEntryId), eq(s.financeEntries.ownerId, owner.id)));
   },
 } satisfies Partial<CommandHandlers>;

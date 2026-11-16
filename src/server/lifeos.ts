@@ -16,6 +16,7 @@ import { activeClarificationHistory, nextClarificationHistory } from "./ai/clari
 import { resolveTelegramUserId } from "./owner-context";
 import { enforceRateLimit, RATE_LIMITS } from "./rate-limit";
 import { loadConfiguredAiProviderConfigs } from "./ai/provider-accounts";
+import { debtRemainingMinor } from "@/domain/debts";
 import type { DebtMessageIntent } from "@/domain/debt-message";
 import { account, baseCurrencyOf, debtAmountFromMinor, decimal, macroNumbers, macroStrings, toMinor } from "./commands/shared";
 import { dispatch } from "./commands";
@@ -182,16 +183,15 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       entries: money.slice(0, MAX_SNAPSHOT_FINANCE_ENTRIES).map((v) => ({ id: v.id, accountId: v.accountId, label: v.name, occurredAt: v.occurredAt.toISOString(), amountMinor: toMinor(v.amount), currency: v.currency, category: categories.find((c) => c.id === v.categoryId)?.name ?? "Без категории", kind: v.entryType as "expense" | "income" })),
       plans: plans.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount) })),
       debts: debts.map((v): FinanceDebt => {
-        const repaidMinor = repayments
-          .filter((repayment) => repayment.debtId === v.id)
-          .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0);
+        const own = repayments.filter((repayment) => repayment.debtId === v.id).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
         const originalAmountMinor = toMinor(v.originalAmount);
         return {
           id: v.id,
           personName: v.personName,
           direction: v.direction as FinanceDebt["direction"],
           originalAmountMinor,
-          remainingAmountMinor: Math.max(0, originalAmountMinor - repaidMinor),
+          remainingAmountMinor: debtRemainingMinor(originalAmountMinor, own.map((repayment) => toMinor(repayment.amount))),
+          repayments: own.map((repayment) => ({ id: repayment.id, amountMinor: toMinor(repayment.amount), occurredAt: repayment.occurredAt.toISOString() })),
           dueOn: v.dueOn,
           note: v.note,
           createdAt: v.createdAt.toISOString(),
@@ -225,7 +225,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
           debtId: debt.debtId,
           dueOn: debt.dueOn,
           note: debt.note,
-          remainingAmountMinor: linkedDebt ? Math.max(0, toMinor(linkedDebt.originalAmount) - repaidMinor) : null,
+          remainingAmountMinor: linkedDebt ? debtRemainingMinor(toMinor(linkedDebt.originalAmount), [repaidMinor]) : null,
         } : null };
     }),
     templates: templates.map((v) => ({ id: v.id, name: v.name, portionLabel: v.portionLabel, calories: Number(v.calories), proteinGrams: Number(v.proteinGrams), fatGrams: Number(v.fatGrams), carbsGrams: Number(v.carbsGrams) })),
@@ -249,16 +249,13 @@ export async function createDebtCaptureDraft(input: {
       const matching = debts.filter((item) => {
         const samePerson = item.personName.trim().toLocaleLowerCase("ru") === personKey;
         const sameDirection = input.intent.direction === null || item.direction === input.intent.direction;
-        const repaid = repayments.filter((row) => row.debtId === item.id).reduce((sum, row) => sum + toMinor(row.amount), 0);
-        return samePerson && sameDirection && toMinor(item.originalAmount) > repaid;
+        const remaining = debtRemainingMinor(toMinor(item.originalAmount), repayments.filter((row) => row.debtId === item.id).map((row) => toMinor(row.amount)));
+        return samePerson && sameDirection && remaining > 0;
       });
       if (!matching.length) return { draftIds: [], clarification: `Не нашёл открытый долг для «${input.intent.personName}». Проверь имя или открой «Финансы → Долги».` };
       if (matching.length > 1) return { draftIds: [], clarification: `У тебя несколько открытых долгов для «${input.intent.personName}». Выбери нужный в «Финансы → Долги», чтобы возврат попал куда надо.` };
       debt = matching[0];
-      const alreadyRepaid = repayments
-        .filter((row) => row.debtId === debt!.id)
-        .reduce((sum, row) => sum + toMinor(row.amount), 0);
-      const remaining = toMinor(debt.originalAmount) - alreadyRepaid;
+      const remaining = debtRemainingMinor(toMinor(debt.originalAmount), repayments.filter((row) => row.debtId === debt!.id).map((row) => toMinor(row.amount)));
       if (input.intent.amountMinor > remaining) {
         return { draftIds: [], clarification: `Сумма возврата больше остатка долга (${decimal(remaining)} ${currencyUnit(await baseCurrencyOf(tx, owner.id))}). Проверь сумму и попробуй ещё раз.` };
       }

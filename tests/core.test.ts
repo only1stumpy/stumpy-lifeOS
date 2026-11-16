@@ -558,12 +558,13 @@ test("onboarding command requires a module and a valid currency code", () => {
   assert.equal(commandSchema.safeParse({ ...base, account: null }).success, true);
 });
 
-test("rate.save принимает любую валюту и положительный курс до шести знаков", () => {
+test("rate.save принимает любую валюту и положительный курс до десяти знаков", () => {
   const rate = { type: "rate.save", currency: "EUR", rateToBase: "98.5" };
   assert.equal(commandSchema.safeParse(rate).success, true);
   assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "0" }).success, false);
   assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "1,5" }).success, false);
-  assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "1.1234567" }).success, false);
+  assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "1.123456789" }).success, true);
+  assert.equal(commandSchema.safeParse({ ...rate, rateToBase: "1.12345678901" }).success, false);
   assert.equal(commandSchema.safeParse({ ...rate, currency: "E" }).success, false);
 });
 

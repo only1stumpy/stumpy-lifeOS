@@ -67,3 +67,18 @@ const plainAmount = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, m
 export function formatMoneyPlain(amountMinor: number, code: CurrencyCode): string {
   return `${plainAmount.format(amountMinor / 100)} ${code === "PRB" ? "руб. ПМР" : code}`;
 }
+
+/** Currencies that a bare «руб.», «р.» or «₽» can mean without asking. */
+const RUBLE_CURRENCIES: readonly CurrencyCode[] = ["RUB", "PRB"];
+
+const RUBLE_MARKER = /(?:\d\s*(?:р\.?|руб[\p{L}]*\.?)|₽)(?![\p{L}])/iu;
+
+/** True when the text names rubles explicitly while the owner's base currency is something else: ask, do not assume. */
+export function rubleMarkerContradictsBase(text: string, baseCurrency: CurrencyCode | null): boolean {
+  return baseCurrency !== null && !RUBLE_CURRENCIES.includes(baseCurrency) && RUBLE_MARKER.test(text);
+}
+
+/** Chat question for a message whose explicit currency differs from the base one. */
+export function foreignCurrencyQuestion(baseCurrency: CurrencyCode): string {
+  return `В сообщении указаны рубли, а твоя основная валюта — ${baseCurrency}. Напиши сумму без валюты (она запишется в ${baseCurrency}) или добавь операцию в нужной валюте в LifeOS.`;
+}
