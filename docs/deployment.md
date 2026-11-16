@@ -36,6 +36,8 @@ openssl rand -base64 32   # AI_PROVIDER_ENCRYPTION_KEY (32 байта в base64)
 
 ## 4. Миграции
 
+SQL-файлы лежат в `drizzle/`, журнал — `drizzle/meta/_journal.json`; их создаёт `npm run db:generate` (список и содержание — [database.md](database.md)).
+
 **Правило: сначала SQL миграции в production, потом merge PR.** Код, который читает колонку раньше, чем она появилась, роняет маршруты до применения миграции. Новую миграцию применяют к production, проверяют `/api/ready` (ниже) и только затем сливают PR; вместе с кодом миграция в Vercel не выкатывается.
 
 Один рабочий путь — `npm run db:migrate` (drizzle-kit) с production-переменными и системным прокси:
@@ -52,9 +54,9 @@ NODE_USE_ENV_PROXY=1 NODE_OPTIONS=--env-file=.env.vercel.local npm run db:migrat
 Если `db:migrate` всё равно завершился без вывода, не считайте миграцию применённой: проверьте журнал запросом ниже. Резервный способ — выполнить SQL файла и запись в журнал одной транзакцией:
 
 ```bash
-f=drizzle/0017_command_requests.sql
+f=drizzle/NNNN_имя.sql   # файл миграции из drizzle/
 hash=$(sha256sum "$f" | cut -d' ' -f1)
-when=$(node -e 'const t=process.argv[1];console.log(require("./drizzle/meta/_journal.json").entries.find(e=>e.tag===t).when)' 0017_command_requests)
+when=$(node -e 'const t=process.argv[1];console.log(require("./drizzle/meta/_journal.json").entries.find(e=>e.tag===t).when)' NNNN_имя)
 { echo "BEGIN;"; cat "$f"; echo; echo "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('$hash', $when);"; echo "COMMIT;"; } \
   | psql "$DATABASE_URL" -v ON_ERROR_STOP=1
 ```
@@ -73,7 +75,7 @@ CI проверяет, что `src/db/schema.ts` и `drizzle/` согласов�
 
 ## 5. Vercel
 
-1. Импортируйте репозиторий GitHub в Vercel. Сборка — `next build`; файла `vercel.json` в репозитории нет (настройки по умолчанию для Next.js).
+1. Импортируйте репозиторий GitHub в Vercel. Сборка — `next build`; `vercel.json` задаёт только регион функций (см. «Регион функций Vercel» ниже).
 2. В Settings, Environment Variables задайте для Production обязательные переменные из [конфигурации](configuration.md): `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `CRON_SECRET`, `AI_PROVIDER_ENCRYPTION_KEY`, а также `APP_URL` (публичный HTTPS-адрес развёртывания).
 3. Preview-деплои по умолчанию не получают Telegram- и Neon-переменных, поэтому Mini App API там без них не проверить; использовать для Preview отдельные базу и бота предпочтительнее, чем общие с Production (подтверждённого описания Preview в репозитории нет).
 4. Выпускайте изменения через ветку, PR, проверки CI (`.github/workflows/ci.yml`: `lint`, `typecheck`, `test`, `build`) и Vercel Preview, затем слияние в `main`. Production должен развернуть именно merge commit.
@@ -91,7 +93,7 @@ npm run telegram:register
 
 ## 7. Планировщик cron-job.org
 
-Создайте задание на `GET` или `POST` `<APP_URL>/api/cron` с заголовком `Authorization: Bearer <CRON_SECRET>`. Маршрут повторяет зависшие и неудачные Telegram updates, отправляет сводки и напоминания и очищает старые счётчики rate limit. **Интервал — каждые 30 минут** (`*/30 * * * *`). Сводка отправляется в окне `[время пользователя, +30 минут)`, повторы зависших updates идут при каждом вызове. Чаще не ставьте: Neon Free засыпает после 5 минут простоя, вызов чаще 5–15 минут держит базу активной постоянно и выжигает лимит около 100 CU-часов в месяц, после чего база останавливается до конца месяца (при вызове раз в 30 минут оценка около 30 CU-часов). Если оставить суточный вызов, задайте `SUMMARY_WINDOW_MINUTES=1440`, иначе сводки вне получасового окна вызова не придут. Расход Neon проверьте через неделю после смены расписания; фактическая доставка не проверена. Ответ `200` с `{"ok":true,...}` означает успех; `401` — неверный секрет; `503` — не настроен `CRON_SECRET` или ошибка выполнения; `"ok":false` с `failed > 0` — у части пользователей отправка не удалась (подробности в логах Vercel).
+Создайте задание на `GET` или `POST` `<APP_URL>/api/cron` с заголовком `Authorization: Bearer <CRON_SECRET>`. Маршрут повторяет зависшие и неудачные Telegram updates, отправляет сводки и напоминания и очищает старые счётчики rate limit. **Интервал — каждые 30 минут** (`*/30 * * * *`). Сводка отправляется в окне `[время пользователя, +30 минут)`, повторы зависших updates идут при каждом вызове. Чаще не ставьте: Neon Free засыпает после 5 минут простоя, вызов чаще 5–15 минут держит базу активной постоянно и выжигает лимит около 100 CU-часов в месяц, после чего база останавливается до конца месяца (при вызове раз в 30 минут оценка около 30 CU-часов). Если оставить суточный вызов, задайте `SUMMARY_WINDOW_MINUTES=1440`, иначе сводки вне получасового окна вызова не придут. Ответ `200` с `{"ok":true,...}` означает успех; `401` — неверный секрет; `503` — не настроен `CRON_SECRET` или ошибка выполнения; `"ok":false` с `failed > 0` — у части пользователей отправка не удалась (подробности в логах Vercel).
 
 ## 8. Проверка после развёртывания
 
@@ -102,7 +104,7 @@ npm run telegram:register
 5. Вызовите `/api/cron` с секретом (например, `curl -H "Authorization: Bearer $CRON_SECRET" <APP_URL>/api/cron`): ответ `{"ok":true,...}`.
 6. Подключите ключ ИИ в настройках и отправьте боту описание еды: приходит черновик с кнопкой «Записать». Без ИИ тот же ввод выполняется вручную в Mini App.
 
-Эти шаги составлены по коду; полный прогон на реальных аккаунтах отмечен в [статусе](status.md) как не завершённый.
+Что из этого уже прогонялось на реальных аккаунтах — в [статусе](status.md).
 
 ## Откат
 
