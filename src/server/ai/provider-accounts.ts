@@ -26,7 +26,7 @@ const accountInputSchema = z.object({
   freeTierConfirmed: z.literal(true),
 }).strict().superRefine((input, context) => {
   if (input.providerId === "custom" && !input.model) {
-    context.addIssue({ code: "custom", message: "Для расширенного endpoint укажите модель для тестового запроса.", path: ["model"] });
+    context.addIssue({ code: "custom", message: "Для расширенного endpoint укажи модель для тестового запроса.", path: ["model"] });
   }
 });
 
@@ -174,7 +174,7 @@ export async function connectAiProviderAccount(ownerId: string, rawInput: unknow
     ? models.find((model) => model.id === requestedTestModel)
     : models.find((model) => !model.supportsImages) ?? models[0];
   if (!testModel) throw new AppError(400, requestedTestModel
-    ? "Модель для теста отсутствует в каталоге endpoint. Обновите список моделей и проверьте идентификатор."
+    ? "Модель для теста отсутствует в каталоге endpoint. Обнови список моделей и проверь идентификатор."
     : "Не найдено доступной модели для проверки.");
   await testProviderModel(input.providerId, testModel, input.apiKey, endpoint);
 

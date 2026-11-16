@@ -61,7 +61,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("exercise.replace"), dayId: id, dayExerciseId: id, name: text, muscleGroup: z.string().trim().max(200).default(""), equipment: z.string().trim().max(200).default(""), instructions: z.string().max(5000).default("") }),
   z.object({ type: z.literal("exercise.move"), dayId: id, dayExerciseId: id, direction: z.enum(["up", "down"]) }),
   z.object({ type: z.literal("session.start"), dayId: id }),
-  z.object({ type: z.literal("set.save"), dayId: id, exerciseId: id, setIndex: z.number().int().min(1).max(100), weightKg: z.number().min(0).max(2000).nullable(), repetitions: z.number().int().min(1).max(10000).nullable(), durationSeconds: z.number().int().min(1).max(86400).nullable(), distanceMeters: z.number().gt(0).max(1e6).nullable() }).refine((set) => set.repetitions !== null || set.durationSeconds !== null || set.distanceMeters !== null, { message: "Укажите положительное значение повторений, времени или дистанции." }),
+  z.object({ type: z.literal("set.save"), dayId: id, exerciseId: id, setIndex: z.number().int().min(1).max(100), weightKg: z.number().min(0).max(2000).nullable(), repetitions: z.number().int().min(1).max(10000).nullable(), durationSeconds: z.number().int().min(1).max(86400).nullable(), distanceMeters: z.number().gt(0).max(1e6).nullable() }).refine((set) => set.repetitions !== null || set.durationSeconds !== null || set.distanceMeters !== null, { message: "Укажи положительное значение повторений, времени или дистанции." }),
   z.object({ type: z.literal("session.finish"), id }),
   z.object({ type: z.literal("draft.confirm"), id }),
   z.object({ type: z.literal("draft.reject"), id }),

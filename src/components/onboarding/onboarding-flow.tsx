@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppSnapshot } from "@/domain/app";
 import { commandSchema, type AppCommand } from "@/domain/commands";
 import { currencyUnit } from "@/domain/currencies";
@@ -27,8 +27,6 @@ type Props = {
   /** Saves the answers. The AI step follows only when this resolves to true. */
   onSubmit(command: OnboardingCommand): Promise<boolean>;
   /** Telegram insets, so the first line never sits under the Telegram header. */
-  safeAreaTop?: number;
-  contentSafeAreaTop?: number;
   /** The last step: connecting an AI key. It ends the onboarding itself. */
   renderAiStep(): ReactNode;
 };
@@ -49,7 +47,7 @@ function parseProfile(form: ProfileForm): NutritionProfile | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop = 0, contentSafeAreaTop = 0, renderAiStep }: Props) {
+export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiStep }: Props) {
   const [modules, setModules] = useState<LifeModule[]>(() => (snapshot.settings.enabledModules.length ? [...snapshot.settings.enabledModules] : [...ALL_MODULES]));
   const [usage, setUsage] = useState<UsageMode>("daily");
   const [profile, setProfile] = useState<ProfileForm>(() => {
@@ -91,6 +89,9 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   useEffect(() => {
     window.scrollTo({ top: 0 });
     rootRef.current?.scrollIntoView({ block: "start" });
+    // Move focus to the new step's title so screen readers announce the step change.
+    const title = rootRef.current?.querySelector("h1");
+    if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
   }, [stepIndex]);
 
   const attempted = attemptedAt === stepIndex;
@@ -150,14 +151,14 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
       account,
     };
     const parsed = commandSchema.safeParse(candidate);
-    if (!parsed.success || parsed.data.type !== "onboarding.complete") return "Не удалось проверить данные. Проверьте поля и попробуйте ещё раз.";
+    if (!parsed.success || parsed.data.type !== "onboarding.complete") return "Не удалось проверить данные. Проверь поля и попробуй ещё раз.";
     return parsed.data;
   }
 
   async function finish(skip: { profile?: boolean; account?: boolean }) {
     setLocalError(null);
     let command: OnboardingCommand | string;
-    try { command = build(skip); } catch (e) { command = e instanceof Error ? e.message : "Проверьте введённые данные."; }
+    try { command = build(skip); } catch (e) { command = e instanceof Error ? e.message : "Проверь введённые данные."; }
     if (typeof command === "string") { setLocalError(command); return; }
     // Answers are saved first; the AI step is shown only after that, and it cannot be walked back from.
     if (await onSubmit(command)) setStepIndex(steps.length - 1);
@@ -194,7 +195,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
   const canSkip = step === "profile" || step === "currency";
 
   return (
-    <main className={styles.page} ref={rootRef} style={{ "--ob-safe-top": `${Math.max(0, safeAreaTop) + Math.max(0, contentSafeAreaTop)}px` } as CSSProperties}>
+    <main className={styles.page} ref={rootRef}>
       <div className={styles.inner}>
         <header className={styles.header}>
           <p className={styles.progress}>Шаг {Math.min(stepIndex, steps.length - 1) + 1} из {steps.length}</p>
@@ -203,7 +204,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
 
         {step === "modules" && (
           <section className={styles.step} aria-labelledby="ob-title">
-            <h1 id="ob-title">Чем вы будете пользоваться?</h1>
+            <h1 id="ob-title">Чем ты будешь пользоваться?</h1>
             <div className={styles.cards}>
               {ALL_MODULES.map((module) => {
                 const on = modules.includes(module);
@@ -222,7 +223,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
 
         {step === "usage" && (
           <section className={styles.step} aria-labelledby="ob-title">
-            <h1 id="ob-title">Как часто вы будете заходить?</h1>
+            <h1 id="ob-title">Как часто ты будешь заходить?</h1>
             <fieldset className={styles.cards}>
               <legend className={styles.srOnly}>Частота использования</legend>
               {(Object.keys(USAGE_MODES) as UsageMode[]).map((mode) => (
@@ -238,54 +239,54 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
 
         {step === "profile" && (
           <section className={`${styles.step} ${styles.compact}`} aria-labelledby="ob-title">
-            <h1 id="ob-title">Расскажите о себе</h1>
+            <h1 id="ob-title">Расскажи о себе</h1>
             <div className={styles.fieldsTwo}>
               <label className={styles.field}>Пол
                 <select value={profile.sex} onChange={(e) => changeProfile({ sex: e.target.value })} aria-invalid={missing.sex}>
-                  <option value="" disabled>Выберите</option>
+                  <option value="" disabled>Выбери</option>
                   <option value="male">Мужской</option>
                   <option value="female">Женский</option>
                 </select>
-                {missing.sex && <small className={styles.fieldError}>Выберите пол</small>}
+                {missing.sex && <small className={styles.fieldError}>Выбери пол</small>}
               </label>
               <label className={styles.field}>Возраст
                 <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={missing.age} />
-                {missing.age && <small className={styles.fieldError}>{profile.age === "" ? "Укажите возраст" : "От 18 до 90"}</small>}
+                {missing.age && <small className={styles.fieldError}>{profile.age === "" ? "Укажи возраст" : "От 18 до 90"}</small>}
               </label>
               <label className={styles.field}>Рост, см
                 <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={missing.heightCm} />
-                {missing.heightCm && <small className={styles.fieldError}>{profile.heightCm === "" ? "Укажите рост" : "От 100 до 250"}</small>}
+                {missing.heightCm && <small className={styles.fieldError}>{profile.heightCm === "" ? "Укажи рост" : "От 100 до 250"}</small>}
               </label>
               <label className={styles.field}>Вес, кг
                 <input inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} aria-invalid={missing.weightKg} />
-                {missing.weightKg && <small className={styles.fieldError}>{profile.weightKg === "" ? "Укажите вес" : "От 30 до 350"}</small>}
+                {missing.weightKg && <small className={styles.fieldError}>{profile.weightKg === "" ? "Укажи вес" : "От 30 до 350"}</small>}
               </label>
               <label className={`${styles.field} ${styles.wide}`}>Активность
                 <select value={profile.activityLevel} onChange={(e) => changeProfile({ activityLevel: e.target.value })} aria-invalid={missing.activityLevel}>
-                  <option value="" disabled>Выберите</option>
+                  <option value="" disabled>Выбери</option>
                   {Object.entries(ACTIVITY_LEVELS).map(([key, level]) => <option key={key} value={key}>{level.label}</option>)}
                 </select>
-                {missing.activityLevel && <small className={styles.fieldError}>Выберите активность</small>}
+                {missing.activityLevel && <small className={styles.fieldError}>Выбери активность</small>}
               </label>
               <label className={`${styles.field} ${styles.wide}`}>Цель
                 <select value={profile.goalType} onChange={(e) => changeProfile({ goalType: e.target.value })} aria-invalid={missing.goalType}>
-                  <option value="" disabled>Выберите</option>
+                  <option value="" disabled>Выбери</option>
                   {Object.entries(GOALS).map(([key, goal]) => <option key={key} value={key}>{goal.label}</option>)}
                 </select>
-                {missing.goalType && <small className={styles.fieldError}>Выберите цель</small>}
+                {missing.goalType && <small className={styles.fieldError}>Выбери цель</small>}
               </label>
             </div>
             <p className={styles.norm} aria-live="polite">
               {norm
                 ? <>Норма на день: <strong>{norm.calories.toLocaleString("ru-RU")} ккал</strong> · Б {norm.proteinGrams} · Ж {norm.fatGrams} · У {norm.carbsGrams}. Её можно поправить позже.</>
-                : "Заполните поля, и я посчитаю норму на день."}
+                : "Заполни поля, и я посчитаю норму на день."}
             </p>
           </section>
         )}
 
         {step === "currency" && (
           <section className={`${styles.step} ${styles.compact}`} aria-labelledby="ob-title">
-            <h1 id="ob-title">Ваша валюта</h1>
+            <h1 id="ob-title">Твоя валюта</h1>
             <CurrencyPicker value={currency} onChange={setCurrency} legend="Валюта основного счёта" />
           </section>
         )}
@@ -295,7 +296,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
             <h1 id="ob-title">Сколько сейчас на счёте?</h1>
             <label className={styles.field}>Сумма, {currencyUnit(currency)}
               <input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={attempted && stepBlocked} />
-              {attempted && stepBlocked && <small className={styles.fieldError}>Введите сумму числом, например 1500,50</small>}
+              {attempted && stepBlocked && <small className={styles.fieldError}>Введи сумму числом, например 1500,50</small>}
             </label>
             <p className={styles.note}>Счёт назовём «Основной», переименовать можно в Финансах.</p>
           </section>
@@ -306,8 +307,8 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
 
         {step !== "ai" && (
           <div className={styles.actions}>
-            {step === "modules" && modules.length < 1 && <p className={styles.hint}>Оставьте включённым хотя бы один раздел.</p>}
-            {step === "currency" && attempted && currency === "" && <p className={styles.hint} role="alert">Выберите валюту из списка или введите свой код.</p>}
+            {step === "modules" && modules.length < 1 && <p className={styles.hint}>Оставь включённым хотя бы один раздел.</p>}
+            {step === "currency" && attempted && currency === "" && <p className={styles.hint} role="alert">Выбери валюту из списка или введи свой код.</p>}
             {shownError && <p className={styles.error} role="alert">{shownError}</p>}
             <button type="button" className={styles.primary} onClick={next} disabled={pending} aria-busy={pending}>{pending ? <><span className={styles.spinner} aria-hidden="true" />Сохраняю…</> : "Далее"}</button>
             <div className={styles.secondaryRow}>

@@ -231,7 +231,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
 
       await ctx.answerCallbackQuery({ text: "Неизвестная кнопка." });
     } catch (error) {
-      const message = error instanceof AppError ? error.message : "Не удалось выполнить действие. Попробуйте ещё раз.";
+      const message = error instanceof AppError ? error.message : "Не удалось выполнить действие. Попробуй ещё раз.";
       await ctx.answerCallbackQuery({ text: message.slice(0, 180) }).catch(() => undefined);
       await ctx.reply(message).catch(() => undefined);
       if (!(error instanceof AppError) || error.status >= 500) throw new Error("Telegram callback handler failed");

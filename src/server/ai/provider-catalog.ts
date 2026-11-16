@@ -29,11 +29,13 @@ export type AiProviderDefinition = {
   description: string;
 };
 
-const freeTierModelIds: Record<Exclude<AiProviderId, "custom">, ReadonlySet<string>> = {
-  gemini: new Set(["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]),
-  groq: new Set(["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]),
-  cerebras: new Set(["gpt-oss-120b", "qwen-3.8-27b"]),
-  openrouter: new Set(),
+// Gemini and Groq do not publish pricing in their model lists, so free-tier candidates are matched by family
+// pattern instead of a fixed id list: text chat models of the current flash/open-weight families, minus
+// preview, specialised (tts, image, live, embedding, guard, whisper) and paid-only tiers.
+const freeTierModelPatterns: Record<Exclude<AiProviderId, "custom" | "openrouter">, RegExp> = {
+  gemini: /^gemini-\d+(\.\d+)?-flash(-lite)?$/,
+  groq: /^(openai\/gpt-oss-\d+b|qwen\/qwen[\d.]+-\d+b|llama-[\d.]+-\d+b-instant)$/,
+  cerebras: /^(gpt-oss-\d+b|qwen-[\d.]+-\d+b)$/,
 };
 
 const definitions: AiProviderDefinition[] = [
@@ -143,8 +145,8 @@ export async function discoverFreeModels(
   const models = rows.flatMap((row) => normalizeProviderModel(providerId, row));
   if (models.length === 0) {
     throw new AppError(400, providerId === "custom"
-      ? "Каталог не вернул модели. Проверьте совместимость endpoint и путь /models."
-      : "У этого ключа пока нет доступных бесплатных моделей из каталога.");
+      ? "Каталог не вернул модели. Проверь совместимость endpoint и путь /models."
+      : "Нет подходящих моделей: каталог провайдера не вернул бесплатных текстовых моделей для этого ключа. Проверь, что ключ создан на бесплатном тарифе, или выбери другого провайдера.");
   }
   return models.sort((a, b) => a.name.localeCompare(b.name, "ru"));
 }
@@ -211,11 +213,11 @@ export function normalizeProviderModel(providerId: AiProviderId, value: unknown)
     return [makeModel(id, textAt(model, "name") ?? id, inputModalities.includes("image"), integerAt(model, "context_length"), null)];
   }
 
-  if (!freeTierModelIds[providerId].has(id)) return [];
+  if (!freeTierModelPatterns[providerId].test(id)) return [];
   if (providerId === "gemini") {
     const methods = Array.isArray(model.supportedGenerationMethods) ? model.supportedGenerationMethods : [];
     if (!methods.includes("generateContent")) return [];
-    const supportsImages = id === "gemini-3.5-flash-lite" || id === "gemini-3.1-flash-lite" || id === "gemini-3.8-flash";
+    const supportsImages = true;
     return [makeModel(id, textAt(model, "displayName") ?? id, supportsImages, integerAt(model, "inputTokenLimit"), null)];
   }
 
@@ -276,8 +278,8 @@ function isZero(value: unknown): boolean {
 function messageForTransportError(kind: string): string {
   if (kind === "quota_exceeded") return "провайдер ограничил запрос по бесплатной квоте";
   if (kind === "credits_exhausted") return "провайдер сообщает об исчерпанном балансе";
-  if (kind === "configuration") return "провайдер отклонил ключ. Проверьте, что он скопирован целиком и без пробелов";
-  if (kind === "unavailable") return "API провайдера сейчас недоступен, это не ошибка ключа. Повторите через минуту";
+  if (kind === "configuration") return "провайдер отклонил ключ. Проверь, что он скопирован целиком и без пробелов";
+  if (kind === "unavailable") return "API провайдера сейчас недоступен, это не ошибка ключа. Повтори через минуту";
   if (kind === "invalid_response") return "провайдер вернул непонятный ответ";
   return "API провайдера не ответил на проверку";
 }

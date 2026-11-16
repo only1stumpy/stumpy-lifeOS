@@ -164,17 +164,17 @@ function summaryWindowMinutes(): number {
   const raw = process.env.SUMMARY_WINDOW_MINUTES;
   if (!raw) return DEFAULT_SUMMARY_WINDOW_MINUTES;
   const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1 || value > 1440) throw new AppError(500, "Проверьте настройку SUMMARY_WINDOW_MINUTES.");
+  if (!Number.isInteger(value) || value < 1 || value > 1440) throw new AppError(500, "Проверь настройку SUMMARY_WINDOW_MINUTES.");
   return value;
 }
 
 function configuredMinute(name: string, fallback: string): number {
   const value = process.env[name] ?? fallback;
   const match = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!match) throw new AppError(500, `Проверьте настройку ${name}.`);
+  if (!match) throw new AppError(500, `Проверь настройку ${name}.`);
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) throw new AppError(500, `Проверьте настройку ${name}.`);
+  if (hours > 23 || minutes > 59) throw new AppError(500, `Проверь настройку ${name}.`);
   return hours * 60 + minutes;
 }
 

@@ -108,7 +108,7 @@ export async function saveAiProviderProfile(
     return toAiProviderProfileDto(updated);
   }
 
-  if (!input.apiKey) throw new AppError(400, "Для нового профиля укажите API-ключ.");
+  if (!input.apiKey) throw new AppError(400, "Для нового профиля укажи API-ключ.");
   const existingProfiles = await db
     .select({ id: schema.aiProviderProfiles.id })
     .from(schema.aiProviderProfiles)

@@ -9,7 +9,7 @@ async function startSession(tx: Transaction, ownerId: string, dayId: string) {
   if (!day) throw new AppError(404, "Тренировочный день не найден.");
   const [active] = await tx.select().from(s.workoutSessions).where(and(eq(s.workoutSessions.ownerId, ownerId), eq(s.workoutSessions.status, "active")));
   if (active) {
-    if (active.workoutDayId !== dayId) throw new AppError(409, "Сначала завершите текущую тренировку.");
+    if (active.workoutDayId !== dayId) throw new AppError(409, "Сначала заверши текущую тренировку.");
     return active;
   }
   const [session] = await tx.insert(s.workoutSessions).values({ ownerId, workoutDayId: dayId, name: day.name }).returning();
@@ -102,7 +102,7 @@ export const gymHandlers = {
     await startSession(tx, owner.id, command.dayId);
   },
   "set.save": async ({ tx, owner }, command) => {
-    if (![command.repetitions, command.durationSeconds, command.distanceMeters].some((value) => value !== null && value > 0)) throw new AppError(400, "Укажите положительное значение повторений, времени или дистанции.");
+    if (![command.repetitions, command.durationSeconds, command.distanceMeters].some((value) => value !== null && value > 0)) throw new AppError(400, "Укажи положительное значение повторений, времени или дистанции.");
     const session = await startSession(tx, owner.id, command.dayId);
     const [item] = await tx.select().from(s.workoutSessionExercises).where(and(eq(s.workoutSessionExercises.sessionId, session.id), eq(s.workoutSessionExercises.workoutDayExerciseId, command.exerciseId)));
     if (!item) throw new AppError(404, "Упражнение не найдено в текущей тренировке.");

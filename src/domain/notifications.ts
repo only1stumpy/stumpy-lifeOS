@@ -15,7 +15,7 @@ export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
 export const USAGE_MODES = {
   daily: { label: "Каждый день", hint: "Дневная и недельная сводки, напоминание взвеситься", dailySummary: true, weeklySummary: true, weightReminder: true },
   weekly: { label: "Пару раз в неделю", hint: "Только недельная сводка и напоминание взвеситься", dailySummary: false, weeklySummary: true, weightReminder: true },
-  trial: { label: "Пока просто смотрю", hint: "Без сводок и напоминаний, включите позже в настройках", dailySummary: false, weeklySummary: false, weightReminder: false },
+  trial: { label: "Пока просто смотрю", hint: "Без сводок и напоминаний, включи позже в настройках", dailySummary: false, weeklySummary: false, weightReminder: false },
 } as const;
 export type UsageMode = keyof typeof USAGE_MODES;
 export const usageModeSchema = z.enum(Object.keys(USAGE_MODES) as [UsageMode, ...UsageMode[]]);

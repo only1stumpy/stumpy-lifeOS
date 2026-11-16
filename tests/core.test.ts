@@ -459,8 +459,8 @@ test("команды отклоняют отрицательные или нек
     category: "зарплата",
   });
   assert.equal(commandSchema.safeParse({ type: "draft.money-category.set", id: "bad-id", category: "" }).success, false);
-  assert.equal(missingMoneyCategoryMessage("income"), "Уточните категорию дохода через «Исправить».");
-  assert.equal(missingMoneyCategoryMessage("expense"), "Уточните категорию расхода через «Исправить».");
+  assert.equal(missingMoneyCategoryMessage("income"), "Уточни категорию дохода через «Исправить».");
+  assert.equal(missingMoneyCategoryMessage("expense"), "Уточни категорию расхода через «Исправить».");
 });
 
 test("предложенная цель КБЖУ учитывает цель и даёт редактируемые значения", () => {
@@ -664,6 +664,10 @@ test("/start is short, names only enabled sections and sends a newcomer to the a
   const gymOnly = buildStartMessage({ modules: ["gym"], features: [], firstRun: true });
   assert.doesNotMatch(gymOnly, /<b>Питание<\/b>|<b>Финансы<\/b>|гречку|кофе/);
   assert.match(gymOnly, /<b>Зал<\/b>/);
+
+  const noAi = buildStartMessage({ modules: allModules, features: allFeatures, firstRun: false, hasAi: false });
+  assert.doesNotMatch(noAi, /съел гречку|кофе 45/);
+  assert.match(noAi, /вручную[\s\S]*«ИИ-провайдеры»/);
 
   const noWeight = buildStartMessage({ modules: ["nutrition"], features: [], firstRun: false });
   assert.doesNotMatch(noWeight, /веду вес/);

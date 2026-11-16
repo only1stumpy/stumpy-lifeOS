@@ -30,7 +30,7 @@ export async function setPendingMoneyDraftCategory(
 
 export function missingMoneyCategoryMessage(entryType: "expense" | "income"): string {
   const categoryKind = entryType === "income" ? "дохода" : "расхода";
-  return `Уточните категорию ${categoryKind} через «Исправить».`;
+  return `Уточни категорию ${categoryKind} через «Исправить».`;
 }
 
 /** The short AI clarification history holds user text too; it ends together with the draft it belonged to. */
@@ -43,7 +43,7 @@ export const draftsHandlers = {
     const [draft] = await tx.select({ status: s.captureDrafts.status }).from(s.captureDrafts)
       .where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
     if (!draft) throw new AppError(404, "Черновик не найден.");
-    if (draft.status === "confirmed") throw new AppError(409, "Черновик уже записан, отменить его нельзя. Удалите запись.");
+    if (draft.status === "confirmed") throw new AppError(409, "Черновик уже записан, отменить его нельзя. Удали запись.");
     if (draft.status === "pending") {
       // The original message text is only needed to edit a pending draft: drop it as soon as the draft is closed.
       await tx.update(s.captureDrafts).set({ status: "cancelled", messageText: null }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id)));

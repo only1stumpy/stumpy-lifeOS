@@ -105,9 +105,9 @@ async function responseBody(response: Response): Promise<unknown> {
 
 function responseError(payload: unknown, status: number): string {
   if (isRecord(payload) && typeof payload.error === "string") return payload.error;
-  if (status === 401) return "Сессия Telegram недействительна. Откройте Mini App заново.";
+  if (status === 401) return "Сессия Telegram недействительна. Открой Mini App заново.";
   if (status === 503) return "Сервер LifeOS ещё не настроен.";
-  return "Не удалось связаться с LifeOS. Попробуйте ещё раз.";
+  return "Не удалось связаться с LifeOS. Попробуй ещё раз.";
 }
 
 function isErrorPayload(payload: unknown): payload is { error: string } {
@@ -434,13 +434,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
 
   const sendCommand = useCallback(async (command: AppCommand, keepOpen = false): Promise<boolean> => {
     if (!configured || !initData) {
-      setError("Откройте Mini App через Telegram, чтобы изменить данные.");
+      setError("Открой Mini App через Telegram, чтобы изменить данные.");
       return false;
     }
     if (pendingRef.current) return false;
     const parsed = commandSchema.safeParse(command);
     if (!parsed.success) {
-      setError("Проверьте введённые значения.");
+      setError("Проверь введённые значения.");
       return false;
     }
 
@@ -481,7 +481,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         if (fresh && (!selectedDate || selectedDate === fresh.localDate)) setSnapshot(fresh);
         else setSnapshot(await fetchSnapshot(initData, selectedDate ?? snapshot?.localDate));
       } catch {
-        setError("Изменение принято сервером, но обновить данные не удалось. Повторите загрузку.");
+        setError("Изменение принято сервером, но обновить данные не удалось. Повтори загрузку.");
       }
       const message = noticeFor(parsed.data);
       if (message) setNotice(message);
@@ -559,13 +559,13 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       case "food.edit": {
         const entry = snapshot.nutrition.entries.find((item) => item.id === action.id);
         if (entry) openEditor({ kind: "food", entry });
-        else setError("Запись еды уже изменилась. Обновите данные и попробуйте ещё раз.");
+        else setError("Запись еды уже изменилась. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "food.delete": {
         const entry = snapshot.nutrition.entries.find((item) => item.id === action.id);
         if (entry) openEditor({ kind: "delete-food", id: entry.id, label: entry.label });
-        else setError("Запись еды уже изменилась. Обновите данные и попробуйте ещё раз.");
+        else setError("Запись еды уже изменилась. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "food.set-target": openEditor({ kind: "target" }); return;
@@ -574,51 +574,51 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       case "finance.edit": {
         const entry = snapshot.finance.entries.find((item) => item.id === action.id);
         if (entry) openEditor({ kind: "finance", entry });
-        else setError("Операция уже изменилась. Обновите данные и попробуйте ещё раз.");
+        else setError("Операция уже изменилась. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.delete": {
         const entry = snapshot.finance.entries.find((item) => item.id === action.id);
         if (entry) openEditor({ kind: "delete-money", id: entry.id, label: entry.label });
-        else setError("Операция уже изменилась. Обновите данные и попробуйте ещё раз.");
+        else setError("Операция уже изменилась. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.plan.add": openEditor({ kind: "finance-plan" }); return;
       case "finance.plan.edit": {
         const plan = snapshot.finance.plans.find((item) => item.id === action.id);
         if (plan) openEditor({ kind: "finance-plan", plan });
-        else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("План уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.plan.delete": {
         const plan = snapshot.finance.plans.find((item) => item.id === action.id);
         if (plan) openEditor({ kind: "delete-finance-plan", id: plan.id, label: plan.name });
-        else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("План уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.plan.purchase": {
         const plan = snapshot.finance.plans.find((item) => item.id === action.id);
         if (plan) openEditor({ kind: "finance-plan-purchase", plan });
-        else setError("План уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("План уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.debt.add": openEditor({ kind: "debt-create" }); return;
       case "finance.debt.delete": {
         const debt = snapshot.finance.debts.find((item) => item.id === action.id);
         if (debt) openEditor({ kind: "delete-debt", id: debt.id, label: debt.personName });
-        else setError("Долг уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("Долг уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.debt.repayment.delete": {
         const repayment = snapshot.finance.debts.flatMap((item) => item.repayments).find((item) => item.id === action.id);
         if (repayment) openEditor({ kind: "delete-debt-repayment", id: repayment.id, label: "возврат" });
-        else setError("Возврат уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("Возврат уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.debt.repay": {
         const debt = snapshot.finance.debts.find((item) => item.id === action.id);
         if (debt) openEditor({ kind: "debt-repayment", debt });
-        else setError("Долг уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("Долг уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "finance.manage-accounts": openEditor({ kind: "accounts" }); return;
@@ -631,7 +631,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         const exercise = workout?.exercises.find((item) => item.id === action.exerciseId);
         const set = exercise?.sets.find((item) => item.id === action.setId);
         if (workout && exercise && set) openEditor({ kind: "set", dayId: workout.id, exerciseId: exercise.id, set });
-        else setError("Подход уже изменился. Обновите данные и попробуйте ещё раз.");
+        else setError("Подход уже изменился. Обнови данные и попробуй ещё раз.");
         return;
       }
       case "gym.add-exercise": openEditor({ kind: "exercise", dayId: action.workoutId }); return;
@@ -653,9 +653,9 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     }
 
     const message = status === "outside"
-      ? "Откройте Mini App через Telegram, чтобы войти в LifeOS."
+      ? "Открой Mini App через Telegram, чтобы войти в LifeOS."
       : status === "setup"
-        ? "LifeOS ещё не настроен на сервере. Проверьте подключение базы данных и Telegram-бота."
+        ? "LifeOS ещё не настроен на сервере. Проверь подключение базы данных и Telegram-бота."
         : status === "error"
           ? error ?? "Не удалось загрузить данные."
           : "LifeOS сейчас недоступен.";
@@ -673,7 +673,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     return (
       <MotionProvider>
         <main className="setup-notice" role="status" aria-live="polite">
-          <p>Все ваши данные удалены. Если захотите вернуться, откройте LifeOS заново: профиль создастся с нуля.</p>
+          <p>Все твои данные удалены. Если захочешь вернуться, открой LifeOS заново: профиль создастся с нуля.</p>
         </main>
       </MotionProvider>
     );
@@ -694,8 +694,6 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           snapshot={snapshot}
           pending={pending}
           error={error}
-          safeAreaTop={telegramSafeAreaTop}
-          contentSafeAreaTop={telegramContentSafeAreaTop}
           onSubmit={(command) => sendCommand(command, true)}
           renderAiStep={() => initData ? (
             <AiProvidersPanel

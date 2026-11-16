@@ -240,7 +240,7 @@ export function validateBackup(input: unknown): LifeOSBackup {
   if (!Number.isInteger(input.version) || (input.version as number) < OLDEST_READABLE_VERSION || (input.version as number) > BACKUP_VERSION) {
     throw new AppError(
       400,
-      `Версия резервной копии ${String(input.version)} не поддерживается: читаются версии ${OLDEST_READABLE_VERSION}–${BACKUP_VERSION}. Если копия создана более новой версией приложения, обновите LifeOS.`,
+      `Версия резервной копии ${String(input.version)} не поддерживается: читаются версии ${OLDEST_READABLE_VERSION}–${BACKUP_VERSION}. Если копия создана более новой версией приложения, обнови LifeOS.`,
     );
   }
   if (!validOwnerId(input.ownerTelegramId)) throw new AppError(400, "Владелец резервной копии не поддерживается.");
@@ -373,7 +373,7 @@ export async function restoreBackup(
          or ${sql.identifier(ownerMetadata.columns.id.name)} = ${String(backup.tables.ownerSettings[0].id)}
       limit 1
     `);
-    if (existing.rows.length > 0) throw new AppError(409, "Профиль этого владельца уже есть в базе. Удалите его перед восстановлением из копии.");
+    if (existing.rows.length > 0) throw new AppError(409, "Профиль этого владельца уже есть в базе. Удали его перед восстановлением из копии.");
 
     for (const descriptor of backupTables) {
       const metadata = tableMetadata(descriptor);

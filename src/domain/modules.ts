@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** Life areas a user can switch on or off; disabled ones are hidden and never reach AI or summaries. */
 export const LIFE_MODULES = {
-  nutrition: { label: "Питание", description: "КБЖУ еды, вес и норма калорий под вашу цель. Еду можно записывать сообщением боту или вручную." },
+  nutrition: { label: "Питание", description: "КБЖУ еды, вес и норма калорий под твою цель. Еду можно записывать сообщением боту или вручную." },
   finance: { label: "Финансы", description: "Счета в любых валютах, расходы и доходы, подписки, долги и планы покупок." },
   gym: { label: "Зал", description: "Программа тренировок, упражнения, подходы и таймер отдыха. Ведётся в Mini App." },
 } as const;
@@ -10,7 +10,7 @@ export type LifeModule = keyof typeof LIFE_MODULES;
 export const ALL_MODULES = Object.keys(LIFE_MODULES) as LifeModule[];
 
 export const lifeModuleSchema = z.enum(ALL_MODULES as [LifeModule, ...LifeModule[]]);
-export const enabledModulesSchema = z.array(lifeModuleSchema).min(1, "Оставьте хотя бы один раздел.").max(ALL_MODULES.length)
+export const enabledModulesSchema = z.array(lifeModuleSchema).min(1, "Оставь хотя бы один раздел.").max(ALL_MODULES.length)
   .refine((modules) => new Set(modules).size === modules.length, "Разделы повторяются.");
 
 /** Normalizes a stored value to known modules in canonical order; an empty or broken value means everything is on. */
@@ -42,9 +42,9 @@ export function disabledModulesMessage(blocked: readonly LifeModule[]): string {
 
 /** Parts of a module that can be switched off on their own; they work only while their module is on. */
 export const LIFE_FEATURES = {
-  "finance.debts": { module: "finance", label: "Долги", description: "Кому вы должны и кто должен вам, частичные возвраты и напоминания о сроке." },
-  "finance.plans": { module: "finance", label: "Планы покупок", description: "Что хотите купить. План не расход, пока вы не отметите покупку." },
-  "finance.subscriptions": { module: "finance", label: "Подписки и платежи", description: "Регулярные списания и напоминания. Расходом становятся после вашего подтверждения." },
+  "finance.debts": { module: "finance", label: "Долги", description: "Кому ты должен и кто должен тебе, частичные возвраты и напоминания о сроке." },
+  "finance.plans": { module: "finance", label: "Планы покупок", description: "Что хочешь купить. План не расход, пока ты не отметишь покупку." },
+  "finance.subscriptions": { module: "finance", label: "Подписки и платежи", description: "Регулярные списания и напоминания. Расходом становятся после твоего подтверждения." },
   "nutrition.weight": { module: "nutrition", label: "Вес", description: "Замеры массы тела, график с трендом, напоминание взвеситься и пересчёт нормы по среднему весу." },
 } as const satisfies Record<string, { module: LifeModule; label: string; description: string }>;
 export type LifeFeature = keyof typeof LIFE_FEATURES;

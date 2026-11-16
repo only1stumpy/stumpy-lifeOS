@@ -7,15 +7,15 @@ export type RateLimitRule = { bucket: string; limit: number; windowSeconds: numb
 
 /** Per verified Telegram user unless noted; counters live in Postgres (fixed windows). */
 export const RATE_LIMITS = {
-  commands: { bucket: "commands", limit: 120, windowSeconds: 60, message: "Слишком много действий подряд. Подождите минуту." },
-  snapshot: { bucket: "snapshot", limit: 120, windowSeconds: 60, message: "Слишком много обновлений подряд. Подождите минуту." },
-  aiProviders: { bucket: "ai-providers", limit: 30, windowSeconds: 60, message: "Слишком много запросов к настройкам ИИ. Подождите минуту." },
-  aiQuotas: { bucket: "ai-quotas", limit: 30, windowSeconds: 60, message: "Слишком много запросов лимитов. Подождите минуту." },
+  commands: { bucket: "commands", limit: 120, windowSeconds: 60, message: "Слишком много действий подряд. Подожди минуту." },
+  snapshot: { bucket: "snapshot", limit: 120, windowSeconds: 60, message: "Слишком много обновлений подряд. Подожди минуту." },
+  aiProviders: { bucket: "ai-providers", limit: 30, windowSeconds: 60, message: "Слишком много запросов к настройкам ИИ. Подожди минуту." },
+  aiQuotas: { bucket: "ai-quotas", limit: 30, windowSeconds: 60, message: "Слишком много запросов лимитов. Подожди минуту." },
   export: { bucket: "export", limit: 5, windowSeconds: 3600, message: "Экспорт данных доступен не чаще пяти раз в час." },
-  admin: { bucket: "admin", limit: 60, windowSeconds: 60, message: "Слишком много запросов админ-панели. Подождите минуту." },
+  admin: { bucket: "admin", limit: 60, windowSeconds: 60, message: "Слишком много запросов админ-панели. Подожди минуту." },
   telegramMessages: { bucket: "telegram-messages", limit: 60, windowSeconds: 60, message: "Слишком много сообщений подряд." },
   /** Global (all users together): caps how many new profiles open registration can create per hour. */
-  newProfiles: { bucket: "new-profiles", limit: 60, windowSeconds: 3600, message: "Сервис сейчас не принимает новых пользователей. Попробуйте позже." },
+  newProfiles: { bucket: "new-profiles", limit: 60, windowSeconds: 3600, message: "Сервис сейчас не принимает новых пользователей. Попробуй позже." },
 } satisfies Record<string, RateLimitRule>;
 
 /** Anything with a drizzle-style insert; lets tests pass an in-memory database. */

@@ -1,13 +1,13 @@
 .page {
   min-height: 100dvh;
-  padding: calc(20px + var(--ob-safe-top, 0px)) 16px calc(24px + var(--lifeos-inset-bottom) + var(--lifeos-keyboard));
+  padding: calc(20px + var(--lifeos-inset-top)) 16px calc(24px + var(--lifeos-inset-bottom) + var(--lifeos-keyboard));
   color: #35272c;
   font-family: "Medeo Sans", Inter, system-ui, sans-serif;
 }
 
 .inner {
   display: flex;
-  min-height: calc(100dvh - 44px - var(--ob-safe-top, 0px));
+  min-height: calc(100dvh - 44px - var(--lifeos-inset-top));
   max-width: 560px;
   flex-direction: column;
   gap: 28px;
@@ -21,6 +21,7 @@
 
 .step { display: grid; gap: 18px; }
 .step h1 { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
+.step h1:focus { outline: none; }
 .lead, .note, .hint { margin: 0; color: #6f5f65; font-size: 14px; line-height: 1.5; }
 
 .cards { display: grid; min-width: 0; gap: 12px; margin: 0; padding: 0; border: 0; }

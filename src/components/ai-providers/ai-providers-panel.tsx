@@ -64,7 +64,7 @@ type AiProvidersPanelProps = {
 
 const providerOrder: ProviderId[] = ["gemini", "groq", "cerebras", "openrouter", "custom"];
 const providerCopy: Record<ProviderId, { mark: string | null; description: string }> = {
-  gemini: { mark: null, description: "Google AI Studio · проверьте, что ключ использует Free Tier." },
+  gemini: { mark: null, description: "Google AI Studio · проверь, что ключ использует Free Tier." },
   groq: { mark: null, description: "Быстрые модели с бесплатной квотой." },
   cerebras: { mark: null, description: "Каталог моделей Cerebras." },
   openrouter: { mark: null, description: "Каталог бесплатных моделей с суффиксом :free." },
@@ -93,7 +93,7 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     site: "Google AI Studio",
     steps: [
       "Открой Google AI Studio по кнопке ниже и войди через аккаунт Google.",
-      "Нажмите «Create API key» и дождись, пока ключ появится.",
+      "Нажми «Create API key» и дождись, пока ключ появится.",
       "Скопируй ключ и вернись сюда.",
     ],
   },
@@ -102,7 +102,7 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     site: "OpenRouter",
     steps: [
       "Открой OpenRouter по кнопке ниже и зарегистрируйся по почте.",
-      "Нажмите «Create Key», придумайте любое название.",
+      "Нажми «Create Key», придумай любое название.",
       "Скопируй ключ сразу — второй раз сайт его не покажет — и вернись сюда.",
     ],
   },
@@ -111,12 +111,18 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     site: "Groq Console",
     steps: [
       "Открой Groq Console по кнопке ниже и зарегистрируйся.",
-      "Нажмите «Create API Key», придумайте любое название.",
+      "Нажми «Create API Key», придумай любое название.",
       "Скопируй ключ сразу — второй раз сайт его не покажет — и вернись сюда.",
     ],
   },
 };
 
+const customKeySteps = [
+  "Открой кабинет сервиса, который даёт OpenAI-compatible API, и найди раздел с ключами (API keys).",
+  "Создай ключ и скопируй его сразу — многие сервисы показывают его один раз.",
+  "В документации сервиса найди базовый адрес API (например, https://…/v1), он начинается с https://. Туда же дописывать /chat/completions не нужно.",
+  "Выбери модель с нулевой стоимостью и впиши её точное название.",
+];
 const emptyConnect: ConnectForm = { name: "", apiKey: "" };
 const emptyCustom: CustomForm = { name: "", endpoint: "", model: "", apiKey: "" };
 
@@ -184,13 +190,13 @@ function requestError(response: Response, body: unknown): string {
   if (response.status === 401 || response.status === 403) {
     return "Не удалось подтвердить Telegram-сессию. Закрой Mini App и открой его снова из бота.";
   }
-  if (response.status === 429) return errorMessage(body, "Слишком много запросов подряд. Попробуйте ещё раз чуть позже.");
-  if (response.status >= 500) return errorMessage(body, "Сервис провайдера или сервер LifeOS временно недоступен. Попробуйте ещё раз позже.");
-  return errorMessage(body, "Не удалось выполнить запрос. Проверьте данные и попробуйте ещё раз.");
+  if (response.status === 429) return errorMessage(body, "Слишком много запросов подряд. Попробуй ещё раз чуть позже.");
+  if (response.status >= 500) return errorMessage(body, "Сервис провайдера или сервер LifeOS временно недоступен. Попробуй ещё раз позже.");
+  return errorMessage(body, "Не удалось выполнить запрос. Проверь данные и попробуй ещё раз.");
 }
 
 function readableError(error: unknown, fallback: string): string {
-  if (error instanceof TypeError) return "Не удалось связаться с сервером. Проверьте подключение и попробуйте ещё раз.";
+  if (error instanceof TypeError) return "Не удалось связаться с сервером. Проверь подключение и попробуй ещё раз.";
   return error instanceof Error ? error.message : fallback;
 }
 
@@ -346,7 +352,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return true;
     } catch (error) {
       if (signal?.aborted) return false;
-      setLoadError(readableError(error, "Не удалось загрузить каталог ИИ. Попробуйте ещё раз."));
+      setLoadError(readableError(error, "Не удалось загрузить каталог ИИ. Попробуй ещё раз."));
       setLoadState("error");
       return false;
     }
@@ -401,7 +407,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
     setNotice(`Аккаунт «${accountName}» проверен и подключён. Ключ сохранён и больше не отображается.`);
     setScreen("models");
     const refreshed = await reloadProviders();
-    if (!refreshed) setNotice(`Аккаунт «${accountName}» подключён, но список моделей не обновился. Нажмите «Повторить».`);
+    if (!refreshed) setNotice(`Аккаунт «${accountName}» подключён, но список моделей не обновился. Нажми «Повторить».`);
   };
 
   const submitConnect = async (event: FormEvent<HTMLFormElement>) => {
@@ -467,7 +473,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setScreen("welcome");
       await reloadProviders();
     } catch (error) {
-      setFormError(readableError(error, "Не удалось проверить ключ. Убедитесь, что скопировали его целиком, и попробуйте ещё раз."));
+      setFormError(readableError(error, "Не удалось проверить ключ. Убедись, что скопировали его целиком, и попробуй ещё раз."));
     } finally {
       setBusyAction(null);
     }
@@ -494,7 +500,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return;
     }
     if (!customFreeConfirmed) {
-      setCustomError("Подтвердите нулевую стоимость endpoint/модели после проверки условий провайдера.");
+      setCustomError("Подтверди нулевую стоимость endpoint/модели после проверки условий провайдера.");
       return;
     }
 
@@ -629,7 +635,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       await postAction({ action: "refresh-models", accountId: account.id });
       const refreshed = await reloadProviders();
       if (refreshed) setNotice(`Каталог ${provider.name} обновлён для аккаунта «${account.name}».`);
-      else setNotice(`Каталог обновлён для аккаунта «${account.name}», но список моделей не загрузился. Нажмите «Повторить».`);
+      else setNotice(`Каталог обновлён для аккаунта «${account.name}», но список моделей не загрузился. Нажми «Повторить».`);
     } catch (error) {
       setLoadError(readableError(error, "Не удалось обновить каталог моделей."));
     } finally {
@@ -705,7 +711,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const renderAccountList = (provider: AiProvider) => {
     const accounts = provider.accounts.slice().sort((left, right) => left.sortOrder - right.sortOrder);
     if (accounts.length === 0) {
-      return <p className={styles.empty}>{provider.connectable ? "Пока нет подключённых аккаунтов. Добавьте ключ, чтобы получить доступ к моделям." : "Подключение аккаунтов недоступно для этого провайдера."}</p>;
+      return <p className={styles.empty}>{provider.connectable ? "Пока нет подключённых аккаунтов. Добавь ключ, чтобы получить доступ к моделям." : "Подключение аккаунтов недоступно для этого провайдера."}</p>;
     }
 
     return (
@@ -869,7 +875,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 </label>
                 <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
                 {formError && <p className={styles.error} role="alert">{formError}</p>}
-                {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметьте галочку выше.</p>}
+                {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметь галочку выше.</p>}
                 <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</button>
               </form>
               {embedded
@@ -881,7 +887,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "ready" && screen === "providers" && (
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}>
-                <p className={styles.intro}>{guidedRun ? "Выберите провайдера и подключите ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключите аккаунты и выберите модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
+                <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключи аккаунты и выбери модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
                 {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
               </div>
               {guidedRun && queue.length === 0 && (
@@ -899,7 +905,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                   ) : (
                     <div ref={skipConfirmationRef} className={styles.skipConfirmation} role="group" aria-labelledby={`${id}-skip-title`} aria-live="polite">
                       <h2 id={`${id}-skip-title`}>Отказаться от ИИ-функций?</h2>
-                      <p>ИИ-функции останутся выключены. К настройке можно вернуться в любой момент — нажмите шестерёнку в нижней панели.</p>
+                      <p>ИИ-функции останутся выключены. К настройке можно вернуться в любой момент — нажми шестерёнку в нижней панели.</p>
                       <div className={styles.skipActions}>
                         <button className={styles.secondaryAction} type="button" onClick={() => setConfirmSkip(false)} disabled={busyAction !== null}>Продолжить настройку</button>
                         <button className={styles.dangerAction} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>
@@ -979,7 +985,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     <div><p className={styles.eyebrow}>Каталог</p><h4>Модели провайдера</h4></div>
                     <span className={styles.modelsCount}>{activeProvider.models.filter((model) => model.selected).length} из {activeProvider.models.length} выбрано</span>
                   </div>
-                  <p className={styles.modelsIntro}>{activeProvider.models.length ? "Нажмите, чтобы настроить доступные модели и перейти к общему порядку." : "Подключите аккаунт, чтобы получить список моделей."}</p>
+                  <p className={styles.modelsIntro}>{activeProvider.models.length ? "Нажми, чтобы настроить доступные модели и перейти к общему порядку." : "Подключи аккаунт, чтобы получить список моделей."}</p>
                   {activeProvider.models.length > 0 && <button className={styles.primaryAction} type="button" onClick={() => { setModelQuery((current) => ({ ...current, [activeProvider.id]: "" })); setScreen("models"); }} disabled={!activeProvider.connectable}>Выбрать модели</button>}
                 </div>
 
@@ -989,6 +995,15 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                       <div><p className={styles.eyebrow}>Новый аккаунт</p><h4>Проверить и подключить</h4></div>
                       <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setFormError(""); }} disabled={busyAction !== null}>Отмена</button>
                     </div>
+                    {(activeProvider.id === "gemini" || activeProvider.id === "groq" || activeProvider.id === "openrouter") && (
+                      <details className={styles.keyHelp}>
+                        <summary>Где взять ключ</summary>
+                        <ol className={styles.wizardSteps}>
+                          {wizardCopy[activeProvider.id].steps.map((step) => <li key={step}>{step}</li>)}
+                        </ol>
+                        {activeProviderApiUrl && <a className={styles.providerApiLink} href={activeProviderApiUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, activeProviderApiUrl)}>Открыть {wizardCopy[activeProvider.id].site}</a>}
+                      </details>
+                    )}
                     <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required /></label>
                     <label className={styles.field}><span>API-ключ</span><input autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required /></label>
                     {(activeProvider.id === "gemini" || activeProvider.id === "openrouter") && (
@@ -1015,6 +1030,12 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                       <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setCustomError(""); }} disabled={busyAction !== null}>Отмена</button>
                     </div>
                     <p className={styles.modelsIntro}>Используй OpenAI-compatible Chat Completions. LifeOS не может проверить тариф модели или риск списаний.</p>
+                    <details className={styles.keyHelp}>
+                      <summary>Где взять endpoint и ключ</summary>
+                      <ol className={styles.wizardSteps}>
+                        {customKeySteps.map((step) => <li key={step}>{step}</li>)}
+                      </ol>
+                    </details>
                     <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный endpoint" maxLength={80} required /></label>
                     <label className={styles.field}><span>Endpoint</span><input autoComplete="url" type="url" value={customForm.endpoint} onChange={(event) => setCustomForm((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://api.example.com/v1" required /><small>Только HTTPS.</small></label>
                     <label className={styles.field}><span>Модель</span><input autoComplete="off" value={customForm.model} onChange={(event) => setCustomForm((current) => ({ ...current, model: event.target.value }))} placeholder="Идентификатор модели" maxLength={160} required /></label>
@@ -1053,7 +1074,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "ready" && screen === "queue" && (
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}><p className={styles.intro}>Модели со всех провайдеров в порядке, в котором LifeOS будет пробовать их использовать.</p></div>
-              {queue.length === 0 ? <p className={styles.empty}>Пока нет выбранных моделей. Подключите аккаунт и отметьте модели на странице провайдера.</p> : (
+              {queue.length === 0 ? <p className={styles.empty}>Пока нет выбранных моделей. Подключи аккаунт и отметь модели на странице провайдера.</p> : (
                 <ol className={styles.queueList} aria-label="Общий порядок использования моделей">
                   {queue.map((item, index) => {
                     const provider = sortedProviders.find((entry) => entry.id === item.providerId);
@@ -1094,13 +1115,13 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
           {loadState === "ready" && screen === "welcome" && (
             <motion.section className={styles.welcomePanel} variants={motionVariants.screen} initial="initial" animate="animate" aria-live="polite" aria-labelledby={`${id}-welcome-title`}>
-              <p className={styles.welcomeEyebrow}>{wizardConnected ? `${wizardConnected.name} подключён · ${wizardConnected.images ? "текст и фото" : "только текст"}` : "Попробуйте в чате"}</p>
+              <p className={styles.welcomeEyebrow}>{wizardConnected ? `${wizardConnected.name} подключён · ${wizardConnected.images ? "текст и фото" : "только текст"}` : "Попробуй в чате"}</p>
               <h2 id={`${id}-welcome-title`}>Пиши как обычно</h2>
               <p className={styles.welcomeLead}>Напиши, что съел или потратил, обычным сообщением.</p>
               <ul className={styles.welcomeList}>
-                <li><strong>Еда и траты.</strong> Расскажите, что съели, или назовите покупку. Можно прислать фото блюда, этикетки или чека, если выбранная модель понимает фото. LifeOS покажет черновик, а вы сохраните его кнопкой «Записать».</li>
+                <li><strong>Еда и траты.</strong> Расскажи, что съел, или назови покупку. Можно прислать фото блюда, этикетки или чека, если выбранная модель понимает фото. LifeOS покажет черновик, а ты сохранишь его кнопкой «Записать».</li>
                 <li><strong>Твои данные.</strong> Спроси, сколько потратил сегодня, какой сейчас баланс или сколько осталось по КБЖУ.</li>
-                <li><strong>Общая справка.</strong> Задайте вопрос о питании, КБЖУ или упражнениях.</li>
+                <li><strong>Общая справка.</strong> Задай вопрос о питании, КБЖУ или упражнениях.</li>
               </ul>
               <p className={styles.welcomeFootnote}>Если модели недоступны, бот объяснит причину. Данные сохраняются только после подтверждения.</p>
             </motion.section>

@@ -48,20 +48,20 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
 
   async function save() {
     if (pending) return;
-    if (!modules.length) { setError("Оставьте хотя бы один раздел."); return; }
+    if (!modules.length) { setError("Оставь хотя бы один раздел."); return; }
     if (summaryTime && !TIME_PATTERN.test(summaryTime)) { setError("Время в формате ЧЧ:ММ."); return; }
     const ok = await onSave([
       ...(timeZone !== savedZone ? [{ type: "settings.save" as const, timeZone, target: null }] : []),
       { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, weightReminder, summaryTime: summaryTime || null } },
     ]);
     if (ok) setSaved(true);
-    else setError("Не удалось сохранить. Проверьте соединение и повторите.");
+    else setError("Не удалось сохранить. Проверь соединение и повтори.");
   }
 
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Персонализация</h1>
-      <p className={styles.hint}>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включите снова, и всё будет на месте.</p>
+      <p className={styles.hint}>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включи снова, и всё будет на месте.</p>
 
       <section className={styles.section} aria-labelledby="modules-heading">
         <h2 id="modules-heading">Разделы и функции</h2>
@@ -101,14 +101,14 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         <label className={styles.timeField}>
           <strong>Время сводок и напоминаний</strong>
           <input type="time" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
-          <small className={styles.hint}>Сводки приходят в это время по вашему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
+          <small className={styles.hint}>Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
         </label>
       </section>
 
       <section className={styles.section} aria-labelledby="timezone-heading">
         <h2 id="timezone-heading">Часовой пояс</h2>
         <label className={styles.timeField}>
-          <strong>Ваш пояс</strong>
+          <strong>Твой пояс</strong>
           <select value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
             {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
           </select>
@@ -141,7 +141,7 @@ function summaryText(modules: readonly string[], period: "day" | "week"): string
   if (modules.includes("nutrition")) parts.push(period === "day" ? "съеденное КБЖУ и остаток на день" : "питание и пересчёт нормы по среднему весу");
   if (modules.includes("finance")) parts.push(period === "day" ? "расходы за день" : "расходы за неделю");
   if (modules.includes("gym") && period === "week") parts.push("тренировки за неделю");
-  if (!parts.length) return period === "day" ? "Дневная сводка считает питание и расходы: включите «Питание» или «Финансы»." : "Включите хотя бы один раздел, чтобы получать сводки.";
+  if (!parts.length) return period === "day" ? "Дневная сводка считает питание и расходы: включи «Питание» или «Финансы»." : "Включи хотя бы один раздел, чтобы получать сводки.";
   const text = parts.join(", ");
   return text.charAt(0).toUpperCase() + text.slice(1) + ".";
 }

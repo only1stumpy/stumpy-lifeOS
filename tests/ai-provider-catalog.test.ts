@@ -76,3 +76,15 @@ test("OpenRouter model discovery only requests zero-priced catalog entries", () 
   const openrouter = getAiProviderDefinition("openrouter");
   assert.deepEqual(openrouter.modelsSearchParams, { max_price: "0" });
 });
+
+test("Gemini and Groq models are matched by family pattern, not by a fixed id list", () => {
+  const gemini = (id: string) => normalizeProviderModel("gemini", { name: `models/${id}`, supportedGenerationMethods: ["generateContent"] }).length;
+  assert.equal(gemini("gemini-4-flash-lite"), 1);
+  assert.equal(gemini("gemini-3.9-flash"), 1);
+  assert.equal(gemini("gemini-3.5-pro"), 0);
+  assert.equal(gemini("gemini-3.5-flash-preview-tts"), 0);
+  const groq = (id: string) => normalizeProviderModel("groq", { id }).length;
+  assert.equal(groq("openai/gpt-oss-120b"), 1);
+  assert.equal(groq("qwen/qwen4-32b"), 1);
+  assert.equal(groq("whisper-large-v3"), 0);
+});

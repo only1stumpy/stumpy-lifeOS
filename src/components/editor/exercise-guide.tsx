@@ -44,7 +44,7 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
             </button>
           );
         })}
-        {filtered.length === 0 && <p role="status">Ничего не нашлось. Попробуйте другое название или выберите упражнение вручную.</p>}
+        {filtered.length === 0 && <p role="status">Ничего не нашлось. Попробуй другое название или выбери упражнение вручную.</p>}
       </div>
       {selected && (
         <p className="exercise-guide__details" aria-live="polite">

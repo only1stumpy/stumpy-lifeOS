@@ -76,7 +76,7 @@ export function weightStampToDate(stamp: Date | string): string { return new Dat
 export function parseMinor(value: string): number {
   // Spaces between digit groups (also the non-breaking ones the app itself prints) are allowed: «5 913,34».
   const normalized = value.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
-  if (!/^\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите сумму числом, например 1500,50.");
+  if (!/^\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введи сумму числом, например 1500,50.");
   const [whole, decimal = ""] = normalized.split(".");
   return Number(BigInt(whole) * 100n + BigInt(decimal.padEnd(2, "0")));
 }
