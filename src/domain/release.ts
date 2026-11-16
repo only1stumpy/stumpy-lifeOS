@@ -54,3 +54,11 @@ export function releasesSince(lastSeen: string | null, history: readonly Release
   if (!lastSeen) return upToCurrent.slice(0, 1);
   return upToCurrent.filter((release) => compareVersions(release.version, lastSeen) > 0);
 }
+
+/** Suffix for the version line: the pre-release part (rc.1), "бета" for 0.x, nothing for a stable release. */
+export function versionStageLabel(version: string | undefined): string {
+  if (!version) return "";
+  const [core, pre] = splitVersion(version);
+  if (pre) return ` · ${pre.join(".")}`;
+  return core[0] === 0 ? " · бета" : "";
+}

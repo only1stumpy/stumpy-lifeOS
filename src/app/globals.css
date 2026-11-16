@@ -63,7 +63,7 @@ button {
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.5;
 }
 
@@ -93,10 +93,12 @@ button:disabled {
 }
 
 .editor {
+  /* Top inset keeps the panel clear of the Telegram header in fullscreen; the keyboard shrinks it from below. */
+  --editor-max: calc(96dvh - var(--lifeos-inset-top) - var(--lifeos-keyboard));
   position: fixed;
-  inset: auto 0 0;
+  inset: auto 0 var(--lifeos-keyboard);
   width: min(100%, 40rem);
-  max-height: min(96dvh, 58rem);
+  max-height: min(var(--editor-max), 58rem);
   margin: 0 auto;
   overflow: auto;
   overscroll-behavior: contain;
@@ -112,7 +114,8 @@ button:disabled {
 }
 
 .editor--workout {
-  max-height: min(98dvh, 60rem);
+  --editor-max: calc(98dvh - var(--lifeos-inset-top) - var(--lifeos-keyboard));
+  max-height: min(var(--editor-max), 60rem);
 }
 
 .editor::backdrop {
@@ -376,9 +379,11 @@ button:disabled {
   margin-top: 8px;
 }
 
+/* Opaque ring with a light halo: readable on glass, paper and the dark backdrop. */
 *:focus-visible {
-  outline: 2px solid #742b45;
-  outline-offset: 4px;
+  outline: 3px solid #5b2439;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px #fff;
 }
 
 @media (max-width: 360px) {

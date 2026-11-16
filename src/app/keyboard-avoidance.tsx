@@ -17,7 +17,7 @@ export function KeyboardAvoidance() {
 
     const reveal = () => {
       const active = document.activeElement;
-      if (active instanceof HTMLElement && active.matches(FIELD)) active.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (active instanceof HTMLElement && active.matches(FIELD)) active.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     };
     const measure = () => {
       const keyboard = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;

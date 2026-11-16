@@ -166,12 +166,20 @@ function MacroFields({ values }: { values?: { calories: number; proteinGrams: nu
   );
 }
 
-export function EditorDialog({ editor, snapshot, pending, error, onClose, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm, onConnectAi }: EditorDialogProps) {
+export function EditorDialog({ editor, snapshot, pending, error, onClose: closeNow, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm, onConnectAi }: EditorDialogProps) {
   const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
   /** The browser reports every invalid field of a form; only the first one is shown and focused. */
   const invalidHandledRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [templateQuery, setTemplateQuery] = useState("");
+  /** Set once a form field was edited; closing then asks before the typed values are thrown away. */
+  const dirtyRef = useRef(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const onClose = useCallback(() => {
+    if (dirtyRef.current) { setConfirmClose(true); return; }
+    closeNow();
+  }, [closeNow]);
   const [saved, setSaved] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [suggestedTarget, setSuggestedTarget] = useState<MacroValues | null>(null);
@@ -257,6 +265,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       if (succeeded) requestIdRef.current = null;
       if (succeeded && keepOpen) {
         formElement.reset();
+        dirtyRef.current = false;
         setSaved(true);
       }
       return succeeded;
@@ -281,8 +290,9 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         {!entry && snapshot.templates.length > 0 && (
           <section aria-label="Мои блюда">
             <h3>Мои блюда</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {snapshot.templates.slice(0, 12).map((template) => <button key={template.id} type="button" aria-pressed={foodPrefill?.id === template.id} onClick={() => setFoodPrefill(template)}>{template.name}</button>)}
+            {snapshot.templates.length > 8 && <label>Поиск по блюдам<input type="search" value={templateQuery} onChange={(event) => setTemplateQuery(event.target.value)} autoComplete="off" /></label>}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: "11rem", overflowY: "auto" }}>
+              {snapshot.templates.filter((template) => template.name.toLowerCase().includes(templateQuery.trim().toLowerCase())).map((template) => <button key={template.id} type="button" aria-pressed={foodPrefill?.id === template.id} onClick={() => setFoodPrefill(template)}>{template.name}</button>)}
             </div>
           </section>
         )}
@@ -993,7 +1003,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       exit="exit"
       onCancel={(event) => { event.preventDefault(); if (!pending) onClose(); }}
       onClick={(event) => { if (event.target === dialogRef.current && !pending) onClose(); }}
-      onInput={(event) => { setSaved(false); const target = event.target; if (target instanceof HTMLElement && target.getAttribute("aria-invalid")) { target.removeAttribute("aria-invalid"); setFormError(null); } }}
+      onInput={(event) => { setSaved(false); const target = event.target; if (target instanceof HTMLElement && target.closest("form")) dirtyRef.current = true; if (target instanceof HTMLElement && target.getAttribute("aria-invalid")) { target.removeAttribute("aria-invalid"); setFormError(null); } }}
       onInvalidCapture={(event) => {
         event.preventDefault();
         if (invalidHandledRef.current) return;
@@ -1024,6 +1034,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
       <AnimatePresence initial={false} mode="wait">
         {saved ? <motion.p key="editor-saved" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохранено.</motion.p> : null}
       </AnimatePresence>
+      {confirmClose && (
+        <div role="alertdialog" aria-labelledby="lifeos-editor-discard">
+          <p id="lifeos-editor-discard">Есть несохранённые изменения. Закрыть без сохранения?</p>
+          <div className="actions">
+            <button type="button" autoFocus onClick={() => setConfirmClose(false)}>Продолжить ввод</button>
+            <button type="button" className="danger" onClick={closeNow}>Закрыть без сохранения</button>
+          </div>
+        </div>
+      )}
       {renderEditorContent()}
     </motion.dialog>
   );
