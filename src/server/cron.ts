@@ -3,6 +3,8 @@ import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { dateKey } from "@/domain/math";
 import { AppError } from "@/server/http";
+import { describeError, formatErrorInfo, isUndeliverable } from "@/server/diagnostics";
+import { getStats, STATS_TTL_MS } from "@/server/admin/stats";
 import { withTelegramUser } from "@/server/owner-context";
 import { purgeOldRateLimitCounters } from "@/server/rate-limit";
 import {
@@ -28,7 +30,8 @@ const DEFAULT_SUMMARY_WINDOW_MINUTES = 30;
 
 export type CronPhase = "owners" | "cleanup" | "retry";
 
-export type CronResult = { sent: number; failed: number; skippedOwners: number };
+/** `failed` counts real failures; owners who blocked the bot (undeliverable) are expected and counted apart. */
+export type CronResult = { sent: number; failed: number; skippedOwners: number; undeliverable: number; errorClasses: Record<string, number> };
 
 /** Order matters: reminders and summaries -> cheap cleanup -> retries of stuck updates (the only step that may take long). */
 export async function runScheduledTasks(options: { now?: Date; onPhase?: (phase: CronPhase) => void } = {}): Promise<CronResult> {
@@ -43,6 +46,8 @@ export async function runScheduledTasks(options: { now?: Date; onPhase?: (phase:
   const owners = await getDb().select().from(schema.ownerSettings).orderBy(schema.ownerSettings.createdAt);
   let failed = 0;
   let skippedOwners = 0;
+  let undeliverable = 0;
+  const errorClasses: Record<string, number> = {};
   for (let index = 0; index < owners.length; index += OWNER_BATCH_SIZE) {
     if (index > 0 && Date.now() - startedAt > OWNERS_BUDGET_MS) {
       skippedOwners = owners.length - index;
@@ -55,13 +60,17 @@ export async function runScheduledTasks(options: { now?: Date; onPhase?: (phase:
       try {
         return { delivered: await processOwner(owner, now, { dailyMinute, weeklyMinute, windowMinutes }) };
       } catch (error) {
-        console.error("LifeOS cron: owner failed", { ownerId: owner.id, error: error instanceof Error ? error.name : "unknown" });
+        if (isUndeliverable(error)) return { delivered: [] as string[], undeliverable: true };
+        const info = formatErrorInfo(describeError(error));
+        console.error("LifeOS cron: owner failed", { ownerId: owner.id, error: info });
+        errorClasses[info] = (errorClasses[info] ?? 0) + 1;
         return { delivered: [] as string[], failed: true };
       }
     }));
     for (const result of results) {
       sent.push(...result.delivered);
       if ("failed" in result) failed += 1;
+      if ("undeliverable" in result) undeliverable += 1;
     }
   }
 
@@ -73,7 +82,12 @@ export async function runScheduledTasks(options: { now?: Date; onPhase?: (phase:
   await retryFailedTelegramUpdates({ maxUpdates: RETRY_UPDATES_PER_RUN, deadlineAt: startedAt + CRON_DEADLINE_MS })
     .catch(() => console.error("LifeOS cron: update retry failed"));
 
-  return { sent: sent.length, failed, skippedOwners };
+  // Aggregate statistics are recomputed about once a day, and only while there is time left.
+  if (startedAt + CRON_DEADLINE_MS - Date.now() > 15_000) {
+    await getStats({ refreshIfOlderThanMs: STATS_TTL_MS }).catch(() => console.error("LifeOS cron: statistics refresh failed"));
+  }
+
+  return { sent: sent.length, failed, skippedOwners, undeliverable, errorClasses };
 }
 
 async function processOwner(

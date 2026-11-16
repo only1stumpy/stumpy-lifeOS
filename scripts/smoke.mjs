@@ -20,6 +20,9 @@ const server = spawn(process.execPath, [nextBin, "start", "-p", port], {
     AI_PROVIDER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     TELEGRAM_WEBHOOK_SECRET: "s".repeat(40),
     CRON_SECRET: "c".repeat(40),
+    ADMIN_BOT_TOKEN: "987654:smoke-admin-token",
+    ADMIN_TELEGRAM_IDS: "424242",
+    ADMIN_WEBHOOK_SECRET: "a".repeat(40),
   },
 });
 // Whatever happens, never hang a CI job: hard stop after two minutes.
@@ -58,6 +61,12 @@ try {
   const ready = await get(`${base}/api/ready`, { headers: { authorization: `Bearer ${"c".repeat(40)}` } });
   check("/api/ready authenticates and reports unreachable database", ready.status === 503 && (await ready.json()).status === "database_unavailable", String(ready.status));
   check("/api/telegram refuses without secret", (await get(`${base}/api/telegram`, { method: "POST", body: "{}" })).status === 401);
+  for (const path of ["/api/admin/overview", "/api/admin/stats"]) {
+    check(`${path} refuses unsigned requests`, (await get(`${base}${path}`)).status === 401);
+    check(`${path} refuses initData signed by another bot`, (await get(`${base}${path}`, { headers: { authorization: "tma auth_date=1&hash=" + "0".repeat(64) } })).status === 403);
+  }
+  check("/api/admin-bot refuses without secret", (await get(`${base}/api/admin-bot`, { method: "POST", body: "{}" })).status === 401);
+  check("/admin serves HTML", (await get(`${base}/admin`)).status === 200);
 } catch (error) {
   failures.push(String(error));
   console.error(error);

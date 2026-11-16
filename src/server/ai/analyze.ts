@@ -139,7 +139,7 @@ export async function runProviderChain<T>(
       const kind = error instanceof ProviderFailure ? error.kind : "other";
       failures.push(kind);
       if (kind === "quota_exceeded" && config.accountId) quotaCooldownUntil.set(config.accountId, Date.now() + QUOTA_COOLDOWN_MS);
-      await recordProviderUsage(selection, config, "failure");
+      await recordProviderUsage(selection, config, "failure", kind);
     }
   }
   if (outOfTime || (failures.length > 0 && failures.every((kind) => kind === "unavailable") && deadline - Date.now() < MIN_ATTEMPT_MS)) {
@@ -643,9 +643,10 @@ async function recordProviderUsage(
   selection: ProviderSelection | undefined,
   config: ProviderConfig,
   outcome: "success" | "failure",
+  failureKind?: string,
 ): Promise<void> {
   if (!selection?.ownerId || !config.accountId) return;
-  await recordAiProviderUsage(selection.ownerId, config.accountId, config.model, outcome).catch(() => undefined);
+  await recordAiProviderUsage(selection.ownerId, config.accountId, config.model, outcome, failureKind).catch(() => undefined);
 }
 
 async function callGemini(

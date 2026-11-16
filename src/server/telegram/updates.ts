@@ -1,4 +1,6 @@
 import { and, eq, lt, or, sql } from "drizzle-orm";
+import { raiseAlert } from "@/server/admin/alerts";
+import { describeError, formatErrorInfo } from "@/server/diagnostics";
 import type { Update } from "grammy/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
@@ -51,11 +53,12 @@ export async function processStoredTelegramUpdate(updateRowId: string): Promise<
       .set({ status: "processed", processingStartedAt: null, payload: {}, processedAt: new Date(), lastError: null })
       .where(eq(schema.telegramUpdates.id, updateRowId));
   } catch (error) {
-    console.error("LifeOS telegram update failed", { updateRowId, attempt: claimed.attemptCount, error: error instanceof Error ? error.name : "unknown" });
+    console.error("LifeOS telegram update failed", { updateRowId, attempt: claimed.attemptCount, error: formatErrorInfo(describeError(error)) });
     await db
       .update(schema.telegramUpdates)
       .set({ status: "failed", processingStartedAt: null, lastError: "handler_failed" })
       .where(eq(schema.telegramUpdates.id, updateRowId));
+    if (claimed.attemptCount >= MAX_UPDATE_ATTEMPTS) await finalizeExhaustedUpdate(updateRowId, claimed.payload, "handler_failed");
   }
 }
 
@@ -83,13 +86,17 @@ export async function retryFailedTelegramUpdates(options: RetryOptions = {}): Pr
   const maxUpdates = options.maxUpdates ?? 2;
   const deadlineAt = options.deadlineAt ?? Number.POSITIVE_INFINITY;
   const db = getDb();
-  await db
+  const timedOut = await db
     .update(schema.telegramUpdates)
     .set({ status: "failed", processingStartedAt: null, lastError: "processing_timeout" })
     .where(and(
       eq(schema.telegramUpdates.status, "processing"),
       lt(schema.telegramUpdates.processingStartedAt, new Date(Date.now() - 120_000)),
-    ));
+    ))
+    .returning({ id: schema.telegramUpdates.id, attemptCount: schema.telegramUpdates.attemptCount, payload: schema.telegramUpdates.payload });
+  for (const row of timedOut) {
+    if (row.attemptCount >= MAX_UPDATE_ATTEMPTS) await finalizeExhaustedUpdate(row.id, row.payload, "processing_timeout");
+  }
   const rows = await db
     .select({ id: schema.telegramUpdates.id, receivedAt: schema.telegramUpdates.receivedAt, payload: schema.telegramUpdates.payload })
     .from(schema.telegramUpdates)
@@ -110,6 +117,39 @@ export async function retryFailedTelegramUpdates(options: RetryOptions = {}): Pr
     processed += 1;
   }
   return processed;
+}
+
+const EXHAUSTED_NOTICE = "Не получилось обработать сообщение. Повтори его чуть позже или внеси запись вручную в Mini App.";
+const EXHAUSTED_MARK = "exhausted_notified";
+
+/**
+ * An update that used all its attempts (or hung until the timeout): tell the user once to repeat it or enter it manually,
+ * and alert the admins. The marker in last_error makes this happen only once per update.
+ */
+export async function finalizeExhaustedUpdate(updateRowId: string, payload: unknown, reason: string): Promise<void> {
+  const [marked] = await getDb()
+    .update(schema.telegramUpdates)
+    .set({ lastError: EXHAUSTED_MARK })
+    .where(and(
+      eq(schema.telegramUpdates.id, updateRowId),
+      eq(schema.telegramUpdates.status, "failed"),
+      sql`${schema.telegramUpdates.lastError} IS DISTINCT FROM ${EXHAUSTED_MARK}`,
+      sql`${schema.telegramUpdates.lastError} IS DISTINCT FROM 'stale'`,
+    ))
+    .returning({ id: schema.telegramUpdates.id });
+  if (!marked) return;
+  await raiseAlert("update_exhausted", `Telegram update исчерпал попытки (${reason}). Пользователю отправлено сообщение повторить или внести вручную.`, { throttleMinutes: 30 });
+  const chatId = privateChatId(payload);
+  if (chatId === null) return;
+  await getBot().api.sendMessage(chatId, EXHAUSTED_NOTICE).catch((error: unknown) => {
+    console.error("LifeOS exhausted notice failed", { error: formatErrorInfo(describeError(error)) });
+  });
+}
+
+function privateChatId(payload: unknown): number | null {
+  const update = payload as { message?: { chat?: { id?: number; type?: string } }; callback_query?: { message?: { chat?: { id?: number; type?: string } } } } | null;
+  const chat = update?.message?.chat ?? update?.callback_query?.message?.chat;
+  return chat?.type === "private" && typeof chat.id === "number" ? chat.id : null;
 }
 
 /** Gives up on an old update and, for a private message, tells the user to send it again. */
