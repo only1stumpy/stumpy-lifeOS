@@ -209,6 +209,20 @@ export const notificationDeliveries = pgTable(
   ],
 );
 
+/** Request ids of manual saves: a repeated request with the same id is a no-op instead of a second record. */
+export const commandRequests = pgTable(
+  "command_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    clientRequestId: text("client_request_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("command_requests_owner_request_unique").on(table.ownerId, table.clientRequestId),
+  ],
+);
+
 /** One row per confirmation action; a combined food + purchase capture shares this id. */
 export const captureDrafts = pgTable(
   "capture_drafts",

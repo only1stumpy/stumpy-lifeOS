@@ -1,5 +1,5 @@
-import { and, desc, eq, lte } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
@@ -240,6 +240,12 @@ export async function createDebtCaptureDraft(input: {
 }): Promise<{ draftIds: string[]; clarification?: string }> {
   const owner = await ensureOwner();
   return getDb().transaction(async (tx) => {
+    // A retried Telegram update must not add a second draft for the same message.
+    if (input.telegramUpdateRowId) {
+      const stored = await tx.select({ id: s.captureDrafts.id }).from(s.captureDrafts)
+        .where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.telegramUpdateRowId, input.telegramUpdateRowId)));
+      if (stored.length) return { draftIds: stored.map((row) => row.id) };
+    }
     let debt: typeof s.financeDebts.$inferSelect | undefined;
     let accountId: string | null = null;
     if (input.intent.kind === "repayment") {
@@ -354,11 +360,31 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   return { ...analysis, draftIds };
 }
 
-export async function executeCommand(command: AppCommand) {
-  if (command.type === "analyze") { await analyzeCapture(command); return; }
+/** Commands that can store an operation together with a conversion rate. */
+const CONVERTING_COMMANDS = new Set(["money.save", "draft.confirm", "recurring.confirm"]);
+
+/** Rejects an amount whose value in the base currency (minor units × rate) is not an exact integer in JS. */
+async function assertBaseAmountsSafe(tx: Transaction, ownerId: string) {
+  const [unsafe] = await tx.select({ id: s.financeEntries.id }).from(s.financeEntries)
+    .where(and(eq(s.financeEntries.ownerId, ownerId), isNotNull(s.financeEntries.rateToBase), sql`abs(${s.financeEntries.amount} * ${s.financeEntries.rateToBase} * 100) > 9007199254740991`))
+    .limit(1);
+  if (unsafe) throw new AppError(400, "Сумма с учётом курса слишком велика. Уменьшите сумму или проверьте курс валюты.");
+}
+
+/**
+ * Runs one command in the owner transaction. A request id (from the client, or `requestId` for bot updates)
+ * makes a repeated call a no-op: the id is stored in the same transaction as the change.
+ */
+export async function executeCommand(command: AppCommand, options: { requestId?: string } = {}) {
   const owner = await ensureOwner();
+  const requestId = options.requestId ?? ("clientRequestId" in command ? command.clientRequestId : undefined);
   await getDb().transaction(async (tx) => {
     await tx.select().from(s.ownerSettings).where(eq(s.ownerSettings.id, owner.id)).for("update");
+    if (requestId) {
+      const claimed = await tx.insert(s.commandRequests).values({ ownerId: owner.id, clientRequestId: requestId }).onConflictDoNothing().returning({ id: s.commandRequests.id });
+      if (!claimed.length) return;
+    }
     await dispatch({ tx, owner }, command);
+    if (CONVERTING_COMMANDS.has(command.type)) await assertBaseAmountsSafe(tx, owner.id);
   });
 }

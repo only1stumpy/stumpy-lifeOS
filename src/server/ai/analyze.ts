@@ -432,6 +432,14 @@ async function callGroqReference(config: ProviderConfig, prompt: string): Promis
   return message.content;
 }
 
+/** Entries whose name occurs in the message come first; the rest keep their order. */
+function relevantFirst<T>(items: T[], name: (item: T) => string, text: string, limit: number): T[] {
+  if (items.length <= limit) return items;
+  const lower = text.toLocaleLowerCase("ru");
+  const rank = (item: T) => (lower.includes(name(item).toLocaleLowerCase("ru")) ? 0 : 1);
+  return items.map((item, index) => ({ item, index })).sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index).slice(0, limit).map((entry) => entry.item);
+}
+
 function validateInput(input: AnalyzeMessageInput): AnalyzeMessageInput {
   try {
     if (
@@ -467,17 +475,14 @@ function validateInput(input: AnalyzeMessageInput): AnalyzeMessageInput {
     if (input.text.trim().length === 0 && input.image === undefined) {
       throw new Error();
     }
-    if (input.templates !== undefined && (!Array.isArray(input.templates) || input.templates.length > 50)) {
-      throw new Error();
-    }
-    if (
-      input.categories !== undefined &&
-      (!Array.isArray(input.categories) ||
-        input.categories.length > 100 ||
-        input.categories.some((category) => typeof category !== "string" || category.length > 100))
-    ) {
-      throw new Error();
-    }
+    if (input.templates !== undefined && !Array.isArray(input.templates)) throw new Error();
+    if (input.categories !== undefined && (!Array.isArray(input.categories) || input.categories.some((category) => typeof category !== "string"))) throw new Error();
+    // Long lists are trimmed to the entries most relevant to this message instead of failing the whole analysis.
+    input = {
+      ...input,
+      templates: input.templates && relevantFirst(input.templates as { name: string }[], (template) => template.name, input.text, 50),
+      categories: input.categories && relevantFirst(input.categories.filter((category) => category.length <= 100), (category) => category, input.text, 100),
+    };
 
     // Bound serialized context before building a prompt. This also rejects
     // circular values and objects that cannot safely cross the provider boundary.

@@ -47,8 +47,34 @@ function formatDraft(
   return lines.join("\n");
 }
 
+const TELEGRAM_TEXT_LIMIT = 4096;
+
+/** Splits text at line breaks into parts that fit one Telegram message; an overlong line is cut hard. */
+export function splitForTelegram(text: string, limit = TELEGRAM_TEXT_LIMIT): string[] {
+  const parts: string[] = [];
+  let current = "";
+  for (const line of text.split("\n")) {
+    for (let rest = line; ; rest = rest.slice(limit)) {
+      const piece = rest.slice(0, limit);
+      if (current && current.length + 1 + piece.length > limit) { parts.push(current); current = ""; }
+      current = current ? `${current}\n${piece}` : piece;
+      if (rest.length <= limit) break;
+    }
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
+/** Replies with a long text in several messages; the keyboard goes under the last one. */
+export async function replyInParts(ctx: Context, text: string, markup?: InlineKeyboard) {
+  const parts = splitForTelegram(text);
+  let sent: Awaited<ReturnType<Context["reply"]>> | undefined;
+  for (const [index, part] of parts.entries()) sent = await ctx.reply(part, index === parts.length - 1 && markup ? { reply_markup: markup } : undefined);
+  return sent!;
+}
+
 export async function sendDraftMessage(ctx: Context, draft: Parameters<typeof formatDraft>[0] & { id: string }, timeZone: string, baseCurrency: string): Promise<void> {
-  const sent = await ctx.reply(formatDraft(draft, timeZone, baseCurrency), { reply_markup: draftKeyboard(draft.id) });
+  const sent = await replyInParts(ctx, formatDraft(draft, timeZone, baseCurrency), draftKeyboard(draft.id));
   // Remembered so «Записать все» / «Отменить все» can remove the message later; failure here is harmless.
   await getDb().update(schema.captureDrafts).set({ telegramMessageId: sent.message_id }).where(eq(schema.captureDrafts.id, draft.id)).catch(() => undefined);
 }

@@ -52,7 +52,10 @@ export const gymHandlers = {
     await tx.insert(s.exercises).values({ ownerId: owner.id, name: command.name, muscleGroup: command.muscleGroup || null, equipment: command.equipment || null, instructions: command.instructions }).onConflictDoNothing();
     const [exercise] = await tx.select().from(s.exercises).where(and(eq(s.exercises.ownerId, owner.id), eq(s.exercises.name, command.name)));
     const items = await tx.select().from(s.workoutDayExercises).where(eq(s.workoutDayExercises.workoutDayId, day.id));
-    await tx.insert(s.workoutDayExercises).values({ ownerId: owner.id, workoutDayId: day.id, exerciseId: exercise.id, position: items.length, plannedSets: command.targetSets, targetRepsMin: command.targetRepetitions, targetRepsMax: command.targetRepetitions, restSeconds: command.restSeconds });
+    const [dayExercise] = await tx.insert(s.workoutDayExercises).values({ ownerId: owner.id, workoutDayId: day.id, exerciseId: exercise.id, position: items.length, plannedSets: command.targetSets, targetRepsMin: command.targetRepetitions, targetRepsMax: command.targetRepetitions, restSeconds: command.restSeconds }).returning({ id: s.workoutDayExercises.id });
+    // An exercise added during an active workout of this day joins that session, otherwise its sets would be rejected.
+    const [active] = await tx.select().from(s.workoutSessions).where(and(eq(s.workoutSessions.ownerId, owner.id), eq(s.workoutSessions.workoutDayId, day.id), eq(s.workoutSessions.status, "active")));
+    if (active) await tx.insert(s.workoutSessionExercises).values({ ownerId: owner.id, sessionId: active.id, workoutDayExerciseId: dayExercise.id, exerciseId: exercise.id, exerciseName: exercise.name, position: items.length });
   },
   "exercise.update": async ({ tx, owner }, command) => {
     const updated = await tx.update(s.workoutDayExercises).set({ plannedSets: command.targetSets, targetRepsMin: command.targetRepetitions, targetRepsMax: command.targetRepetitions, restSeconds: command.restSeconds })

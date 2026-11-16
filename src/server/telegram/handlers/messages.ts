@@ -17,7 +17,7 @@ import { AIAnalysisError } from "@/server/ai/types";
 import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
 import { clearEditingCapture, formatMoney, formatSigned, isOwner, round1, updateRowIds } from "@/server/telegram/shared";
 import { downloadTelegramPhoto } from "@/server/telegram/handlers/photo";
-import { bulkDraftKeyboard, formatDraftList, sendDraftMessage } from "@/server/telegram/handlers/drafts";
+import { bulkDraftKeyboard, formatDraftList, sendDraftMessage, replyInParts } from "@/server/telegram/handlers/drafts";
 
 const MAX_SEPARATE_DRAFT_MESSAGES = 5;
 
@@ -107,7 +107,9 @@ export function registerMessages(bot: Bot<Context>): void {
         }
 
         const command = commandSchema.parse({ type: "finance-plan.save", ...plan });
-        await executeCommand(command);
+        // The same Telegram update (a retry) must not add the plan twice.
+        const updateRowId = updateRowIds.get(ctx.update);
+        await executeCommand(command, updateRowId ? { requestId: `update:${updateRowId}:plan` } : {});
         await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, owner.baseCurrency ?? "")}. Это пока не расход.`);
         return;
       }
@@ -184,7 +186,7 @@ export function registerMessages(bot: Bot<Context>): void {
       const moneyOnly = drafts.every((draft) => draft.money && !draft.food && !draft.debt);
       if (updateRowId && moneyOnly && drafts.length > MAX_SEPARATE_DRAFT_MESSAGES) {
         // A long receipt would flood the chat with one message per item; list it once with bulk actions.
-        await ctx.reply(formatDraftList(drafts), { reply_markup: bulkDraftKeyboard(updateRowId) });
+        await replyInParts(ctx, formatDraftList(drafts), bulkDraftKeyboard(updateRowId));
       } else {
         for (const draft of drafts) {
           await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
@@ -200,11 +202,8 @@ export function registerMessages(bot: Bot<Context>): void {
         ? error.message
         : "Не получилось разобрать сообщение. Попробуй ещё раз или напиши, что съел или купил и сколько это стоило.";
       await ctx.reply(messageText);
-      if (error instanceof AppError && error.status < 500) return;
-      // Expected AI errors were already reported to the user; replaying the update would repeat the same AI call and reply.
-      if (error instanceof AIAnalysisError) return;
-      // The caller records unexpected failures so a persisted Telegram update can be retried.
-      throw error;
+      // The user has been told about the failure: replaying the update would repeat the AI call and the reply.
+      // Only a failed reply (thrown above) leaves the update for a retry.
     }
   });
 }

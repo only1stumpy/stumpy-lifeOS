@@ -20,7 +20,12 @@ export async function POST(request: Request) {
       await executeCommand(command);
       // After deleting the account there is nothing to load: loading would silently create a new empty profile.
       if (command.type === "account.delete") return Response.json({ deleted: true }, { headers: { "Cache-Control": "no-store" } });
-      return Response.json(await loadSnapshot(), { headers: { "Cache-Control": "no-store" } });
+      // The change is already committed: a failed read must not look like a failed command, or the form is retried and saves twice.
+      try {
+        return Response.json(await loadSnapshot(), { headers: { "Cache-Control": "no-store" } });
+      } catch {
+        return Response.json({ committed: true }, { headers: { "Cache-Control": "no-store" } });
+      }
     });
   } catch (error) {
     if (error instanceof AIAnalysisError) return Response.json({ error: error.message }, { status: 503 });
