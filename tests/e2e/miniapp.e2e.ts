@@ -40,9 +40,17 @@ let profileDir: string;
 let ws: WebSocket;
 const problems: string[] = [];
 const pending = new Map<number, (message: { result?: unknown; error?: { message: string } }) => void>();
-const listeners: ((message: { method?: string; params?: Record<string, any> }) => void)[] = [];
+type CdpParams = {
+  type?: string;
+  requestId?: string;
+  exceptionDetails?: { text?: string; exception?: { description?: string } };
+  args?: { value?: string; description?: string }[];
+  response?: { url: string; status: number };
+  request?: { url: string; method: string; headers: Record<string, string>; postData?: string };
+};
+const listeners: ((message: { method?: string; params?: CdpParams }) => void)[] = [];
 let sequence = 0;
-const send = <T = any>(method: string, params: Record<string, unknown> = {}) => new Promise<T>((resolve, reject) => {
+const send = <T = unknown>(method: string, params: Record<string, unknown> = {}) => new Promise<T>((resolve, reject) => {
   const id = (sequence += 1);
   pending.set(id, (message) => (message.error ? reject(new Error(`${method}: ${message.error.message}`)) : resolve(message.result as T)));
   ws.send(JSON.stringify({ id, method, params }));
@@ -103,10 +111,10 @@ before(async () => {
   listeners.push((message) => {
     const params = message.params ?? {};
     if (message.method === "Runtime.exceptionThrown") problems.push(`exception: ${params.exceptionDetails?.exception?.description ?? params.exceptionDetails?.text}`);
-    if (message.method === "Runtime.consoleAPICalled" && params.type === "error") problems.push(`console.error: ${(params.args ?? []).map((arg: { value?: string; description?: string }) => arg.value ?? arg.description).join(" ")}`);
-    if (message.method === "Network.responseReceived" && String(params.response?.url).startsWith(`${ORIGIN}/api/`) && params.response.status >= 400) problems.push(`api ${params.response.status} ${params.response.url}`);
+    if (message.method === "Runtime.consoleAPICalled" && params.type === "error") problems.push(`console.error: ${(params.args ?? []).map((arg) => arg.value ?? arg.description).join(" ")}`);
+    if (message.method === "Network.responseReceived" && params.response && params.response.url.startsWith(`${ORIGIN}/api/`) && params.response.status >= 400) problems.push(`api ${params.response.status} ${params.response.url}`);
     if (message.method !== "Fetch.requestPaused") return;
-    const request = params.request as { url: string; method: string; headers: Record<string, string>; postData?: string };
+    const request = params.request!;
     const fulfill = (status: number, body: Buffer | string, headers: Record<string, string>) => send("Fetch.fulfillRequest", {
       requestId: params.requestId,
       responseCode: status,

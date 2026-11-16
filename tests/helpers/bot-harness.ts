@@ -44,7 +44,7 @@ export async function createBotHarness() {
   });
 
   let updateId = 1_000_000 + Math.floor(Math.random() * 1_000_000);
-  const base = (telegramId: string) => ({ chat: { id: Number(telegramId), type: "private" as const }, from: { id: Number(telegramId), is_bot: false, first_name: "Tester" } });
+  const base = (telegramId: string) => ({ chat: { id: Number(telegramId), type: "private" as const, first_name: "Tester" }, from: { id: Number(telegramId), is_bot: false, first_name: "Tester" } });
 
   return {
     bot, calls, provider,
