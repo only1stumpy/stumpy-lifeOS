@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { Transaction } from "@/db/client";
 import * as s from "@/db/schema";
-import { dateKey } from "@/domain/math";
+import { dateKey, isValidTimeZone } from "@/domain/math";
 import { USAGE_MODES } from "@/domain/notifications";
 import { APP_VERSION } from "@/domain/release";
 import { PRIVACY_POLICY_VERSION } from "@/domain/privacy";
@@ -21,7 +21,7 @@ export async function deleteOwnerData(tx: Transaction, owner: { id: string; tele
 
 export const settingsHandlers = {
   "settings.save": async ({ tx, owner }, command) => {
-    try { new Intl.DateTimeFormat("ru", { timeZone: command.timeZone }).format(); } catch { throw new AppError(400, "Неизвестный часовой пояс."); }
+    if (!isValidTimeZone(command.timeZone)) throw new AppError(400, "Неизвестный часовой пояс.");
     await tx.update(s.ownerSettings).set({ timezone: command.timeZone, ...(command.target ? { profileOnboardingCompleted: true } : {}), updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
     const effectiveFrom = dateKey(new Date(), command.timeZone);
     if (command.target) await tx.insert(s.nutritionTargets).values({ ownerId: owner.id, effectiveFrom, ...macroStrings(command.target) }).onConflictDoUpdate({ target: [s.nutritionTargets.ownerId, s.nutritionTargets.effectiveFrom], set: macroStrings(command.target) });
@@ -29,7 +29,11 @@ export const settingsHandlers = {
   "modules.save": async ({ tx, owner }, command) => {
     await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, ...(command.disabledFeatures ? { disabledFeatures: command.disabledFeatures } : {}), updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
   },
-  "onboarding.complete": async ({ tx, owner }, command) => {
+  "onboarding.complete": async ({ tx, owner: storedOwner }, command) => {
+    let owner = storedOwner;
+    if (command.timeZone !== undefined && !isValidTimeZone(command.timeZone)) throw new AppError(400, "Неизвестный часовой пояс.");
+    // The new zone applies to everything this command writes (today's date for the profile weight and target).
+    if (command.timeZone !== undefined) owner = { ...owner, timezone: command.timeZone };
     const preset = USAGE_MODES[command.usage];
     const nutritionOn = command.modules.includes("nutrition");
     await tx.update(s.ownerSettings).set({
@@ -40,6 +44,7 @@ export const settingsHandlers = {
       weeklySummaryEnabled: preset.weeklySummary,
       weightReminderEnabled: preset.weightReminder && nutritionOn,
       profileOnboardingCompleted: true,
+      ...(command.timeZone !== undefined ? { timezone: command.timeZone } : {}),
       lastSeenVersion: owner.lastSeenVersion ?? APP_VERSION,
       updatedAt: new Date(),
     }).where(eq(s.ownerSettings.id, owner.id));

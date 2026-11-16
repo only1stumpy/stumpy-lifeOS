@@ -11,6 +11,11 @@ import { USAGE_MODES, type UsageMode } from "@/domain/notifications";
 import { CurrencyPicker } from "@/components/finance/currency-picker";
 import styles from "./onboarding-flow.module.css";
 
+/** Zone of the device, sent once at the first meeting; invalid or missing values are left for the server default. */
+function detectTimeZone(): string | undefined {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; }
+}
+
 export type OnboardingCommand = Extract<AppCommand, { type: "onboarding.complete" }>;
 
 type Step = "modules" | "usage" | "profile" | "currency" | "balance" | "ai";
@@ -139,6 +144,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, safeAreaTop
       type: "onboarding.complete",
       modules,
       usage,
+      timeZone: detectTimeZone(),
       profile: useProfile ? parsedProfile : null,
       target: useProfile && norm ? norm : null,
       account,

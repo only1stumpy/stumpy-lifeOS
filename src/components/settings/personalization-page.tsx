@@ -25,6 +25,9 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
   const [weeklySummary, setWeeklySummary] = useState(notifications.weeklySummary);
   const [weightReminder, setWeightReminder] = useState(notifications.weightReminder);
   const [summaryTime, setSummaryTime] = useState(notifications.summaryTime ?? "19:30");
+  const savedZone = snapshot.settings.timeZone;
+  const [timeZone, setTimeZone] = useState(savedZone);
+  const zones = timeZoneList(savedZone);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -40,13 +43,15 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
     || dailySummary !== notifications.dailySummary
     || weeklySummary !== notifications.weeklySummary
     || weightReminder !== notifications.weightReminder
-    || summaryTime !== (notifications.summaryTime ?? "19:30");
+    || summaryTime !== (notifications.summaryTime ?? "19:30")
+    || timeZone !== savedZone;
 
   async function save() {
     if (pending) return;
     if (!modules.length) { setError("Оставьте хотя бы один раздел."); return; }
     if (summaryTime && !TIME_PATTERN.test(summaryTime)) { setError("Время в формате ЧЧ:ММ."); return; }
     const ok = await onSave([
+      ...(timeZone !== savedZone ? [{ type: "settings.save" as const, timeZone, target: null }] : []),
       { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, weightReminder, summaryTime: summaryTime || null } },
     ]);
     if (ok) setSaved(true);
@@ -100,6 +105,18 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         </label>
       </section>
 
+      <section className={styles.section} aria-labelledby="timezone-heading">
+        <h2 id="timezone-heading">Часовой пояс</h2>
+        <label className={styles.timeField}>
+          <strong>Ваш пояс</strong>
+          <select value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
+            {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+          </select>
+          <small className={styles.hint}>По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени.</small>
+        </label>
+        {detectedZone() && detectedZone() !== timeZone ? <button type="button" className={styles.save} onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</button> : null}
+      </section>
+
       <div className={styles.actions}>
         {error ? <p className={`${styles.status} ${styles.error}`} role="alert">{error}</p> : null}
         {saved ? <p className={`${styles.status} ${styles.ok}`} role="status">Сохранено.</p> : null}
@@ -107,6 +124,16 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
       </div>
     </div>
   );
+}
+
+function detectedZone(): string | null {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
+}
+
+function timeZoneList(current: string): string[] {
+  let zones: string[] = [];
+  try { zones = Intl.supportedValuesOf("timeZone"); } catch { /* older engines: only the current zone */ }
+  return zones.includes(current) ? zones : [current, ...zones];
 }
 
 function summaryText(modules: readonly string[], period: "day" | "week"): string {

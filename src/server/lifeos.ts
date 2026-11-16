@@ -5,7 +5,7 @@ import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import type { FinanceDebt, MacroValues, FoodLogEntry, WorkoutDay } from "@/domain/types";
 import { currencyUnit } from "@/domain/currencies";
-import { convertToBaseMinor, dateKey, sumMacros } from "@/domain/math";
+import { convertToBaseMinor, dateKey, sumMacros, weightStampToDate } from "@/domain/math";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { ACTIVITY_LEVELS, GOALS, ageOn, type NutritionProfile } from "@/domain/nutrition";
 import { disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "@/domain/modules";
@@ -240,7 +240,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   return {
     localDate,
     reports,
-    nutrition: { consumed: sumMacros(foodEntries), target: targets[0] ? macroNumbers(targets[0]) : null, entries: foodEntries, bodyWeightKg: weights.length ? Number(weights[weights.length - 1].weightKg) : null, weightHistory: weights.map((v) => ({ date: dateKey(v.occurredAt, owner.timezone), weightKg: Number(v.weightKg) })) },
+    nutrition: { consumed: sumMacros(foodEntries), target: targets[0] ? macroNumbers(targets[0]) : null, entries: foodEntries, bodyWeightKg: weights.length ? Number(weights[weights.length - 1].weightKg) : null, weightHistory: weights.map((v) => ({ date: weightStampToDate(v.occurredAt), weightKg: Number(v.weightKg) })) },
     finance: {
       spentTodayMinor: totalExpenses(expenses.filter((v) => dateKey(v.occurredAt, owner.timezone) === localDate)),
       spentMonthMinor: totalExpenses(monthlyExpenses),

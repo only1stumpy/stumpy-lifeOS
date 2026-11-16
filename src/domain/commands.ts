@@ -26,6 +26,8 @@ export const commandSchema = z.discriminatedUnion("type", [
     type: z.literal("onboarding.complete"),
     modules: enabledModulesSchema,
     usage: usageModeSchema,
+    /** IANA zone detected on the device during onboarding; absent keeps the stored one. */
+    timeZone: z.string().min(1).max(100).optional(),
     profile: profileSchema.nullable(),
     target: macrosSchema.nullable(),
     account: z.object({
