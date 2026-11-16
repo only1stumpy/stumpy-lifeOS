@@ -25,4 +25,4 @@
 - Ключи ИИ хранятся зашифрованными (AES-256-GCM), в ответы и логи не попадают.
 - Пользовательский HTTPS-endpoint проходит проверку на публичный адрес (защита от SSRF).
 
-Подробный аудит и план улучшений: [docs/audit/security.md](docs/audit/security.md), [docs/release-plan.md](docs/release-plan.md).
+План улучшений безопасности — в [docs/release-plan.md](docs/release-plan.md).
