@@ -4,7 +4,9 @@ import * as schema from "@/db/schema";
 import { AppError } from "@/server/http";
 
 const formatName = "stumpy-lifeos-backup";
-export const BACKUP_VERSION = 3;
+/** 4: owner_settings gained privacy_* columns (migration 0015). Versions 1-3 are still readable. */
+export const BACKUP_VERSION = 4;
+const OLDEST_READABLE_VERSION = 1;
 export const BACKUP_MAX_BYTES = 25 * 1024 * 1024;
 export const BACKUP_MAX_ROWS = 100_000;
 
@@ -82,7 +84,10 @@ export type BackupExecutor = {
 };
 
 export type BackupDatabase = BackupExecutor & {
-  transaction<T>(callback: (transaction: BackupExecutor) => Promise<T>): Promise<T>;
+  transaction<T>(
+    callback: (transaction: BackupExecutor) => Promise<T>,
+    config?: { isolationLevel?: "repeatable read" | "serializable"; accessMode?: "read only" | "read write" },
+  ): Promise<T>;
 };
 
 type TableMetadata = {
@@ -231,9 +236,14 @@ export function validateBackup(input: unknown): LifeOSBackup {
   if (!isRecord(input) || !keysMatch(input, ["format", "version", "ownerTelegramId", "exportedAt", "tables"])) {
     throw new AppError(400, "Формат резервной копии не распознан.");
   }
-  if (input.format !== formatName || ![1, 2, BACKUP_VERSION].includes(input.version as number) || !validOwnerId(input.ownerTelegramId)) {
-    throw new AppError(400, "Версия или владелец резервной копии не поддерживается.");
+  if (input.format !== formatName) throw new AppError(400, "Формат резервной копии не распознан.");
+  if (!Number.isInteger(input.version) || (input.version as number) < OLDEST_READABLE_VERSION || (input.version as number) > BACKUP_VERSION) {
+    throw new AppError(
+      400,
+      `Версия резервной копии ${String(input.version)} не поддерживается: читаются версии ${OLDEST_READABLE_VERSION}–${BACKUP_VERSION}. Если копия создана более новой версией приложения, обновите LifeOS.`,
+    );
   }
+  if (!validOwnerId(input.ownerTelegramId)) throw new AppError(400, "Владелец резервной копии не поддерживается.");
   if (typeof input.exportedAt !== "string" || !Number.isFinite(Date.parse(input.exportedAt))) {
     throw new AppError(400, "В резервной копии некорректна дата создания.");
   }
@@ -245,6 +255,12 @@ export function validateBackup(input: unknown): LifeOSBackup {
   }
 
   const inputTables: Row = { ...input.tables };
+  if ((input.version as number) < 4 && Array.isArray(inputTables.ownerSettings)) {
+    // Copies made before the privacy migration (0015) have no consent columns; consent is asked again after restore.
+    inputTables.ownerSettings = inputTables.ownerSettings.map((row) =>
+      isRecord(row) ? { privacyAcceptedAt: null, privacyPolicyVersion: null, ...row } : row,
+    );
+  }
   if (versionOne) inputTables.financePlans = [];
   if (versionOne || versionTwo) {
     inputTables.financeDebts = [];
@@ -303,7 +319,8 @@ async function rowsForOwner(executor: BackupExecutor, descriptor: TableDescripto
 }
 
 export async function createBackup(database: BackupDatabase, ownerTelegramId: string): Promise<LifeOSBackup> {
-  if (!validOwnerId(ownerTelegramId)) throw new AppError(503, "Telegram ID владельца не настроен.");
+  if (!validOwnerId(ownerTelegramId)) throw new AppError(400, "Некорректный Telegram ID владельца.");
+  // One snapshot for all tables: concurrent writes must not produce a copy with dangling references.
   return database.transaction(async (transaction) => {
     const ownerDescriptor = backupTables[0];
     const ownerMetadata = tableMetadata(ownerDescriptor);
@@ -335,7 +352,7 @@ export async function createBackup(database: BackupDatabase, ownerTelegramId: st
     const json = JSON.stringify(backup);
     if (Buffer.byteLength(json, "utf8") > BACKUP_MAX_BYTES) throw new AppError(413, "Резервная копия превышает допустимый размер.");
     return backup;
-  });
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
 export async function restoreBackup(
@@ -343,14 +360,20 @@ export async function restoreBackup(
   input: string | unknown,
   expectedOwnerTelegramId: string,
 ): Promise<void> {
-  if (!validOwnerId(expectedOwnerTelegramId)) throw new AppError(503, "Telegram ID владельца не настроен.");
+  if (!validOwnerId(expectedOwnerTelegramId)) throw new AppError(400, "Некорректный Telegram ID владельца.");
   const backup = typeof input === "string" ? parseBackupJson(input) : validateBackup(input);
   if (backup.ownerTelegramId !== expectedOwnerTelegramId) throw new AppError(400, "Резервная копия принадлежит другому владельцу.");
 
   await database.transaction(async (transaction) => {
     const ownerMetadata = tableMetadata(backupTables[0]);
-    const countResult = await transaction.execute(sql`select count(*)::integer as count from ${qualifiedTable(ownerMetadata)}`);
-    if (Number(countResult.rows[0]?.count ?? 0) !== 0) throw new AppError(409, "Восстановление разрешено только в пустую базу LifeOS.");
+    // Other owners may already live in the database; only this owner's profile must be absent.
+    const existing = await transaction.execute(sql`
+      select 1 as found from ${qualifiedTable(ownerMetadata)}
+      where ${sql.identifier(ownerMetadata.columns.telegramUserId.name)} = ${backup.ownerTelegramId}
+         or ${sql.identifier(ownerMetadata.columns.id.name)} = ${String(backup.tables.ownerSettings[0].id)}
+      limit 1
+    `);
+    if (existing.rows.length > 0) throw new AppError(409, "Профиль этого владельца уже есть в базе. Удалите его перед восстановлением из копии.");
 
     for (const descriptor of backupTables) {
       const metadata = tableMetadata(descriptor);

@@ -566,7 +566,7 @@ test("backup round-trips all persistent tables and leaves ephemeral references c
     assert.deepEqual(legacyV2.tables.financeDebtRepayments, []);
     assert.deepEqual(legacyV2.tables.financeDebtDrafts, []);
 
-    await assert.rejects(restoreBackup(asBackupDatabase(target), backup, OWNER_ID), /пустую базу/);
+    await assert.rejects(restoreBackup(asBackupDatabase(target), backup, OWNER_ID), /уже есть в базе/);
     const ownersAfterRejectedRestore = await target.select().from(schema.ownerSettings);
     assert.equal(ownersAfterRejectedRestore.length, 1);
 
@@ -618,6 +618,59 @@ test("удаление владельца стирает все его данн�
     assert.equal(survivor.id, other.id);
     const [counter] = await database.select().from(schema.rateLimitCounters);
     assert.equal(counter.key, "commands:999000111");
+  } finally {
+    await client.close();
+  }
+});
+
+test("restore of one owner into a non-empty database leaves other owners untouched", async () => {
+  const sourceClient = new PGlite();
+  const source = drizzle(sourceClient, { schema });
+  const targetClient = new PGlite();
+  const target = drizzle(targetClient, { schema });
+  try {
+    await migrate(sourceClient);
+    await migrate(targetClient);
+    await seed(source);
+    const backup = await createBackup(asBackupDatabase(source), OWNER_ID);
+
+    const [other] = await target.insert(schema.ownerSettings).values({ telegramUserId: "999000111" }).returning();
+    await target.insert(schema.weightEntries).values({ ownerId: other.id, weightKg: "70.000", occurredAt: new Date("2026-10-01T07:00:00Z") });
+
+    await restoreBackup(asBackupDatabase(target), backup, OWNER_ID);
+
+    const restored = await createBackup(asBackupDatabase(target), OWNER_ID);
+    assert.deepEqual(restored.tables, backup.tables);
+    const otherBackup = await createBackup(asBackupDatabase(target), "999000111");
+    assert.equal(otherBackup.tables.weightEntries.length, 1);
+    assert.equal(otherBackup.tables.weightEntries[0].weightKg, "70.000");
+    assert.equal(otherBackup.tables.nutritionEntries.length, 0);
+
+    await assert.rejects(restoreBackup(asBackupDatabase(target), backup, OWNER_ID), /уже есть в базе/);
+    assert.equal((await target.select().from(schema.ownerSettings)).length, 2);
+  } finally {
+    await sourceClient.close();
+    await targetClient.close();
+  }
+});
+
+test("backup made before the privacy migration (V3 without consent columns) is read; unknown versions are refused clearly", async () => {
+  const client = new PGlite();
+  const database = drizzle(client, { schema });
+  try {
+    await migrate(client);
+    await seed(database);
+    const backup = await createBackup(asBackupDatabase(database), OWNER_ID);
+    const owner = { ...backup.tables.ownerSettings[0] } as Record<string, unknown>;
+    delete owner.privacyAcceptedAt;
+    delete owner.privacyPolicyVersion;
+    const legacy = validateBackup({ ...backup, version: 3, tables: { ...backup.tables, ownerSettings: [owner] } });
+    assert.equal(legacy.version, BACKUP_VERSION);
+    assert.equal(legacy.tables.ownerSettings[0].privacyAcceptedAt, null);
+    assert.equal(legacy.tables.ownerSettings[0].privacyPolicyVersion, null);
+
+    assert.throws(() => validateBackup({ ...backup, version: BACKUP_VERSION + 1 }), /Версия резервной копии .* не поддерживается/);
+    assert.throws(() => validateBackup({ ...backup, version: 0 }), /не поддерживается/);
   } finally {
     await client.close();
   }
