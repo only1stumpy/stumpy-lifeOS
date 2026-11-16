@@ -24,6 +24,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Production dependencies with known high/critical advisories fail the build.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       # Схема в src/db/schema.ts и миграции в drizzle/ не должны расходиться: generate не должен создать ничего нового.
       - name: Schema matches migrations
@@ -38,11 +40,16 @@ jobs:
             exit 1
           fi
       - run: npm run typecheck
-      - run: npm test
+      # Unit and integration tests with a coverage floor for server code (src/server).
+      - run: npm run test:coverage
       - run: npm run build
       - name: Smoke test of the production build
         timeout-minutes: 3
         run: npm run smoke
+      # Mini App screens in headless Chrome (preinstalled on ubuntu-latest) over the production build.
+      - name: Mini App browser run
+        timeout-minutes: 5
+        run: npm run test:miniapp
 
   # После зелёных проверок CI сам приводит бейджи и версию в README к package.json
   # и коммитит изменение в ветку PR. Токен по умолчанию не запускает повторный CI;

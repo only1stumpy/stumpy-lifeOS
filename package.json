@@ -10,6 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:coverage": "node --import tsx --import ./tests/setup.ts --test --test-isolation=none --experimental-test-coverage --test-coverage-include='src/server/**' --test-coverage-lines=74 tests/*.test.ts",
+    "test:miniapp": "node --import tsx --import ./tests/setup.ts --test --test-isolation=none tests/e2e/miniapp.e2e.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "test": "node --import tsx --import ./tests/setup.ts --test --test-isolation=none tests/*.test.ts",
