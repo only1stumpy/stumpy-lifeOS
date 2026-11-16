@@ -414,7 +414,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       return;
     }
     if (!providerFreeTierConfirmed) {
-      setFormError("Подтвердите условия бесплатного доступа и проверьте настройки оплаты аккаунта.");
+      setFormError("Подтверди условия бесплатного доступа и проверь настройки оплаты аккаунта.");
       return;
     }
 
@@ -991,9 +991,16 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     </div>
                     <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required /></label>
                     <label className={styles.field}><span>API-ключ</span><input autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required /></label>
+                    {(activeProvider.id === "gemini" || activeProvider.id === "openrouter") && (
+                      <p className={styles.securityNote} role="note">
+                        {activeProvider.id === "gemini"
+                          ? "Внимание: на бесплатном тарифе Gemini API Google может использовать запросы для улучшения своих продуктов, и их могут читать люди. Google просит не отправлять туда персональные данные. Gemini API разрешён только с 18 лет; в EEA, Швейцарии и Великобритании бесплатный тариф не предоставляется. Соблюдать условия провайдера нужно тебе как владельцу ключа."
+                          : "Внимание: бесплатные модели OpenRouter могут передавать запросы своим провайдерам, которые вправе хранить их и использовать для обучения. Не отправляй туда персональные данные. Соблюдать условия OpenRouter и провайдеров моделей нужно тебе как владельцу ключа."}
+                      </p>
+                    )}
                     <label className={styles.confirmation}>
                       <input type="checkbox" checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} />
-                      <span>{activeProvider.id === "gemini" ? "Подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."}</span>
+                      <span>{activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : activeProvider.id === "openrouter" ? "Я прочитал предупреждение и подключаю бесплатные модели. LifeOS не может проверить подписку или настройки оплаты аккаунта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."}</span>
                     </label>
                     <p className={styles.securityNote}>Перед сохранением LifeOS проверит ключ коротким тестовым запросом. Он может использовать одну бесплатную квоту. Сам ключ после подключения не показывается.</p>
                     {formError && <p className={styles.error} role="alert">{formError}</p>}

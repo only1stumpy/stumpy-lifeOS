@@ -53,3 +53,27 @@
 .accept:disabled {
   opacity: 0.6;
 }
+
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: #742b45;
+}
+
+.rights {
+  display: grid;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(53, 39, 44, 0.15);
+}

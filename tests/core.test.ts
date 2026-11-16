@@ -647,7 +647,7 @@ test("modules.save accepts disabled features and rejects unknown or repeated one
 
 const allModules: LifeModule[] = ["nutrition", "finance", "gym"];
 const allFeatures: LifeFeature[] = ["finance.debts", "finance.plans", "finance.subscriptions", "nutrition.weight"];
-const plain = (html: string) => html.replace(/<\/?b>/g, "");
+const plain = (html: string) => html.replace(/<\/?b>|<a href="[^"]*">|<\/a>/g, "");
 
 test("/start is short, names only enabled sections and sends a newcomer to the app", () => {
   const newcomer = buildStartMessage({ modules: allModules, features: allFeatures, firstRun: true });

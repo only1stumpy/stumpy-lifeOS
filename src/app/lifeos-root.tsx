@@ -16,7 +16,7 @@ import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { PersonalizationPage } from "@/components/settings/personalization-page";
 import { PrivacyPage } from "@/components/settings/privacy-page";
 import { ConsentScreen } from "@/components/privacy/consent-screen";
-import { DELETE_CONFIRMATION_WORD, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
+import { consentState, DELETE_CONFIRMATION_WORD, HEALTH_CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
 import { SettingsMenu, SettingsSubpage, type SettingsPage } from "@/components/settings/settings-menu";
 import { MotionProvider, motionDuration, motionEase, useMotionVariants } from "@/components/motion/motion-system";
 import type { LifeOSAction, WorkoutDay } from "@/domain/types";
@@ -679,10 +679,10 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     );
   }
 
-  if (snapshot.settings.privacyAcceptedVersion !== PRIVACY_POLICY_VERSION) {
+  if (consentState({ privacyPolicyVersion: snapshot.settings.privacyAcceptedVersion, healthConsentVersion: snapshot.settings.healthConsentVersion }) !== "ok") {
     return (
       <MotionProvider>
-        <ConsentScreen pending={pending} error={error} onAccept={() => void sendCommand({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION }, true)} />
+        <ConsentScreen pending={pending} error={error} notice={notice} onAccept={() => void sendCommand({ type: "privacy.accept", version: PRIVACY_POLICY_VERSION, adultConfirmed: true, healthVersion: HEALTH_CONSENT_VERSION }, true)} onSendExport={sendExport} onDelete={() => sendCommand({ type: "account.delete", confirmation: DELETE_CONFIRMATION_WORD }, true)} />
       </MotionProvider>
     );
   }
@@ -726,7 +726,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           aiSettingsActive={showAiProviders}
           aiSettingsContent={showAiProviders && initData ? (
             settingsPage === "menu" ? <SettingsMenu onOpen={setSettingsPage} />
-              : settingsPage === "privacy" ? <SettingsSubpage><PrivacyPage snapshot={snapshot} pending={pending} onSendExport={sendExport} onDelete={() => sendCommand({ type: "account.delete", confirmation: DELETE_CONFIRMATION_WORD }, true)} /></SettingsSubpage>
+              : settingsPage === "privacy" ? <SettingsSubpage><PrivacyPage snapshot={snapshot} pending={pending} onSendExport={sendExport} onDelete={() => sendCommand({ type: "account.delete", confirmation: DELETE_CONFIRMATION_WORD }, true)} onRevokeHealth={() => sendCommand({ type: "privacy.health.revoke" }, true)} /></SettingsSubpage>
               : settingsPage === "personalization" ? <SettingsSubpage><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} /></SettingsSubpage>
               : <SettingsSubpage><AiProvidersPanel key="ai-providers" initData={initData} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => setShowAiQuotas(true)} /></SettingsSubpage>
           ) : null}
