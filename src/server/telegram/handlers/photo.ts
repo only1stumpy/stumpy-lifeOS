@@ -19,11 +19,11 @@ async function handlePhotoMessage(
       signal: AbortSignal.timeout(TELEGRAM_FILE_TIMEOUT_MS),
     });
   } catch {
-    throw new AppError(503, "Фотография временно недоступна. Попробуйте ещё раз.");
+    throw new AppError(503, "Фотография временно недоступна. Попробуй ещё раз.");
   }
-  if (!response.ok || !response.body) throw new AppError(503, "Фотография временно недоступна. Попробуйте ещё раз.");
+  if (!response.ok || !response.body) throw new AppError(503, "Фотография временно недоступна. Попробуй ещё раз.");
   const contentLength = Number(response.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_PHOTO_BYTES) throw new AppError(413, "Фотография больше 8 МБ. Отправьте снимок меньшего размера.");
+  if (contentLength > MAX_PHOTO_BYTES) throw new AppError(413, "Фотография больше 8 МБ. Отправь снимок меньшего размера.");
 
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -35,7 +35,7 @@ async function handlePhotoMessage(
       size += value.byteLength;
       if (size > MAX_PHOTO_BYTES) {
         await reader.cancel();
-        throw new AppError(413, "Фотография больше 8 МБ. Отправьте снимок меньшего размера.");
+        throw new AppError(413, "Фотография больше 8 МБ. Отправь снимок меньшего размера.");
       }
       chunks.push(value);
     }
@@ -51,6 +51,6 @@ export async function downloadTelegramPhoto(ctx: Context, fileId: string) {
     return await handlePhotoMessage(ctx, fileId);
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError(503, "Фотографию не удалось обработать. Попробуйте отправить её ещё раз.");
+    throw new AppError(503, "Фотографию не удалось обработать. Попробуй отправить её ещё раз.");
   }
 }

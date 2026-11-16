@@ -9,10 +9,10 @@ import type { CommandHandlers } from "./types";
 
 /** Debt operations change only together with the debt: delete the repayment or the debt in «Долги» and enter it again. */
 async function rejectDebtLinked(tx: Transaction, ownerId: string, entry: { id: string; debtId: string | null }, verb: string) {
-  if (entry.debtId) throw new AppError(409, `Эта операция открыла долг. Чтобы ${verb} её, удалите долг в разделе долгов и внесите заново.`);
+  if (entry.debtId) throw new AppError(409, `Эта операция открыла долг. Чтобы ${verb} её, удали долг в разделе долгов и внеси заново.`);
   const [linked] = await tx.select({ id: s.financeDebtRepayments.id }).from(s.financeDebtRepayments)
     .where(and(eq(s.financeDebtRepayments.financeEntryId, entry.id), eq(s.financeDebtRepayments.ownerId, ownerId))).limit(1);
-  if (linked) throw new AppError(409, `Эта операция записана как возврат долга. Чтобы ${verb} её, удалите возврат в разделе долгов и внесите заново.`);
+  if (linked) throw new AppError(409, `Эта операция записана как возврат долга. Чтобы ${verb} её, удали возврат в разделе долгов и внеси заново.`);
 }
 
 export const financeHandlers = {

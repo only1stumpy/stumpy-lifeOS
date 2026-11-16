@@ -94,7 +94,7 @@ export default function FinancePlansView({ plans, currency, onAdd, onEdit, onDel
       ) : (
         <div className={styles.emptyState}>
           <h3>Пока ничего не запланировано</h3>
-          <p>Добавьте будущую покупку. Она не изменит баланс и расходы, пока вы отдельно не запишете её как расход.</p>
+          <p>Добавь будущую покупку. Она не изменит баланс и расходы, пока ты отдельно не запишешь её как расход.</p>
         </div>
       )}
     </section>

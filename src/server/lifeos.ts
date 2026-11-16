@@ -430,7 +430,7 @@ async function assertBaseAmountsSafe(tx: Transaction, ownerId: string) {
   const [unsafe] = await tx.select({ id: s.financeEntries.id }).from(s.financeEntries)
     .where(and(eq(s.financeEntries.ownerId, ownerId), isNotNull(s.financeEntries.rateToBase), sql`abs(${s.financeEntries.amount} * ${s.financeEntries.rateToBase} * 100) > 9007199254740991`))
     .limit(1);
-  if (unsafe) throw new AppError(400, "Сумма с учётом курса слишком велика. Уменьшите сумму или проверьте курс валюты.");
+  if (unsafe) throw new AppError(400, "Сумма с учётом курса слишком велика. Уменьши сумму или проверь курс валюты.");
 }
 
 /**

@@ -2,7 +2,7 @@ import { InlineKeyboard, type Bot, type Context } from "grammy";
 import type { InlineKeyboardButton } from "grammy/types";
 import { ensureOwner, loadSnapshot } from "@/server/lifeos";
 import * as schema from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { AppError } from "@/server/http";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
@@ -39,7 +39,9 @@ export function registerCommands(bot: Bot<Context>, deps: CommandDeps): void {
       return;
     }
     const { owner, input } = await welcomeInput();
-    await ctx.reply(buildStartMessage({ ...input, firstRun: !owner.modulesConfigured }), {
+    const [connected] = await getDb().select({ id: schema.aiProviderAccounts.id }).from(schema.aiProviderAccounts)
+      .where(and(eq(schema.aiProviderAccounts.ownerId, owner.id), eq(schema.aiProviderAccounts.enabled, true))).limit(1);
+    await ctx.reply(buildStartMessage({ ...input, firstRun: !owner.modulesConfigured, hasAi: !!connected }), {
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard([appRow(), [InlineKeyboard.text("Сводка сегодня", "today")]]),
     });
@@ -66,7 +68,7 @@ export function registerCommands(bot: Bot<Context>, deps: CommandDeps): void {
     }
     const text = isHelpSectionId(target) ? buildHelpSection(target, input) : null;
     if (!text) {
-      await ctx.answerCallbackQuery({ text: "Этого раздела уже нет. Откройте /help заново." });
+      await ctx.answerCallbackQuery({ text: "Этого раздела уже нет. Открой /help заново." });
       return;
     }
     await ctx.answerCallbackQuery();
@@ -86,7 +88,7 @@ export function registerCommands(bot: Bot<Context>, deps: CommandDeps): void {
     try {
       await deps.sendExport(String(ctx.from?.id));
     } catch (error) {
-      await ctx.reply(error instanceof AppError ? error.message : "Не удалось отправить копию данных. Попробуйте позже.");
+      await ctx.reply(error instanceof AppError ? error.message : "Не удалось отправить копию данных. Попробуй позже.");
     }
   });
 

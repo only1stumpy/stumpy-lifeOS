@@ -12,10 +12,10 @@ export async function sendExportWithApi(api: Api, telegramUserId: string): Promi
   const date = new Date().toISOString().slice(0, 10);
   try {
     await api.sendDocument(Number(telegramUserId), new InputFile(Buffer.from(JSON.stringify(backup), "utf8"), `lifeos-backup-${date}.json`), {
-      caption: "Копия ваших данных LifeOS (JSON). Храните файл в безопасном месте: в нём ваши записи.",
+      caption: "Копия твоих данных LifeOS (JSON). Храни файл в безопасном месте: в нём твои записи.",
     });
   } catch (error) {
     console.error("LifeOS export delivery failed", { error: error instanceof Error ? error.name : "unknown" });
-    throw new AppError(502, "Не удалось отправить файл в чат. Откройте диалог с ботом, нажмите /start и повторите.");
+    throw new AppError(502, "Не удалось отправить файл в чат. Открой диалог с ботом, нажми /start и повтори.");
   }
 }

@@ -78,9 +78,9 @@ function recordValue(form: FormData, name: string): string {
 
 function requiredNumber(form: FormData, name: string, label: string): number {
   const value = recordValue(form, name).replace(",", ".");
-  if (!value) throw new Error(`Заполните поле «${label}».`);
+  if (!value) throw new Error(`Заполни поле «${label}».`);
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`Проверьте поле «${label}».`);
+  if (!Number.isFinite(parsed)) throw new Error(`Проверь поле «${label}».`);
   return parsed;
 }
 
@@ -88,27 +88,27 @@ function optionalNumber(form: FormData, name: string, label: string): number | n
   const value = recordValue(form, name).replace(",", ".");
   if (!value) return null;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`Проверьте поле «${label}».`);
+  if (!Number.isFinite(parsed)) throw new Error(`Проверь поле «${label}».`);
   return parsed;
 }
 
 function requiredText(form: FormData, name: string, label: string): string {
   const value = recordValue(form, name);
-  if (!value) throw new Error(`Заполните поле «${label}».`);
+  if (!value) throw new Error(`Заполни поле «${label}».`);
   return value;
 }
 
 function localTimestamp(value: string, timeZone: string): string {
-  if (!value) throw new Error("Укажите дату и время.");
+  if (!value) throw new Error("Укажи дату и время.");
   const date = zonedLocalToInstant(value, timeZone);
-  if (!date) throw new Error("Проверьте дату и время.");
+  if (!date) throw new Error("Проверь дату и время.");
   return date.toISOString();
 }
 
 function dateTimestamp(value: string, timeZone: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("Укажите дату.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("Укажи дату.");
   const date = zonedLocalToInstant(`${value}T12:00`, timeZone);
-  if (!date) throw new Error("Проверьте дату.");
+  if (!date) throw new Error("Проверь дату.");
   return date.toISOString();
 }
 
@@ -144,7 +144,7 @@ function signedAmountLabel(amountMinor: number, currency: string): string {
 
 function signedMinor(value: string): number {
   const normalized = value.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".");
-  if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введите сумму числом, например 1500,50.");
+  if (!/^-?\d{1,10}(\.\d{1,2})?$/.test(normalized)) throw new Error("Введи сумму числом, например 1500,50.");
   const negative = normalized.startsWith("-");
   const magnitude = parseMinor(negative ? normalized.slice(1) : normalized);
   return negative ? -magnitude : magnitude;
@@ -270,7 +270,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       }
       return succeeded;
     } catch (cause) {
-      setFormError(cause instanceof Error ? cause.message : "Проверьте введённые данные.");
+      setFormError(cause instanceof Error ? cause.message : "Проверь введённые данные.");
       return false;
     }
   }
@@ -343,7 +343,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     return (
       <>
         {snapshot.finance.accounts.length === 0 ? (
-          <div><p>Сначала добавьте счёт. Тогда можно будет сохранить операцию в нужной валюте.</p><button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button></div>
+          <div><p>Сначала добавь счёт. Тогда можно будет сохранить операцию в нужной валюте.</p><button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button></div>
         ) : !entryAccountExists ? (
           <p role="alert">Счёт этой операции не найден. Операцию нельзя безопасно изменить, пока счёт отсутствует.</p>
         ) : (
@@ -365,7 +365,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             <label>Счёт<select name="accountId" defaultValue={initialAccountId} onChange={(event) => setPickedFinanceAccount({ form: formId, id: event.target.value })}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</select></label>
             {missingRate && pickedAccount && (
               <div>
-                <p role="alert">Сначала задайте курс {pickedAccount.currency} к {baseCurrency}.</p>
+                <p role="alert">Сначала задай курс {pickedAccount.currency} к {baseCurrency}.</p>
                 <button type="button" onClick={() => onChange({ kind: "accounts" })}>Задать курс</button>
               </div>
             )}
@@ -537,7 +537,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     function readProfile(form: FormData): NutritionProfile | null {
       const filled = profileFields.filter((name) => recordValue(form, name)).length;
       if (filled === 0) return null;
-      if (filled < profileFields.length) throw new Error("Заполните все параметры профиля или оставьте их пустыми.");
+      if (filled < profileFields.length) throw new Error("Заполни все параметры профиля или оставь их пустыми.");
       const parsed = profileSchema.safeParse({
         sex: recordValue(form, "sex"),
         age: requiredNumber(form, "age", "Возраст"),
@@ -546,7 +546,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         activityLevel: recordValue(form, "activityLevel"),
         goalType: recordValue(form, "goalType"),
       });
-      if (!parsed.success) throw new Error("Проверьте профиль: возраст 16–90 лет, рост 100–250 см, вес 30–350 кг.");
+      if (!parsed.success) throw new Error("Проверь профиль: возраст 16–90 лет, рост 100–250 см, вес 30–350 кг.");
       return parsed.data;
     }
 
@@ -578,16 +578,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           : { type: "settings.save", timeZone: snapshot.settings.timeZone, target: targetValues };
       })}>
         <p>{firstRun
-          ? "Ответьте на шесть вопросов — посчитаем дневную норму калорий и КБЖУ. Всё можно поменять позже."
+          ? "Ответь на шесть вопросов — посчитаем дневную норму калорий и КБЖУ. Всё можно поменять позже."
           : "Норма пересчитывается при изменении профиля. Цифры можно поправить вручную."}</p>
         <div className="fields-row">
-          <label>Пол<select name="sex" defaultValue={saved.sex ?? ""}><option value="" disabled>Выберите</option><option value="male">Мужской</option><option value="female">Женский</option></select></label>
+          <label>Пол<select name="sex" defaultValue={saved.sex ?? ""}><option value="" disabled>Выбери</option><option value="male">Мужской</option><option value="female">Женский</option></select></label>
           <label>Возраст, лет<input name="age" type="number" inputMode="numeric" min="16" max="90" step="1" defaultValue={saved.age ?? ""} /></label>
           <label>Рост, см<input name="heightCm" type="number" inputMode="decimal" min="100" max="250" step="0.1" defaultValue={saved.heightCm ?? ""} /></label>
           <label>Вес, кг<input name="profileWeightKg" type="number" inputMode="decimal" min="30" max="350" step="0.1" defaultValue={saved.weightKg ?? ""} /></label>
         </div>
-        <label>Активность<select name="activityLevel" defaultValue={saved.activityLevel ?? ""}><option value="" disabled>Выберите уровень</option>{Object.entries(ACTIVITY_LEVELS).map(([value, level]) => <option key={value} value={value}>{level.label}</option>)}</select></label>
-        <label>Цель<select name="goalType" defaultValue={savedProfile.success || !firstRun ? saved.goalType ?? "" : ""}><option value="" disabled>Выберите цель</option>{Object.entries(GOALS).map(([value, goal]) => <option key={value} value={value}>{goal.label}</option>)}</select></label>
+        <label>Активность<select name="activityLevel" defaultValue={saved.activityLevel ?? ""}><option value="" disabled>Выбери уровень</option>{Object.entries(ACTIVITY_LEVELS).map(([value, level]) => <option key={value} value={value}>{level.label}</option>)}</select></label>
+        <label>Цель<select name="goalType" defaultValue={savedProfile.success || !firstRun ? saved.goalType ?? "" : ""}><option value="" disabled>Выбери цель</option>{Object.entries(GOALS).map(([value, goal]) => <option key={value} value={value}>{goal.label}</option>)}</select></label>
         {averageTarget && week.averageKg !== null ? (
           <p>
             Средний вес за 7 дней — {week.averageKg.toLocaleString("ru-RU")} кг, замеров: {week.weighIns}. По профилю норма теперь {averageTarget.calories} ккал · Б {averageTarget.proteinGrams} · Ж {averageTarget.fatGrams} · У {averageTarget.carbsGrams} г.{" "}
@@ -659,19 +659,19 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       <>
         <section>
           <h3>Счета</h3>
-          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создайте основной счёт, чтобы начать вести операции.</p>}
+          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создай основной счёт, чтобы начать вести операции.</p>}
         </section>
         <hr />
         <h3>{account ? "Изменить счёт" : "Добавить счёт"}</h3>
         <form key={account?.id ?? "new"} onSubmit={async (event) => {
           const saved = await submitForm(event, (form) => {
             const isDefault = form.get("isDefault") === "on";
-            if (account?.isDefault && !isDefault) throw new Error("Сначала сделайте основным другой счёт.");
+            if (account?.isDefault && !isDefault) throw new Error("Сначала сделай основным другой счёт.");
             return {
               type: "account.save",
               ...(account ? { id: account.id } : {}),
               name: requiredText(form, "name", "Название счёта"),
-              currency: account ? account.currency : newAccountCurrency || (() => { throw new Error("Выберите валюту счёта."); })(),
+              currency: account ? account.currency : newAccountCurrency || (() => { throw new Error("Выбери валюту счёта."); })(),
               openingBalanceMinor: account
                 // The field shows what is on the account now; the opening balance is shifted by the difference.
                 ? account.openingBalanceMinor + (signedMinor(recordValue(form, "currentBalance") || "0") - account.balanceMinor)
@@ -689,7 +689,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
               ? <label>Сейчас на счёте, {currencyUnit(account.currency)}<input name="currentBalance" type="text" inputMode="decimal" defaultValue={amountInput(account.balanceMinor)} placeholder="0,00" /></label>
               : <label>Сколько сейчас на счёте<input name="openingBalance" type="text" inputMode="decimal" placeholder="0,00" /></label>}
           </div>
-          {account && <p>Остаток складывается из начального {amountLabel(account.openingBalanceMinor, account.currency)} и операций {signedAmountLabel(account.balanceMinor - account.openingBalanceMinor, account.currency)}. Если поправите сумму, начальный остаток пересчитается сам.</p>}
+          {account && <p>Остаток складывается из начального {amountLabel(account.openingBalanceMinor, account.currency)} и операций {signedAmountLabel(account.balanceMinor - account.openingBalanceMinor, account.currency)}. Если поправишь сумму, начальный остаток пересчитается сам.</p>}
           {!account && <CurrencyPicker value={newAccountCurrency} onChange={setNewAccountCurrency} legend="Валюта счёта" />}
           {!account && snapshot.finance.accounts.length === 0 && <p>Валюта первого счёта становится основной: в ней считаются итоги, планы и долги.</p>}
           <label className="check-field"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
@@ -707,7 +707,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
                 rateToBase: requiredText(form, "rate", "Курс").replace(",", "."),
                 effectiveAt: localTimestamp(requiredText(form, "effectiveAt", "Дата начала действия"), tz),
               }), true)}>
-                <label>1 {code} = … {baseUnit}<input name="rate" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.rates[code] ?? ""} placeholder="Укажите курс" /></label>
+                <label>1 {code} = … {baseUnit}<input name="rate" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.rates[code] ?? ""} placeholder="Укажи курс" /></label>
                 <label>Действует с<input name="effectiveAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
                 <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить курс {code}</button></div>
               </form>
@@ -735,7 +735,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         </section>
         <hr />
         <h3>Добавить напоминание</h3>
-        {snapshot.finance.accounts.length === 0 ? <p>Сначала добавьте счёт в разделе счетов.</p> : (
+        {snapshot.finance.accounts.length === 0 ? <p>Сначала добавь счёт в разделе счетов.</p> : (
           <form key={item?.id ?? "new"} onSubmit={async (event) => {
             const saved = await submitForm(event, (form) => ({
               type: "recurring.save",
@@ -855,7 +855,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
               <MoveButton direction="down" label={`Переместить день «${day.name}» ниже`} disabled={pending || index === days.length - 1} onClick={() => void runCommand({ type: "day.move", dayId: day.id, direction: "down" }, true)} />
               <button type="button" onClick={() => { setSelectedReplacementId(null); setEditingExerciseId(null); setConfirmRemoval(null); setSelectedDayId(day.id); }}>Открыть</button>
             </span>
-          </li>)}</ol> : <p>План пуст. Создайте день, затем добавьте выбранные упражнения.</p>}
+          </li>)}</ol> : <p>План пуст. Создай день, затем добавь выбранные упражнения.</p>}
         </section>
         <hr />
         <h3>Новый тренировочный день</h3>
@@ -884,7 +884,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         </div>
         <form onSubmit={(event) => submitForm(event, (form) => {
           const name = exerciseMode === "custom" ? requiredText(form, "name", "Упражнение") : selectedCatalog?.name;
-          if (!name) throw new Error("Выберите упражнение из каталога.");
+          if (!name) throw new Error("Выбери упражнение из каталога.");
           const details = {
             name,
             muscleGroup: exerciseMode === "catalog" ? selectedCatalog?.muscles ?? "" : recordValue(form, "muscleGroup"),
@@ -941,7 +941,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           const repetitions = optionalNumber(form, "repetitions", "Повторения");
           const durationSeconds = optionalNumber(form, "durationSeconds", "Время");
           const distanceMeters = optionalNumber(form, "distanceMeters", "Дистанция");
-          if (![repetitions, durationSeconds, distanceMeters].some((value) => value !== null && value > 0)) throw new Error("Укажите положительное значение повторений, времени или дистанции.");
+          if (![repetitions, durationSeconds, distanceMeters].some((value) => value !== null && value > 0)) throw new Error("Укажи положительное значение повторений, времени или дистанции.");
           return { type: "set.save", dayId, exerciseId, setIndex: set.index, weightKg, repetitions, durationSeconds, distanceMeters };
         })}>
           <div className="fields-row">
@@ -1013,7 +1013,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
         const label = (field.closest("label")?.firstChild?.textContent ?? field.getAttribute("aria-label") ?? "Поле").trim();
         const { validity } = field;
-        setFormError(validity.valueMissing ? `Заполните поле «${label}».` : validity.rangeOverflow || validity.rangeUnderflow ? `Значение в поле «${label}» вне допустимого диапазона.` : validity.stepMismatch || validity.badInput ? `В поле «${label}» нужно число в верном формате.` : `Проверьте поле «${label}».`);
+        setFormError(validity.valueMissing ? `Заполни поле «${label}».` : validity.rangeOverflow || validity.rangeUnderflow ? `Значение в поле «${label}» вне допустимого диапазона.` : validity.stepMismatch || validity.badInput ? `В поле «${label}» нужно число в верном формате.` : `Проверь поле «${label}».`);
         field.setAttribute("aria-invalid", "true");
         field.focus();
       }}
@@ -1093,7 +1093,7 @@ function editorTitle(editor: EditorState): string {
     case "finance-plan-purchase": return "Записать покупку";
     case "debt-create": return "Новый долг";
     case "debt-repayment": return editor.debt.direction === "i_owe" ? "Возврат долга" : "Получение возврата";
-    case "target": return editor.firstRun ? "Расскажите о себе" : "Профиль и цель КБЖУ";
+    case "target": return editor.firstRun ? "Расскажи о себе" : "Профиль и цель КБЖУ";
     case "whats-new": return "Что нового";
     case "weight": return "Масса тела";
     case "accounts": return "Счета и курс";

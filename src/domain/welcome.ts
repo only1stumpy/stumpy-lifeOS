@@ -13,7 +13,7 @@ export type WelcomeInput = {
  * walkthrough lives in the Mini App onboarding and in /help, so this stays readable in seconds.
  * Telegram HTML; only enabled sections are named.
  */
-export function buildStartMessage({ modules, features, firstRun }: WelcomeInput & { firstRun: boolean }): string {
+export function buildStartMessage({ modules, features, firstRun, hasAi = true }: WelcomeInput & { firstRun: boolean; hasAi?: boolean }): string {
   const has = (feature: LifeFeature) => features.includes(feature);
   const abilities: string[] = [];
   if (modules.includes("nutrition")) abilities.push(`• ${h("Питание")} — считаю калории и КБЖУ${has("nutrition.weight") ? ", веду вес" : ""}.`);
@@ -26,9 +26,11 @@ export function buildStartMessage({ modules, features, firstRun }: WelcomeInput 
     : modules.includes("nutrition") ? "напиши мне «съел гречку с курицей»"
     : modules.includes("finance") ? "напиши мне «кофе 45»"
     : "открой приложение";
-  const howItWorks = modules.includes("nutrition") || modules.includes("finance")
-    ? `Здесь всё просто: ${example}, и я помогу внести запись в дневник.`
-    : "Здесь всё просто: открой приложение и веди тренировки.";
+  const howItWorks = !hasAi
+    ? "Всё можно вносить вручную в приложении, ИИ для этого не нужен. Чтобы записывать обычными сообщениями и фото, подключи бесплатный ключ: шестерёнка → «ИИ-провайдеры»."
+    : modules.includes("nutrition") || modules.includes("finance")
+      ? `Здесь всё просто: ${example}, и я помогу внести запись в дневник.`
+      : "Здесь всё просто: открой приложение и веди тренировки.";
 
   const begin = firstRun
     ? [h("С чего начать?"), "Нажми «Открыть LifeOS» и пройди короткое знакомство: выберешь нужные разделы, настроишь профиль и подключишь ИИ. Всё можно поменять позже."]

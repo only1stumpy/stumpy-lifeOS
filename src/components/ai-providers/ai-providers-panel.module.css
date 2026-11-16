@@ -1840,3 +1840,7 @@
     transition: none;
   }
 }
+
+.keyHelp { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #a5899538; border-radius: 12px; }
+.keyHelp summary { cursor: pointer; color: #742b45; font-size: 14px; font-weight: 550; }
+.keyHelp[open] summary { margin-bottom: 4px; }

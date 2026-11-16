@@ -18,3 +18,12 @@ test("component styles use the shared safe-area variables, not raw insets", () =
     .filter((path) => /env\(safe-area-inset|--tg-(content-)?safe-area-inset/.test(readFileSync(path, "utf8")));
   assert.deepEqual(offenders, []);
 });
+
+// A component-local "safe" variable (e.g. --ob-safe-top) bypasses the shared inset and drifts from it.
+test("components do not define their own safe-area variables", () => {
+  const offenders = files("src")
+    .filter((path) => /\.(css|tsx?)$/.test(path))
+    .filter((path) => /--[\w-]*safe[\w-]*\s*[:"`]|"--[\w-]*safe[\w-]*"/.test(readFileSync(path, "utf8").replace(/--(?:tg|lifeos)-[\w-]*safe[\w-]*/g, "")))
+    .filter((path) => !/(globals\.css|lifeos-root\.tsx|lifeos-app\.tsx|loading-skeletons\.tsx)$/.test(path));
+  assert.deepEqual(offenders, []);
+});

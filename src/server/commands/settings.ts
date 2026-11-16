@@ -66,8 +66,8 @@ export const settingsHandlers = {
     await tx.update(s.ownerSettings).set({ notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
   },
   "privacy.accept": async ({ tx, owner }, command) => {
-    if (command.version !== PRIVACY_POLICY_VERSION) throw new AppError(409, "Версия политики устарела. Откройте приложение заново.");
-    if (command.healthVersion !== undefined && command.healthVersion !== HEALTH_CONSENT_VERSION) throw new AppError(409, "Версия согласия на данные о здоровье устарела. Откройте приложение заново.");
+    if (command.version !== PRIVACY_POLICY_VERSION) throw new AppError(409, "Версия политики устарела. Открой приложение заново.");
+    if (command.healthVersion !== undefined && command.healthVersion !== HEALTH_CONSENT_VERSION) throw new AppError(409, "Версия согласия на данные о здоровье устарела. Открой приложение заново.");
     const now = new Date();
     await tx.update(s.ownerSettings).set({
       privacyAcceptedAt: now,
@@ -77,7 +77,7 @@ export const settingsHandlers = {
     }).where(eq(s.ownerSettings.id, owner.id));
   },
   "privacy.health.accept": async ({ tx, owner }, command) => {
-    if (command.version !== HEALTH_CONSENT_VERSION) throw new AppError(409, "Версия согласия на данные о здоровье устарела. Откройте приложение заново.");
+    if (command.version !== HEALTH_CONSENT_VERSION) throw new AppError(409, "Версия согласия на данные о здоровье устарела. Открой приложение заново.");
     const now = new Date();
     await tx.update(s.ownerSettings).set({ healthConsentAt: now, healthConsentVersion: command.version, updatedAt: now }).where(eq(s.ownerSettings.id, owner.id));
   },
