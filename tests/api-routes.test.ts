@@ -135,7 +135,7 @@ test("webhook: личное сообщение сохраняется до от�
   const send = () => POST(api("/api/telegram", { method: "POST", headers: { "x-telegram-bot-api-secret-token": WEBHOOK_SECRET }, body: JSON.stringify(update) }));
   // `after()` needs a live request scope; outside one it throws, which the route reports as 503 after the row is stored.
   const first = await send();
-  assert.ok([200, 503].includes(first.status));
+  assert.equal(first.status, 503, "вне запроса Next after() недоступен: строка сохранена, но фоновая обработка не стартовала");
   const rows = () => db.select().from(schema.telegramUpdates).where(eq(schema.telegramUpdates.telegramUpdateId, 424242));
   assert.equal((await rows()).length, 1, "update сохранён до ответа");
   await send();

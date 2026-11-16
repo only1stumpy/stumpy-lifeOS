@@ -25,6 +25,8 @@ export async function createCommandDb() {
   setTestDatabase(db);
   return { client, db };
 }
+/** Unwires the test database so later test files see the same "no database" state they would on their own. */
+export const releaseCommandDb = () => setTestDatabase(undefined);
 export type CommandDb = Awaited<ReturnType<typeof createCommandDb>>["db"];
 
 let nextTelegramId = 7_000_000_000;
