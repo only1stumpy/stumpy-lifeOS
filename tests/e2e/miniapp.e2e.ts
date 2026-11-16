@@ -92,9 +92,9 @@ before(async () => {
 
   profileDir = mkdtempSync(join(tmpdir(), "lifeos-e2e-chrome-"));
   const debugPort = 9400 + Math.floor(Math.random() * 400);
-  chrome = spawn(process.env.CHROME_BIN ?? "google-chrome", ["--headless=new", "--no-sandbox", "--disable-gpu", "--no-first-run", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profileDir}`, "about:blank"], { stdio: "ignore" });
+  chrome = spawn(process.env.CHROME_BIN ?? "google-chrome", ["--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profileDir}`, "about:blank"], { stdio: "ignore" });
   let target: { webSocketDebuggerUrl: string } | undefined;
-  for (let attempt = 0; attempt < 60 && !target; attempt += 1) {
+  for (let attempt = 0; attempt < 160 && !target; attempt += 1) {
     await wait(250);
     try { target = ((await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json()) as { type: string; webSocketDebuggerUrl: string }[]).find((item) => item.type === "page"); } catch { /* chrome starting */ }
   }
