@@ -30,6 +30,17 @@ export async function sendOwnerMessage(
   await getBot().api.sendMessage(ownerId, text, replyMarkup ? { reply_markup: replyMarkup } : {});
 }
 
+/** Cheap pre-check so that a summary already sent is not built again on every cron call. */
+export async function isOwnerNotificationSent(key: string): Promise<boolean> {
+  const owner = await ensureOwner();
+  const [delivery] = await getDb()
+    .select({ sentAt: schema.notificationDeliveries.sentAt })
+    .from(schema.notificationDeliveries)
+    .where(and(eq(schema.notificationDeliveries.ownerId, owner.id), eq(schema.notificationDeliveries.key, key)))
+    .limit(1);
+  return Boolean(delivery?.sentAt);
+}
+
 export async function sendDeduplicatedOwnerNotification(
   key: string,
   text: string,
@@ -81,6 +92,7 @@ export async function sendDueDebtReminder(
 
 export async function sendDailySummary(now: Date, timeZone: string): Promise<boolean> {
   const today = dateKey(now, timeZone);
+  if (await isOwnerNotificationSent(`daily:${today}`)) return false;
   const snapshot = await loadSnapshot(today);
   const lines = [`Вот твоя сводка за сегодня · ${today}`];
   const modules = snapshot.settings.enabledModules;
@@ -203,6 +215,7 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
   const monday = new Date(`${localToday}T12:00:00Z`);
   monday.setUTCDate(monday.getUTCDate() - ((weekday + 6) % 7));
   const weekStart = monday.toISOString().slice(0, 10);
+  if (await isOwnerNotificationSent(`weekly:${localToday}`)) return false;
   const owner = await ensureOwner();
   const [foods, money, sessions, weights, sets] = await Promise.all([
     getDb().select().from(schema.nutritionEntries).where(eq(schema.nutritionEntries.ownerId, owner.id)),
@@ -269,6 +282,7 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
 /** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */
 export async function sendWeightReminder(now: Date, timeZone: string): Promise<boolean> {
   const localToday = dateKey(now, timeZone);
+  if (await isOwnerNotificationSent(`weight-reminder:${localToday}`)) return false;
   const owner = await ensureOwner();
   const weights = await getDb().select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id));
   const week = weeklyAverageWeight(weights.map((entry) => ({ date: dateKey(entry.occurredAt, timeZone), weightKg: Number(entry.weightKg) })), localToday);

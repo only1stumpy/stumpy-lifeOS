@@ -81,7 +81,8 @@ export type AIAnalysisErrorCode =
   | "provider_configuration"
   | "quota_exceeded"
   | "credits_exhausted"
-  | "invalid_response";
+  | "invalid_response"
+  | "time_budget";
 
 export class AIAnalysisError extends Error {
   readonly code: AIAnalysisErrorCode;

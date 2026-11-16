@@ -9,7 +9,7 @@ import { foreignCurrencyQuestion, rubleMarkerContradictsBase } from "@/domain/cu
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
-import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot } from "@/server/lifeos";
+import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, loadPendingDrafts } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
@@ -126,7 +126,7 @@ export function registerMessages(bot: Bot<Context>): void {
             await ctx.reply(result.clarification ?? "Не получилось сопоставить долг. Открой «Финансы → Долги» и выбери запись вручную.");
             return;
           }
-          const draft = (await loadSnapshot()).drafts.find((item) => item.id === result.draftIds[0]);
+          const [draft] = await loadPendingDrafts([result.draftIds[0]]);
           if (!draft) throw new AppError(404, "Черновик долга не найден.");
           await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
           return;
@@ -142,8 +142,7 @@ export function registerMessages(bot: Bot<Context>): void {
         if (!categoryCommand.success) throw new AppError(400, "Название категории должно быть не длиннее 300 символов.");
         await executeCommand(categoryCommand.data);
         await clearEditingCapture(previousDraftId);
-        const snapshot = await loadSnapshot();
-        const draft = snapshot.drafts.find((item) => item.id === previousDraftId);
+        const [draft] = await loadPendingDrafts([previousDraftId]);
         if (!draft) throw new AppError(404, "Обновлённый черновик не найден.");
         await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
         return;
@@ -164,6 +163,8 @@ export function registerMessages(bot: Bot<Context>): void {
         image,
         previousDraftId,
         telegramUpdateRowId: updateRowId,
+        // A retried update keeps the time the user wrote it, not the time of the retry.
+        messageAt: ctx.message?.date ? new Date(ctx.message.date * 1000) : undefined,
       });
 
       if (previousDraftId && result.draftIds.length) await clearEditingCapture(previousDraftId);
@@ -180,8 +181,7 @@ export function registerMessages(bot: Bot<Context>): void {
       if (statusMessageId) {
         await ctx.api.editMessageText(ctx.chat.id, statusMessageId, "Готовлю отдельные черновики для подтверждения…").catch(() => undefined);
       }
-      const snapshot = await loadSnapshot();
-      const drafts = snapshot.drafts.filter((draft) => result.draftIds.includes(draft.id));
+      const drafts = await loadPendingDrafts(result.draftIds);
       if (statusMessageId) await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
       const moneyOnly = drafts.every((draft) => draft.money && !draft.food && !draft.debt);
       if (updateRowId && moneyOnly && drafts.length > MAX_SEPARATE_DRAFT_MESSAGES) {

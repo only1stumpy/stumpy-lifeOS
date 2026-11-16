@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { getDb, type Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import type { AppSnapshot } from "@/domain/app";
@@ -71,6 +71,72 @@ export async function ensureOwner(explicitTelegramUserId?: string) {
 
 /** How many of the newest finance entries the snapshot carries to the client. */
 export const MAX_SNAPSHOT_FINANCE_ENTRIES = 1000;
+
+type DraftRows = {
+  captures: (typeof s.captureDrafts.$inferSelect)[];
+  foodDrafts: (typeof s.nutritionDrafts.$inferSelect)[];
+  moneyDrafts: (typeof s.moneyDrafts.$inferSelect)[];
+  debtDrafts: (typeof s.financeDebtDrafts.$inferSelect)[];
+  categories: (typeof s.financeCategories.$inferSelect)[];
+  debts: (typeof s.financeDebts.$inferSelect)[];
+  repayments: (typeof s.financeDebtRepayments.$inferSelect)[];
+};
+
+function buildDrafts(
+  captures: DraftRows["captures"], foodDrafts: DraftRows["foodDrafts"], moneyDrafts: DraftRows["moneyDrafts"], debtDrafts: DraftRows["debtDrafts"],
+  categories: DraftRows["categories"], debts: DraftRows["debts"], repayments: DraftRows["repayments"],
+): AppSnapshot["drafts"] {
+  return captures.map((v) => {
+    const food = foodDrafts.find((f) => f.captureDraftId === v.id);
+    const entry = moneyDrafts.find((m) => m.captureDraftId === v.id);
+    const debt = debtDrafts.find((d) => d.captureDraftId === v.id);
+    const linkedDebt = debt?.debtId ? debts.find((item) => item.id === debt.debtId) : null;
+    const repaidMinor = debt?.debtId ? repayments
+      .filter((repayment) => repayment.debtId === debt.debtId)
+      .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0) : 0;
+    return { id: v.id, description: v.messageText ?? "", occurredAt: (food?.occurredAt ?? entry?.occurredAt ?? debt?.occurredAt ?? v.createdAt).toISOString(),
+      food: food ? { label: food.name, portionLabel: food.portionLabel, ...macroNumbers(food), estimated: food.estimated } : null,
+      money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: entry.currency, kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
+      debt: debt ? {
+        operation: debt.operation as "create" | "repayment",
+        personName: debt.personName,
+        direction: debt.direction as FinanceDebt["direction"],
+        amountMinor: toMinor(debt.amount),
+        openedAs: debt.openedAs as "transfer" | "opening_balance" | null,
+        debtId: debt.debtId,
+        dueOn: debt.dueOn,
+        note: debt.note,
+        remainingAmountMinor: linkedDebt ? debtRemainingMinor(toMinor(linkedDebt.originalAmount), [repaidMinor]) : null,
+      } : null };
+  });
+}
+
+/** Pending drafts only (optionally a subset): a few targeted queries instead of the whole snapshot. */
+export async function loadPendingDrafts(ids?: readonly string[]): Promise<AppSnapshot["drafts"]> {
+  if (ids && ids.length === 0) return [];
+  const owner = await ensureOwner();
+  const db = getDb();
+  const ownerId = owner.id;
+  const captures = await db.select().from(s.captureDrafts)
+    .where(and(eq(s.captureDrafts.ownerId, ownerId), eq(s.captureDrafts.status, "pending"), ...(ids ? [inArray(s.captureDrafts.id, [...ids])] : [])))
+    .orderBy(s.captureDrafts.createdAt);
+  if (!captures.length) return [];
+  const captureIds = captures.map((v) => v.id);
+  const [foodDrafts, moneyDrafts, debtDrafts, categories] = await Promise.all([
+    db.select().from(s.nutritionDrafts).where(and(eq(s.nutritionDrafts.ownerId, ownerId), inArray(s.nutritionDrafts.captureDraftId, captureIds))),
+    db.select().from(s.moneyDrafts).where(and(eq(s.moneyDrafts.ownerId, ownerId), inArray(s.moneyDrafts.captureDraftId, captureIds))),
+    db.select().from(s.financeDebtDrafts).where(and(eq(s.financeDebtDrafts.ownerId, ownerId), inArray(s.financeDebtDrafts.captureDraftId, captureIds))),
+    db.select().from(s.financeCategories).where(eq(s.financeCategories.ownerId, ownerId)),
+  ]);
+  const debtIds = debtDrafts.map((v) => v.debtId).filter((v): v is string => !!v);
+  const [debts, repayments] = debtIds.length
+    ? await Promise.all([
+      db.select().from(s.financeDebts).where(and(eq(s.financeDebts.ownerId, ownerId), inArray(s.financeDebts.id, debtIds))),
+      db.select().from(s.financeDebtRepayments).where(and(eq(s.financeDebtRepayments.ownerId, ownerId), inArray(s.financeDebtRepayments.debtId, debtIds))),
+    ])
+    : [[], []];
+  return buildDrafts(captures, foodDrafts, moneyDrafts, debtDrafts, categories, debts, repayments);
+}
 
 export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> {
   const owner = await ensureOwner();
@@ -205,29 +271,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     },
     settings: { timeZone: owner.timezone, baseCurrency, rates: latestRates, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, privacyAcceptedVersion: owner.privacyPolicyVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: v.currency, category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
-    drafts: captures.map((v) => {
-      const food = foodDrafts.find((f) => f.captureDraftId === v.id);
-      const entry = moneyDrafts.find((m) => m.captureDraftId === v.id);
-      const debt = debtDrafts.find((d) => d.captureDraftId === v.id);
-      const linkedDebt = debt?.debtId ? debts.find((item) => item.id === debt.debtId) : null;
-      const repaidMinor = debt?.debtId ? repayments
-        .filter((repayment) => repayment.debtId === debt.debtId)
-        .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0) : 0;
-      return { id: v.id, description: v.messageText ?? "", occurredAt: (food?.occurredAt ?? entry?.occurredAt ?? debt?.occurredAt ?? v.createdAt).toISOString(),
-        food: food ? { label: food.name, portionLabel: food.portionLabel, ...macroNumbers(food), estimated: food.estimated } : null,
-        money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: entry.currency, kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
-        debt: debt ? {
-          operation: debt.operation as "create" | "repayment",
-          personName: debt.personName,
-          direction: debt.direction as FinanceDebt["direction"],
-          amountMinor: toMinor(debt.amount),
-          openedAs: debt.openedAs as "transfer" | "opening_balance" | null,
-          debtId: debt.debtId,
-          dueOn: debt.dueOn,
-          note: debt.note,
-          remainingAmountMinor: linkedDebt ? debtRemainingMinor(toMinor(linkedDebt.originalAmount), [repaidMinor]) : null,
-        } : null };
-    }),
+    drafts: buildDrafts(captures, foodDrafts, moneyDrafts, debtDrafts, categories, debts, repayments),
     templates: templates.map((v) => ({ id: v.id, name: v.name, portionLabel: v.portionLabel, calories: Number(v.calories), proteinGrams: Number(v.proteinGrams), fatGrams: Number(v.fatGrams), carbsGrams: Number(v.carbsGrams) })),
     activeSession: active?.workoutDayId ? { id: active.id, dayId: active.workoutDayId, startedAt: active.startedAt.toISOString() } : null,
   };
@@ -297,14 +341,23 @@ export async function createDebtCaptureDraft(input: {
   });
 }
 
-export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "image"> & { previousDraftId?: string; telegramUpdateRowId?: string }) {
+/** `messageAt` is when the user wrote the message; a retried update must not be analysed as if it were sent now. */
+export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "image"> & { previousDraftId?: string; telegramUpdateRowId?: string; messageAt?: Date }) {
   const owner = await ensureOwner();
   if (input.telegramUpdateRowId) {
     const stored = await getDb().select().from(s.captureDrafts).where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.telegramUpdateRowId, input.telegramUpdateRowId)));
     if (stored.length) return { entries: [], clarification: null, provider: null, model: null, draftIds: stored.map((v) => v.id) };
   }
-  const snapshot = await loadSnapshot();
-  const templates = await getDb().select().from(s.foodTemplates).where(eq(s.foodTemplates.ownerId, owner.id));
+  const db = getDb();
+  // Targeted reads: the whole snapshot (every table, whole history) is not needed to parse one message.
+  const [templates, accounts, categoryRows, previousDrafts] = await Promise.all([
+    db.select().from(s.foodTemplates).where(eq(s.foodTemplates.ownerId, owner.id)),
+    db.select().from(s.financeAccounts).where(and(eq(s.financeAccounts.ownerId, owner.id), eq(s.financeAccounts.isArchived, false))),
+    db.select({ name: s.financeCategories.name }).from(s.financeCategories).where(eq(s.financeCategories.ownerId, owner.id)),
+    input.previousDraftId ? loadPendingDrafts([input.previousDraftId]) : Promise.resolve([]),
+  ]);
+  const baseCurrency = owner.baseCurrency ?? accounts[0]?.currency ?? "USD";
+  const defaultAccountId = accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null;
   const analyzedAt = new Date();
   const clarificationHistory = activeClarificationHistory(
     owner.aiClarificationHistory,
@@ -318,7 +371,7 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   }
   const providerProfiles = await loadConfiguredAiProviderConfigs(owner.id);
   const modules = normalizeModules(owner.enabledModules);
-  const rawAnalysis = await analyzeMessage({ ...input, enabledModules: modules, baseCurrency: snapshot.settings.baseCurrency, now: analyzedAt.toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(snapshot.finance.entries.map((v) => v.category))], previousDraft: snapshot.drafts.find((v) => v.id === input.previousDraftId) }, {
+  const rawAnalysis = await analyzeMessage({ ...input, enabledModules: modules, baseCurrency, now: (input.messageAt ?? analyzedAt).toISOString(), timeZone: owner.timezone, clarificationHistory: clarificationHistory ?? undefined, templates: templates.map((v) => ({ name: v.name, portionLabel: v.portionLabel, ...macroNumbers(v) })), categories: [...new Set(categoryRows.map((v) => v.name))], previousDraft: previousDrafts[0] }, {
     profiles: providerProfiles,
     ownerId: owner.id,
   });
@@ -347,8 +400,7 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
       const occurredAt = new Date(entry.occurredAt);
       if (entry.food) await tx.insert(s.nutritionDrafts).values({ ownerId: owner.id, captureDraftId: capture.id, name: entry.food.label, portionLabel: entry.food.portionLabel, ...macroStrings(entry.food), estimated: entry.food.estimated, occurredAt });
       if (entry.money) {
-        const allAccounts = snapshot.finance.accounts;
-        const chosen = allAccounts.find((v) => v.id === snapshot.settings.defaultAccountId && v.currency === entry.money!.currency) ?? allAccounts.find((v) => v.currency === entry.money!.currency);
+        const chosen = accounts.find((v) => v.id === defaultAccountId && v.currency === entry.money!.currency) ?? accounts.find((v) => v.currency === entry.money!.currency);
         await tx.insert(s.moneyDrafts).values({ ownerId: owner.id, captureDraftId: capture.id, name: entry.money.label, entryType: entry.money.kind, amount: decimal(entry.money.amountMinor), currency: entry.money.currency, accountId: chosen?.id ?? null, proposedCategory: entry.money.category, occurredAt });
       }
     }
