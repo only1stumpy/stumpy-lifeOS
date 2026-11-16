@@ -3,7 +3,7 @@ import { InlineKeyboard, type Bot, type Context } from "grammy";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { debtRemainingMinor } from "@/domain/debts";
-import { executeCommand, ensureOwner, loadSnapshot } from "@/server/lifeos";
+import { executeCommand, ensureOwner, loadPendingDrafts } from "@/server/lifeos";
 import { AppError } from "@/server/http";
 import { formatBulkSummary, formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
 import { clearEditingCapture, formatMoney, isOwner, markMessage } from "@/server/telegram/shared";
@@ -58,8 +58,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
           .where(and(eq(schema.captureDrafts.ownerId, owner.id), eq(schema.captureDrafts.telegramUpdateRowId, id), eq(schema.captureDrafts.status, "pending")));
         const messageIdOf = new Map(messageIds.map((row) => [row.id, row.messageId]));
         // The summary is built before confirming: confirmed drafts leave the snapshot.
-        const snapshot = await loadSnapshot();
-        const described = new Map(snapshot.drafts.filter((draft) => messageIdOf.has(draft.id)).map((draft) => [draft.id, draft]));
+        const described = new Map((await loadPendingDrafts([...messageIdOf.keys()])).map((draft) => [draft.id, draft]));
         const baseCurrency = owner.baseCurrency ?? "";
         const bulkMessageId = ctx.callbackQuery?.message?.message_id;
         const cleanup = async (draftIds: string[], removeBulk = true) => {

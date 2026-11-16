@@ -25,3 +25,11 @@ export function minuteOfDay(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
 }
+
+/**
+ * A summary is due in `[summaryMinute, summaryMinute + windowMinutes)` of the owner's local day. The cron runs every
+ * 30 minutes, so "at the exact minute" would never match; the window ends at midnight (the delivery key is per local date).
+ */
+export function inSummaryWindow(localMinute: number, summaryMinute: number, windowMinutes: number): boolean {
+  return localMinute >= summaryMinute && localMinute < summaryMinute + windowMinutes;
+}
