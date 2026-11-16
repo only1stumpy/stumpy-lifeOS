@@ -3,7 +3,7 @@ import type { Bot, Context } from "grammy";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
-import { dateKey } from "@/domain/math";
+import { dateKey, weightDateToStamp, weightStampToDate } from "@/domain/math";
 import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
 import { foreignCurrencyQuestion, rubleMarkerContradictsBase } from "@/domain/currencies";
 import { parseDebtMessage } from "@/domain/debt-message";
@@ -212,13 +212,13 @@ export function registerMessages(bot: Bot<Context>): void {
 async function saveWeightFromChat(ownerId: string, timeZone: string, weightKg: number): Promise<string> {
   const today = dateKey(new Date(), timeZone);
   const [previous] = await getDb().select().from(schema.weightEntries)
-    .where(and(eq(schema.weightEntries.ownerId, ownerId), lt(schema.weightEntries.occurredAt, new Date(today + "T12:00:00Z"))))
+    .where(and(eq(schema.weightEntries.ownerId, ownerId), lt(schema.weightEntries.occurredAt, weightDateToStamp(today))))
     .orderBy(desc(schema.weightEntries.occurredAt))
     .limit(1);
   await executeCommand(commandSchema.parse({ type: "weight.save", date: today, weightKg }));
   const lines = [`Записал вес ${round1(weightKg)} кг на сегодня.`];
   if (previous) {
-    const [, month, day] = dateKey(previous.occurredAt, timeZone).split("-");
+    const [, month, day] = weightStampToDate(previous.occurredAt).split("-");
     const delta = weightKg - Number(previous.weightKg);
     lines.push(`Прошлый замер ${day}.${month}: ${round1(Number(previous.weightKg))} кг${Math.abs(delta) >= 0.05 ? ` (${formatSigned(delta)} кг)` : ", без изменений"}.`);
   }

@@ -35,7 +35,7 @@
 
 ## Значения в коде, не вынесенные в переменные
 
-- Часовой пояс нового профиля по умолчанию `Europe/Chisinau` (`src/db/schema.ts`, `owner_settings.timezone`). Команды или экрана смены часового пояса в `src/domain/commands.ts` и `src/components/` не найдено: пока он меняется только правкой столбца в базе. Для пользователей из других поясов сводки и дневные границы считаются по `Europe/Chisinau`.
+- Часовой пояс (`owner_settings.timezone`) определяется на знакомстве по `Intl.DateTimeFormat().resolvedOptions().timeZone` (`onboarding.complete`) и меняется в «Персонализации» (`settings.save`). Значение `Europe/Chisinau` в схеме осталось только как значение по умолчанию для уже существующих профилей: их пояс молча не меняется. Формы Mini App считают время в поясе владельца, а не устройства.
 - Срок действия подписи `initData` — 24 часа (`src/server/telegram/auth.ts`).
 - Лимиты запросов — в `src/server/rate-limit.ts` (см. [эксплуатацию](operations.md)).
 - Предел попыток обработки Telegram update — 3 (`MAX_UPDATE_ATTEMPTS` в `src/server/telegram/bot.ts`).
