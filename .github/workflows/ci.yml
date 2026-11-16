@@ -27,9 +27,11 @@ jobs:
       - run: npm run lint
       # Схема в src/db/schema.ts и миграции в drizzle/ не должны расходиться: generate не должен создать ничего нового.
       - name: Schema matches migrations
+        env:
+          DATABASE_URL: postgres://ci:ci@127.0.0.1:1/ci
         run: |
           npx drizzle-kit check
-          DATABASE_URL=postgres://ci:ci@127.0.0.1:1/ci npx drizzle-kit generate --name ci_drift_check
+          npx drizzle-kit generate --name ci_drift_check
           if [ -n "$(git status --porcelain drizzle)" ]; then
             echo "Схема расходится с миграциями: выполните npm run db:generate и закоммитьте результат"
             git status --porcelain drizzle
