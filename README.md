@@ -215,6 +215,7 @@ docs/             Продукт, архитектура, план, исслед
 | [docs/status.md](docs/status.md) | Что проверено и что нет |
 | [docs/deployment.md](docs/deployment.md), [docs/operations.md](docs/operations.md), [docs/configuration.md](docs/configuration.md), [docs/database.md](docs/database.md) | Развёртывание, эксплуатация, переменные окружения, база данных |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | Проект политики конфиденциальности |
+| [docs/terms.md](docs/terms.md) | Проект условий использования |
 | [docs/product.md](docs/product.md) | Бизнес-сценарии и границы продукта |
 | [docs/architecture.md](docs/architecture.md) | Стек, схема, API, переменные, ограничения |
 | [DESIGN.md](DESIGN.md) | Направление Liquid Glass и состояние интерфейса |

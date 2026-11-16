@@ -1,3 +1,4 @@
+import { consentState } from "@/domain/privacy";
 import { verifyTelegramInitData } from "./telegram/auth";
 export class AppError extends Error {
   constructor(public status: number, message: string, public retryAfterSeconds?: number) { super(message); }
@@ -10,6 +11,13 @@ export function requireOwner(request: Request) {
   const result = verifyTelegramInitData(auth.slice(4), { botToken });
   if (!result.ok) throw new AppError(401, "Сессия Telegram недействительна. Откройте приложение заново.");
   return result.user;
+}
+
+/** The server enforces consent itself: a signed request alone is not enough to write or analyse data (403). */
+export function assertConsent(owner: { privacyPolicyVersion: string | null; healthConsentVersion: string | null }): void {
+  const state = consentState(owner);
+  if (state === "policy") throw new AppError(403, "Сначала прими политику конфиденциальности и условия использования.");
+  if (state === "health") throw new AppError(403, "Сначала дай согласие на обработку данных о здоровье.");
 }
 
 /** Allows access to deployment-level quota metrics only for the legacy configured owner. */
