@@ -16,13 +16,16 @@ import { AppError } from "@/server/http";
 
 async function main() {
   const [command, file, ...extra] = process.argv.slice(2);
-  if ((command !== "export" && command !== "restore") || !file || extra.length > 0) {
-    throw new Error("Использование: tsx scripts/backup.ts export <file> | restore <file>");
+  const ownerFlag = extra[0] === "--owner" ? extra[1] : undefined;
+  const usage = "Использование: tsx scripts/backup.ts export|restore <file> [--owner <telegram id>]";
+  if ((command !== "export" && command !== "restore") || !file || extra.length > 2 || (extra.length > 0 && !ownerFlag)) {
+    throw new Error(usage);
   }
 
-  const ownerTelegramId = process.env.TELEGRAM_OWNER_ID;
+  // Which owner to export or restore: --owner, otherwise TELEGRAM_OWNER_ID from the environment.
+  const ownerTelegramId = ownerFlag ?? process.env.TELEGRAM_OWNER_ID;
   const databaseUrl = process.env.DATABASE_URL;
-  if (!ownerTelegramId) throw new AppError(503, "TELEGRAM_OWNER_ID не настроен.");
+  if (!ownerTelegramId) throw new AppError(400, "Укажите Telegram ID: --owner <id> или TELEGRAM_OWNER_ID.");
   if (!databaseUrl) throw new AppError(503, "DATABASE_URL не настроен.");
 
   if (typeof WebSocket !== "undefined") neonConfig.webSocketConstructor = WebSocket;
