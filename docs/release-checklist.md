@@ -6,7 +6,7 @@
 
 - [ ] CI на `main` зелёный, защита ветки включена.
 - [ ] `/api/health` на production отдаёт версию из `package.json`; Vercel Production собран из merge commit.
-- [ ] Применены все миграции из `drizzle/` (сверить с `drizzle.__drizzle_migrations`).
+- [ ] Применены все миграции из `drizzle/`: `GET /api/ready` с `CRON_SECRET` отвечает `200` (сверка журнала `drizzle.__drizzle_migrations` с `drizzle/meta/_journal.json`). Правило: SQL новой миграции применяется в production до merge PR ([развёртывание](deployment.md#4-миграции)).
 - [x] `CRON_SECRET` и `TELEGRAM_WEBHOOK_SECRET` не слабее 32 символов (проверено 2026-11-15, 64 hex).
 - [ ] Учения восстановления Neon (ветка и PITR) пройдены ([operations.md](operations.md), «Проверка восстановления»); восстановление на уровне приложения уже проверено 2026-11-15.
 - [ ] Юридическая проверка [privacy-policy.md](privacy-policy.md) по вопросам из раздела «Заметки для юридической проверки» (возраст 14 лет, сроки 72 часа и дата вступления закона сверены с официальным текстом 2026-11-15).

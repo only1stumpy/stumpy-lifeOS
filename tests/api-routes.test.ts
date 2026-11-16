@@ -141,3 +141,23 @@ test("webhook: личное сообщение сохраняется до от�
   await send();
   assert.equal((await rows()).length, 1, "повтор не создаёт вторую запись");
 });
+
+test("ready: без секрета — 401, без журнала миграций — 503, с последней миграцией — 200, с отставанием — 503", async () => {
+  const { client } = await createCommandDb();
+  const { GET } = await import("../src/app/api/ready/route");
+  const { default: journal } = await import("../drizzle/meta/_journal.json", { with: { type: "json" } });
+  const last = journal.entries.reduce((a, b) => (b.when > a.when ? b : a));
+  const auth = { headers: { authorization: `Bearer ${CRON_SECRET}` } };
+  assert.equal((await GET(api("/api/ready"))).status, 401);
+  assert.equal((await GET(api("/api/ready", { headers: { authorization: "Bearer wrong" } }))).status, 401);
+  assert.equal((await GET(api("/api/ready", auth))).status, 503);
+  await client.exec('CREATE SCHEMA drizzle; CREATE TABLE drizzle.__drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint)');
+  await client.exec(`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('x', ${journal.entries[0].when})`);
+  const pending = await GET(api("/api/ready", auth));
+  assert.equal(pending.status, 503);
+  assert.equal((await body(pending)).status, "migrations_pending");
+  await client.exec(`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('y', ${last.when})`);
+  const ready = await GET(api("/api/ready", auth));
+  assert.equal(ready.status, 200);
+  assert.equal((await body(ready)).migration, last.tag);
+});
