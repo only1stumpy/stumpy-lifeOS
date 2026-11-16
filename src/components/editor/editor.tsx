@@ -7,7 +7,7 @@ import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { exerciseCatalog } from "@/domain/exercise-catalog";
 import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
-import { parseMinor } from "@/domain/math";
+import { instantToZonedLocal, parseMinor, zonedLocalToInstant } from "@/domain/math";
 import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import { APP_VERSION, releasesSince } from "@/domain/release";
@@ -98,34 +98,28 @@ function requiredText(form: FormData, name: string, label: string): string {
   return value;
 }
 
-function localTimestamp(value: string): string {
+function localTimestamp(value: string, timeZone: string): string {
   if (!value) throw new Error("Укажите дату и время.");
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) throw new Error("Проверьте дату и время.");
+  const date = zonedLocalToInstant(value, timeZone);
+  if (!date) throw new Error("Проверьте дату и время.");
   return date.toISOString();
 }
 
-function dateTimestamp(value: string): string {
+function dateTimestamp(value: string, timeZone: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("Укажите дату.");
-  const date = new Date(`${value}T12:00:00`);
-  if (Number.isNaN(date.getTime())) throw new Error("Проверьте дату.");
+  const date = zonedLocalToInstant(`${value}T12:00`, timeZone);
+  if (!date) throw new Error("Проверьте дату.");
   return date.toISOString();
 }
 
-function localInputValue(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+function localInputValue(value: string, timeZone: string): string {
+  return instantToZonedLocal(value, timeZone);
 }
 
-function defaultDateTime(date: string): string {
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const time = today === date
-    ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-    : "12:00";
-  return `${date}T${time}:00`;
+/** Now when the selected day is today in the owner's zone, otherwise noon of that day. */
+function defaultDateTime(date: string, timeZone: string): string {
+  const now = instantToZonedLocal(new Date(), timeZone);
+  return now.slice(0, 10) === date ? now : `${date}T12:00`;
 }
 
 function positiveMinor(value: string, label: string): number {
@@ -194,6 +188,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   const [newAccountCurrency, setNewAccountCurrency] = useState("");
   const [pickedFinanceAccount, setPickedFinanceAccount] = useState<{ form: string; id: string } | null>(null);
   const baseCurrency = snapshot.settings.baseCurrency;
+  const tz = snapshot.settings.timeZone;
   const baseUnit = baseCurrency ? currencyUnit(baseCurrency) : "";
   const baseAmountLabel = (prefix: string) => (baseUnit ? `${prefix}, ${baseUnit}` : prefix);
   const baseAccountsFor = () => {
@@ -296,7 +291,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           ...(entry ? { id: entry.id } : {}),
           label: requiredText(form, "label", "Название блюда"),
           portionLabel: requiredText(form, "portionLabel", "Порция"),
-          occurredAt: localTimestamp(recordValue(form, "occurredAt")),
+          occurredAt: localTimestamp(recordValue(form, "occurredAt"), tz),
           estimated: form.get("estimated") === "on",
           calories: requiredNumber(form, "calories", "Калории"),
           proteinGrams: requiredNumber(form, "proteinGrams", "Белки"),
@@ -306,7 +301,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           <label>Блюдо<input name="label" maxLength={300} required defaultValue={entry?.label ?? foodPrefill?.name ?? ""} placeholder="Например, гречка с говядиной" /></label>
           <label>Обычная порция<input name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? foodPrefill?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" /></label>
           <div className="fields-row">
-            <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
+            <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={entry ? localInputValue(entry.occurredAt, tz) : defaultDateTime(snapshot.localDate, tz)} /></label>
           </div>
           <MacroFields values={entry ?? foodPrefill} />
           <label className="checkbox-row"><input name="estimated" type="checkbox" defaultChecked={entry?.estimated ?? false} /><span>КБЖУ указаны приблизительно</span></label>
@@ -346,7 +341,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
             type: "money.save",
             ...(entry ? { id: entry.id } : {}),
             label: requiredText(form, "label", "Описание"),
-            occurredAt: localTimestamp(recordValue(form, "occurredAt")),
+            occurredAt: localTimestamp(recordValue(form, "occurredAt"), tz),
             amountMinor: parseMinor(requiredText(form, "amount", "Сумма")),
             accountId: requiredText(form, "accountId", "Счёт"),
             category: requiredText(form, "category", "Категория"),
@@ -368,7 +363,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               <p>Курс: 1 {pickedAccount.currency} = {snapshot.settings.rates[pickedAccount.currency].replace(".", ",").replace(/,?0+$/, "")} {baseUnit}. Для операции раньше первого курса берётся ближайший заданный.</p>
             )}
             <label>Категория<input name="category" maxLength={300} required defaultValue={entry?.category ?? ""} placeholder="Еда, транспорт, подписки" /></label>
-            <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(entry?.occurredAt ?? defaultDateTime(snapshot.localDate))} /></label>
+            <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={entry ? localInputValue(entry.occurredAt, tz) : defaultDateTime(snapshot.localDate, tz)} /></label>
             <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</button></div>
           </form>
         )}
@@ -439,7 +434,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         openedAs: debtOpenedAs,
         ...(debtOpenedAs === "transfer" ? {
           accountId: requiredText(form, "accountId", "Счёт в основной валюте"),
-          occurredAt: localTimestamp(recordValue(form, "occurredAt")),
+          occurredAt: localTimestamp(recordValue(form, "occurredAt"), tz),
         } : {}),
         dueOn: recordValue(form, "dueOn") || null,
         note: recordValue(form, "note") || null,
@@ -461,7 +456,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
         {debtOpenedAs === "transfer" && (baseAccounts.length ? (
           <>
             <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
-            <label>Дата и время передачи<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
+            <label>Дата и время передачи<input name="occurredAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
           </>
         ) : (
           <div>
@@ -503,14 +498,14 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
           id: debt.id,
           amountMinor,
           accountId: requiredText(form, "accountId", "Счёт в основной валюте"),
-          occurredAt: localTimestamp(recordValue(form, "occurredAt")),
+          occurredAt: localTimestamp(recordValue(form, "occurredAt"), tz),
         };
       })}>
         <p>{debt.direction === "i_owe" ? "Возврат долга человеку" : "Получение возврата от человека"} · <strong>{debt.personName}</strong></p>
         <p>Остаток: <strong>{amountLabel(debt.remainingAmountMinor, baseCurrency)}</strong></p>
         <label>{baseAmountLabel(`Сумма ${repaymentVerb}`)}<input name="amount" type="text" inputMode="decimal" max={debt.remainingAmountMinor / 100} required placeholder={moneyDecimal.format(debt.remainingAmountMinor / 100)} /></label>
         <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
-        <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
+        <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
         <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать {repaymentVerb}</button></div>
       </form>
     );
@@ -700,10 +695,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
                 type: "rate.save",
                 currency: code,
                 rateToBase: requiredText(form, "rate", "Курс").replace(",", "."),
-                effectiveAt: localTimestamp(requiredText(form, "effectiveAt", "Дата начала действия")),
+                effectiveAt: localTimestamp(requiredText(form, "effectiveAt", "Дата начала действия"), tz),
               }), true)}>
                 <label>1 {code} = … {baseUnit}<input name="rate" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.rates[code] ?? ""} placeholder="Укажите курс" /></label>
-                <label>Действует с<input name="effectiveAt" type="datetime-local" required defaultValue={localInputValue(defaultDateTime(snapshot.localDate))} /></label>
+                <label>Действует с<input name="effectiveAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
                 <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить курс {code}</button></div>
               </form>
             ))}
@@ -740,7 +735,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
               accountId: requiredText(form, "accountId", "Счёт"),
               category: requiredText(form, "category", "Категория"),
               frequency: requiredText(form, "frequency", "Периодичность") as "weekly" | "monthly" | "yearly",
-              nextDueAt: dateTimestamp(requiredText(form, "nextDueAt", "Дата следующего списания")),
+              nextDueAt: dateTimestamp(requiredText(form, "nextDueAt", "Дата следующего списания"), tz),
             }), true);
             if (saved && item) onChange({ kind: "recurring" });
           }}>

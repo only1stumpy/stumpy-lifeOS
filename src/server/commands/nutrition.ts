@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { Transaction } from "@/db/client";
 import * as s from "@/db/schema";
-import { dateKey } from "@/domain/math";
+import { dateKey, weightDateToStamp } from "@/domain/math";
 import { birthDateForAge } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import type { MacroValues } from "@/domain/types";
@@ -19,7 +19,7 @@ export async function saveProfile(tx: Transaction, owner: OwnerRow, profile: Nut
 
 /** One weight measurement per local day: a repeated entry for the same date replaces the earlier one. */
 export async function saveDailyWeight(tx: Transaction, ownerId: string, date: string, weightKg: number): Promise<void> {
-  const occurredAt = new Date(date + "T12:00:00Z");
+  const occurredAt = weightDateToStamp(date);
   const updated = await tx.update(s.weightEntries).set({ weightKg: String(weightKg) }).where(and(eq(s.weightEntries.ownerId, ownerId), eq(s.weightEntries.occurredAt, occurredAt))).returning({ id: s.weightEntries.id });
   if (!updated.length) await tx.insert(s.weightEntries).values({ ownerId, weightKg: String(weightKg), occurredAt });
 }
@@ -40,7 +40,7 @@ export const nutritionHandlers = {
     await saveDailyWeight(tx, owner.id, command.date, command.weightKg);
   },
   "weight.delete": async ({ tx, owner }, command) => {
-    const removed = await tx.delete(s.weightEntries).where(and(eq(s.weightEntries.ownerId, owner.id), eq(s.weightEntries.occurredAt, new Date(command.date + "T12:00:00Z")))).returning({ id: s.weightEntries.id });
+    const removed = await tx.delete(s.weightEntries).where(and(eq(s.weightEntries.ownerId, owner.id), eq(s.weightEntries.occurredAt, weightDateToStamp(command.date)))).returning({ id: s.weightEntries.id });
     if (!removed.length) throw new AppError(404, "Замер не найден.");
   },
   "template.save": async ({ tx, owner }, command) => {
