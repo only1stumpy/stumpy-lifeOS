@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { and, eq } from "drizzle-orm";
 import * as schema from "../src/db/schema";
-import { createCommandDb, releaseCommandDb, newTelegramId, ownerOf, type CommandDb } from "./helpers/command-db";
+import { createCommandDb, releaseCommandDb, newTelegramId, ownerOf, snapshotOf, type CommandDb } from "./helpers/command-db";
 import { createBotHarness, foodAndExpenseReply } from "./helpers/bot-harness";
 
 // The real bot on PGlite. Only Telegram's Bot API and the AI provider are replaced.
@@ -146,7 +146,7 @@ test("без подключённого ИИ бот честно говорит,
 
 test("без принятой политики бот ничего не разбирает и не вызывает ИИ", async () => {
   const tg = newTelegramId();
-  await ownerOf(db, tg);
+  await snapshotOf(tg); // creates the owner without granting consent
   harness.answerAiWith(foodAndExpenseReply());
   const before = harness.aiAnalysisCalls().length;
   harness.clearCalls();

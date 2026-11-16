@@ -1,4 +1,3 @@
-import { PRIVACY_POLICY_VERSION } from "../../src/domain/privacy";
 import { connectAiProviderAccount } from "../../src/server/ai/provider-accounts";
 import { withTelegramUser } from "../../src/server/owner-context";
 import { getBot, resetBotForTests } from "../../src/server/telegram/client";
@@ -68,9 +67,8 @@ export async function createBotHarness() {
     /** Delivers an update the way the webhook path does, scoped to the sending user. */
     deliver: (telegramId: string, update: Parameters<typeof bot.handleUpdate>[0]) => withTelegramUser(telegramId, () => bot.handleUpdate(update)),
 
-    /** An owner who accepted the policy, has a PRB account and a connected (fake) AI provider. */
+    /** An owner with current consent (`run` grants it), has a PRB account and a connected (fake) AI provider. */
     async onboard(telegramId: string, options: { withAi?: boolean } = {}) {
-      await run(telegramId, { type: "privacy.accept", version: PRIVACY_POLICY_VERSION });
       await run(telegramId, { type: "account.save", name: "Касса", currency: "PRB", openingBalanceMinor: 100_000, isDefault: true });
       if (options.withAi !== false) {
         const owner = await withTelegramUser(telegramId, async () => (await import("../../src/server/lifeos")).ensureOwner());

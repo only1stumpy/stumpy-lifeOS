@@ -7,7 +7,6 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
-import { PRIVACY_POLICY_VERSION } from "../../src/domain/privacy";
 import { createCommandDb, newTelegramId, ownerOf, run } from "../helpers/command-db";
 
 // Mini App screens in a real browser, without AI. The page is served by the production build (`next start`);
@@ -73,7 +72,6 @@ async function answerApi(url: URL, request: { method: string; headers: Record<st
 before(async () => {
   const { db } = await createCommandDb();
   const telegramId = newTelegramId();
-  await run(telegramId, { type: "privacy.accept", version: PRIVACY_POLICY_VERSION });
   await run(telegramId, { type: "modules.save", modules: ["nutrition", "finance", "gym"] });
   await run(telegramId, { type: "account.save", name: "Касса", currency: "PRB", openingBalanceMinor: 100_000, isDefault: true });
   const owner = await ownerOf(db, telegramId);
