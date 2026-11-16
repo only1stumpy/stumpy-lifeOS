@@ -9,7 +9,9 @@ import { convertToBaseMinor, dateKey, sumMacros, weightStampToDate } from "@/dom
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { ACTIVITY_LEVELS, GOALS, ageOn, type NutritionProfile } from "@/domain/nutrition";
 import { disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "@/domain/modules";
-import { AppError } from "./http";
+import { AppError, assertConsent } from "./http";
+import { draftExpiresAt } from "./retention";
+import { CONSENT_EXEMPT_COMMANDS } from "@/domain/privacy";
 import { analyzeMessage } from "./ai/analyze";
 import type { AnalyzeMessageInput } from "./ai/types";
 import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
@@ -276,7 +278,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
       lastWorkout: last ? { name: last.name, completedAt: last.completedAt!.toISOString(), summary: sets.filter((v) => v.isCompleted && sessionItems.some((i) => i.sessionId === last.id && i.id === v.sessionExerciseId)).length + " подходов" } : null,
       program,
     },
-    settings: { timeZone: owner.timezone, baseCurrency, rates: latestRates, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, privacyAcceptedVersion: owner.privacyPolicyVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
+    settings: { timeZone: owner.timezone, baseCurrency, rates: latestRates, defaultAccountId: accounts.find((v) => v.isDefault)?.id ?? accounts[0]?.id ?? null, aiOnboardingCompleted: owner.aiOnboardingCompleted, profileOnboardingCompleted: owner.profileOnboardingCompleted, profile: storedProfile(owner, today), notificationsConfigured: owner.notificationsConfigured, notifications: { dailySummary: owner.dailySummaryEnabled, weeklySummary: owner.weeklySummaryEnabled, weightReminder: owner.weightReminderEnabled, summaryTime: owner.summaryTime }, lastSeenVersion: owner.lastSeenVersion, privacyAcceptedVersion: owner.privacyPolicyVersion, healthConsentVersion: owner.healthConsentVersion, enabledModules: normalizeModules(owner.enabledModules), modulesConfigured: owner.modulesConfigured, enabledFeatures: resolveFeatures(normalizeModules(owner.enabledModules), owner.disabledFeatures), disabledFeatures: normalizeDisabledFeatures(owner.disabledFeatures) },
     recurring: recurring.map((v) => ({ id: v.id, name: v.name, amountMinor: toMinor(v.amount), accountId: v.accountId, currency: v.currency, category: categories.find((c) => c.id === v.categoryId)?.name ?? "", frequency: ({ week: "weekly", month: "monthly", year: "yearly" } as const)[v.intervalUnit as "week" | "month" | "year"] ?? "monthly", nextDueAt: v.nextDueOn + "T12:00:00Z" })),
     drafts: buildDrafts(captures, foodDrafts, moneyDrafts, debtDrafts, categories, debts, repayments),
     templates: templates.map((v) => ({ id: v.id, name: v.name, portionLabel: v.portionLabel, calories: Number(v.calories), proteinGrams: Number(v.proteinGrams), fatGrams: Number(v.fatGrams), carbsGrams: Number(v.carbsGrams) })),
@@ -328,6 +330,7 @@ export async function createDebtCaptureDraft(input: {
       telegramUpdateRowId: input.telegramUpdateRowId,
       kind: "debt",
       messageText: input.messageText,
+      expiresAt: draftExpiresAt(),
     }).returning();
     const intent = input.intent;
     await tx.insert(s.financeDebtDrafts).values({
@@ -396,13 +399,13 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
   }
   const draftIds: string[] = [];
   await getDb().transaction(async (tx) => {
-    if (input.previousDraftId) await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.id, input.previousDraftId), eq(s.captureDrafts.status, "pending")));
+    if (input.previousDraftId) await tx.update(s.captureDrafts).set({ status: "cancelled", messageText: null }).where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.id, input.previousDraftId), eq(s.captureDrafts.status, "pending")));
     // Food and money from one message always become separate drafts, so each has its own «Записать» and «Отменить».
     const separated = analysis.entries.flatMap((entry) => entry.food && entry.money
       ? [{ ...entry, money: null }, { ...entry, food: null }]
       : [entry]);
     for (const entry of separated) {
-      const [capture] = await tx.insert(s.captureDrafts).values({ ownerId: owner.id, telegramUpdateRowId: input.telegramUpdateRowId, kind: entry.food ? "nutrition" : "finance", messageText: input.text }).returning();
+      const [capture] = await tx.insert(s.captureDrafts).values({ ownerId: owner.id, telegramUpdateRowId: input.telegramUpdateRowId, kind: entry.food ? "nutrition" : "finance", messageText: input.text, expiresAt: draftExpiresAt() }).returning();
       draftIds.push(capture.id);
       const occurredAt = new Date(entry.occurredAt);
       if (entry.food) await tx.insert(s.nutritionDrafts).values({ ownerId: owner.id, captureDraftId: capture.id, name: entry.food.label, portionLabel: entry.food.portionLabel, ...macroStrings(entry.food), estimated: entry.food.estimated, occurredAt });
@@ -436,6 +439,7 @@ async function assertBaseAmountsSafe(tx: Transaction, ownerId: string) {
  */
 export async function executeCommand(command: AppCommand, options: { requestId?: string } = {}) {
   const owner = await ensureOwner();
+  if (!CONSENT_EXEMPT_COMMANDS.has(command.type)) assertConsent(owner);
   const requestId = options.requestId ?? ("clientRequestId" in command ? command.clientRequestId : undefined);
   await getDb().transaction(async (tx) => {
     await tx.select().from(s.ownerSettings).where(eq(s.ownerSettings.id, owner.id)).for("update");

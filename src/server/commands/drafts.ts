@@ -33,13 +33,22 @@ export function missingMoneyCategoryMessage(entryType: "expense" | "income"): st
   return `Уточните категорию ${categoryKind} через «Исправить».`;
 }
 
+/** The short AI clarification history holds user text too; it ends together with the draft it belonged to. */
+async function clearClarification(tx: Transaction, ownerId: string): Promise<void> {
+  await tx.update(s.ownerSettings).set({ aiClarificationHistory: null, aiClarificationUpdatedAt: null }).where(eq(s.ownerSettings.id, ownerId));
+}
+
 export const draftsHandlers = {
   "draft.reject": async ({ tx, owner }, command) => {
     const [draft] = await tx.select({ status: s.captureDrafts.status }).from(s.captureDrafts)
       .where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id))).for("update");
     if (!draft) throw new AppError(404, "Черновик не найден.");
     if (draft.status === "confirmed") throw new AppError(409, "Черновик уже записан, отменить его нельзя. Удалите запись.");
-    if (draft.status === "pending") await tx.update(s.captureDrafts).set({ status: "cancelled" }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id)));
+    if (draft.status === "pending") {
+      // The original message text is only needed to edit a pending draft: drop it as soon as the draft is closed.
+      await tx.update(s.captureDrafts).set({ status: "cancelled", messageText: null }).where(and(eq(s.captureDrafts.id, command.id), eq(s.captureDrafts.ownerId, owner.id)));
+      await clearClarification(tx, owner.id);
+    }
   },
   "draft.money-category.set": async ({ tx, owner }, command) => {
     await setPendingMoneyDraftCategory(tx, owner.id, command.id, command.category);
@@ -85,6 +94,7 @@ export const draftsHandlers = {
         });
       }
     }
-    await tx.update(s.captureDrafts).set({ status: "confirmed", confirmedAt: new Date() }).where(eq(s.captureDrafts.id, draft.id));
+    await tx.update(s.captureDrafts).set({ status: "confirmed", confirmedAt: new Date(), messageText: null }).where(eq(s.captureDrafts.id, draft.id));
+    await clearClarification(tx, owner.id);
   },
 } satisfies Partial<CommandHandlers>;

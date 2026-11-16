@@ -1,6 +1,6 @@
 # База данных
 
-Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 34 таблицы и 19 миграций (`0000`–`0018`).
+Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 34 таблицы и 20 миграций (`0000`–`0019`).
 
 ## Принцип изоляции
 
@@ -85,6 +85,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0016 | `0016_finance_debt_links` | `finance_entries.debt_id` (операция открытия долга; составной FK с `owner_id`, `restrict`) с заполнением старых записей по совпадению времени создания; курс `rate_to_base` — `numeric(20,10)` в `exchange_rates`, `finance_entries`, `money_drafts` |
 | 0017 | `0017_command_requests` | `command_requests` |
 | 0018 | `0018_admin_panel` | `admin_cron_runs`, `admin_kv`, колонки `owner_settings.last_active_date`, `ai_provider_usage_events.failure_kind` |
+| 0019 | `0019_privacy_health_consent` | `owner_settings.health_consent_at`, `owner_settings.health_consent_version` (отдельное согласие на данные о здоровье); разовая очистка: текст закрытых черновиков, старые черновики и уточнения, usage events старше 30 и deliveries старше 90 дней |
 
 Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах. Миграции этой ветки (`feat/data-rights-0-25`), если они появятся, нумеруются следующими числами и описываются в [CHANGELOG](../CHANGELOG.md).
 

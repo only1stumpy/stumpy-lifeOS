@@ -19,7 +19,7 @@ export type GoalType = keyof typeof GOALS;
 
 export const profileSchema = z.object({
   sex: z.enum(["male", "female"]),
-  age: z.number().int().min(16).max(90),
+  age: z.number().int().min(18).max(90),
   heightCm: z.number().min(100).max(250),
   weightKg: z.number().min(30).max(350),
   activityLevel: z.enum(Object.keys(ACTIVITY_LEVELS) as [ActivityLevel, ...ActivityLevel[]]),

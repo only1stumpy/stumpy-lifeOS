@@ -4,7 +4,7 @@ import * as s from "@/db/schema";
 import { dateKey, isValidTimeZone } from "@/domain/math";
 import { USAGE_MODES } from "@/domain/notifications";
 import { APP_VERSION } from "@/domain/release";
-import { PRIVACY_POLICY_VERSION } from "@/domain/privacy";
+import { HEALTH_CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
 import { AppError } from "../http";
 import { decimal, macroStrings, ensureBaseCurrency } from "./shared";
 import { saveProfile } from "./nutrition";
@@ -67,7 +67,22 @@ export const settingsHandlers = {
   },
   "privacy.accept": async ({ tx, owner }, command) => {
     if (command.version !== PRIVACY_POLICY_VERSION) throw new AppError(409, "Версия политики устарела. Откройте приложение заново.");
-    await tx.update(s.ownerSettings).set({ privacyAcceptedAt: new Date(), privacyPolicyVersion: command.version, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+    if (command.healthVersion !== undefined && command.healthVersion !== HEALTH_CONSENT_VERSION) throw new AppError(409, "Версия согласия на данные о здоровье устарела. Откройте приложение заново.");
+    const now = new Date();
+    await tx.update(s.ownerSettings).set({
+      privacyAcceptedAt: now,
+      privacyPolicyVersion: command.version,
+      ...(command.healthVersion ? { healthConsentAt: now, healthConsentVersion: command.healthVersion } : {}),
+      updatedAt: now,
+    }).where(eq(s.ownerSettings.id, owner.id));
+  },
+  "privacy.health.accept": async ({ tx, owner }, command) => {
+    if (command.version !== HEALTH_CONSENT_VERSION) throw new AppError(409, "Версия согласия на данные о здоровье устарела. Откройте приложение заново.");
+    const now = new Date();
+    await tx.update(s.ownerSettings).set({ healthConsentAt: now, healthConsentVersion: command.version, updatedAt: now }).where(eq(s.ownerSettings.id, owner.id));
+  },
+  "privacy.health.revoke": async ({ tx, owner }) => {
+    await tx.update(s.ownerSettings).set({ healthConsentAt: null, healthConsentVersion: null, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
   },
   "account.delete": async ({ tx, owner }) => {
     await deleteOwnerData(tx, owner);
