@@ -11,8 +11,8 @@ export interface CommandContext {
 
 export type Handler<C> = (ctx: CommandContext, command: C) => Promise<void>;
 
-/** Commands handled inside the owner transaction; `analyze` runs before it. */
-export type TransactionalCommand = Exclude<AppCommand, { type: "analyze" }>;
+/** Every command runs inside the owner transaction. */
+export type TransactionalCommand = AppCommand;
 
 /** One handler per command type: a missing handler is a compile error. */
 export type CommandHandlers = {

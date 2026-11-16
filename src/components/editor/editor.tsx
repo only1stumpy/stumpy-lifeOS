@@ -19,6 +19,16 @@ import { useMotionVariants } from "@/components/motion/motion-system";
 
 export type FormValues = Record<string, string[]>;
 
+const IDEMPOTENT_COMMANDS = new Set(["food.save", "money.save", "debt.create", "debt.repayment.create"]);
+
+/** A repeated press of the same unsaved form reuses one request id, so the server records the entry once. */
+function withClientRequestId(command: AppCommand, ref: { current: { key: string; id: string } | null }): AppCommand {
+  if (!IDEMPOTENT_COMMANDS.has(command.type) || ("id" in command && command.type !== "debt.repayment.create" && command.id)) return command;
+  const key = JSON.stringify(command);
+  if (ref.current?.key !== key) ref.current = { key, id: crypto.randomUUID() };
+  return { ...command, clientRequestId: ref.current.id } as AppCommand;
+}
+
 export type EditorState =
   | { kind: "food"; entry?: FoodLogEntry }
   | { kind: "finance"; entry?: MoneyEntry }
@@ -234,6 +244,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     return () => onRegisterTelegramBackHandler?.(null);
   }, [canGoBack, goBack, onRegisterTelegramBackHandler]);
 
+  const requestIdRef = useRef<{ key: string; id: string } | null>(null);
+
   async function submitForm(event: FormEvent<HTMLFormElement>, build: (form: FormData) => AppCommand, keepOpen = false): Promise<boolean> {
     event.preventDefault();
     if (pending) return false;
@@ -242,11 +254,12 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     setSaved(false);
     try {
       const data = new FormData(formElement);
-      const command = build(data);
+      const command = withClientRequestId(build(data), requestIdRef);
       const values: FormValues = {};
       for (const [name, value] of data.entries()) if (typeof value === "string") (values[name] ??= []).push(value);
       onRememberForm?.(values);
       const succeeded = await onCommand(command, keepOpen);
+      if (succeeded) requestIdRef.current = null;
       if (succeeded && keepOpen) {
         formElement.reset();
         setSaved(true);
@@ -270,15 +283,6 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
   function renderFoodForm(entry?: FoodLogEntry) {
     return (
       <>
-        {!entry && (
-          <>
-            <form onSubmit={(event) => submitForm(event, (form) => ({ type: "analyze", text: requiredText(form, "text", "Что съели") }))}>
-              <label>Запись сообщением<textarea name="text" rows={3} maxLength={10000} placeholder="Например: тарелка гречки с говядиной" required /></label>
-              <div className="actions"><small>Оценка попадёт в черновики. Запись сохранится после подтверждения.</small><button className="submit" type="submit" disabled={pending}>Разобрать</button></div>
-            </form>
-            <hr />
-          </>
-        )}
         {!entry && snapshot.templates.length > 0 && (
           <section aria-label="Мои блюда">
             <h3>Мои блюда</h3>
@@ -333,15 +337,6 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose, onChan
     const entryAccountExists = !entry || snapshot.finance.accounts.some((account) => account.id === entry.accountId);
     return (
       <>
-        {!entry && (
-          <>
-            <form onSubmit={(event) => submitForm(event, (form) => ({ type: "analyze", text: requiredText(form, "text", "Покупка или доход") }))}>
-              <label>Быстрая запись<textarea name="text" rows={2} maxLength={10000} placeholder="Например: обед 80 рублей" required /></label>
-              <div className="actions"><small>Сначала проверьте распознанную операцию.</small><button className="submit" type="submit" disabled={pending}>Разобрать</button></div>
-            </form>
-            <hr />
-          </>
-        )}
         {snapshot.finance.accounts.length === 0 ? (
           <div><p>Сначала добавьте счёт. Тогда можно будет сохранить операцию в нужной валюте.</p><button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button></div>
         ) : !entryAccountExists ? (

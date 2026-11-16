@@ -1,6 +1,6 @@
 # База данных
 
-Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 30 таблиц и 15 миграций (`0000`–`0014`).
+Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/serverless`, пул из 2 соединений). Схема — `src/db/schema.ts`, SQL-миграции — `drizzle/`. На момент написания (версия 0.24.0): 32 таблицы и 18 миграций (`0000`–`0017`).
 
 ## Принцип изоляции
 
@@ -23,6 +23,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 - Защита от повторной записи черновика: уникальные индексы `*_capture_unique` на `capture_draft_id` в `nutrition_drafts`, `nutrition_entries`, `money_drafts`, `finance_entries`, `finance_debt_drafts`.
 - Идемпотентность webhook: уникальный индекс `telegram_updates_update_id_unique` по `telegram_update_id`.
 - Дедупликация уведомлений: уникальный `(owner_id, key)` в `notification_deliveries`.
+- Идемпотентность ручных записей Mini App и плана из чата: уникальный `(owner_id, client_request_id)` в `command_requests`; id сохраняется в той же транзакции, что и изменение.
 - Один основной счёт на владельца: частичный уникальный индекс `finance_accounts_one_default_per_owner`.
 - Одна цель КБЖУ на дату начала действия: уникальный индекс в `nutrition_targets`. Правило «один замер веса в день» в базе не закреплено: его выполняет код команды `weight.save`.
 - Допустимые значения статусов и типов закреплены `CHECK`-ограничениями (например, `telegram_updates_status_valid`, `capture_drafts_kind_valid`, `capture_drafts_status_valid`); всего в схеме 64 вызова `check(`.
@@ -42,6 +43,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | `telegram_updates` | Принятые update: статус `received`/`processing`/`processed`/`failed`, число попыток, `last_error`; payload после обработки очищается |
 | `rate_limit_counters` | Счётчики rate limit: ключ `bucket:subject`, начало окна, число; PK `(key, window_start)`; записи старше двух суток удаляет cron |
 | `notification_deliveries` | Журнал отправленных уведомлений для дедупликации |
+| `command_requests` | Id запросов ручных записей (`client_request_id`): повтор с тем же id не создаёт вторую запись |
 | `capture_drafts` | Общая запись о черновике (тип `nutrition`/`finance`/`combined`/`debt`, статус, исходный текст сообщения, id сообщения бота, срок действия); `combined` остался только для старых записей |
 
 ### Питание (5)
@@ -79,6 +81,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0014 | `0014_rate_limit_counters` | `rate_limit_counters` |
 | 0015 | `0015_privacy_consent` | `owner_settings.privacy_accepted_at`, `owner_settings.privacy_policy_version` (согласие с политикой) |
 | 0016 | `0016_finance_debt_links` | `finance_entries.debt_id` (операция открытия долга; составной FK с `owner_id`, `restrict`) с заполнением старых записей по совпадению времени создания; курс `rate_to_base` — `numeric(20,10)` в `exchange_rates`, `finance_entries`, `money_drafts` |
+| 0017 | `0017_command_requests` | `command_requests` |
 
 Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах. Миграции этой ветки (`feat/data-rights-0-25`), если они появятся, нумеруются следующими числами и описываются в [CHANGELOG](../CHANGELOG.md).
 

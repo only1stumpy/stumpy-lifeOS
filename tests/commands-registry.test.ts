@@ -7,7 +7,7 @@ import type { CommandContext } from "@/server/commands/types";
 
 describe("реестр обработчиков команд", () => {
   test("есть обработчик для каждого типа команды, кроме analyze", () => {
-    const types = commandSchema.options.map((option) => option.shape.type.value as string).filter((type) => type !== "analyze");
+    const types = commandSchema.options.map((option) => option.shape.type.value as string);
     assert.ok(types.length > 30);
     assert.deepEqual(Object.keys(commandHandlers).sort(), [...types].sort());
   });
