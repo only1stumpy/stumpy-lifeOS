@@ -233,7 +233,7 @@ docs/             Продукт, архитектура, развёртыван
 | [docs/reference/README.md](docs/reference/README.md) | Утверждённый визуальный эталон |
 | [CHANGELOG.md](CHANGELOG.md) | Изменения по выпускам |
 | [docs/status.md](docs/status.md) | Что проверено на реальных сервисах и что нет |
-| [docs/release-plan.md](docs/release-plan.md) | План до `1.0.0`: обязательные исправления и этапы |
+| [docs/release-plan.md](docs/release-plan.md) | План до `1.0.0`: что осталось после `rc.2` |
 | [docs/release-checklist.md](docs/release-checklist.md) | Ручной чек-лист перед выпуском |
 | [AGENTS.md](AGENTS.md) | Правила работы с кодом и проектом |
 
