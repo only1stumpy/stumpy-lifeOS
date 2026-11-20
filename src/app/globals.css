@@ -39,8 +39,16 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  background: #f6f2ec;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 body {
   margin: 0;
+  min-height: 100dvh;
 }
 
 button,
@@ -52,10 +60,15 @@ textarea {
 
 button,
 a,
+label,
 input,
 select,
 textarea {
   -webkit-tap-highlight-color: transparent;
+}
+
+label:has(> input[type="checkbox"]) {
+  user-select: none;
 }
 
 button {
@@ -183,6 +196,22 @@ button:disabled {
   padding: 12px 16px;
   background: #ffffff60;
   color: inherit;
+}
+
+.editor input[type="datetime-local"],
+.editor input[type="date"],
+.editor input[type="time"] {
+  /* iOS gives these a native minimum width wider than the column. */
+  display: block;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+.editor input[type="datetime-local"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
 }
 
 .editor textarea {
@@ -487,4 +516,54 @@ button:disabled {
 .editor [aria-invalid="true"] {
   border-color: #a3261f;
   outline: 2px solid #a3261f33;
+}
+
+/* Общий вид выпадающих списков: своя стрелка с нормальным отступом от края. */
+select:not([multiple]) {
+  appearance: none !important;
+  padding-right: 44px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23742b45' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 16px center !important;
+  background-size: 16px 16px !important;
+}
+
+/* Общий вид чекбоксов: скруглённый бокс с бордовой заливкой. */
+html input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: 1.5px solid #a58995;
+  border-radius: 7px;
+  background-color: #ffffff80;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+html input[type="checkbox"]:checked {
+  border-color: #742b45;
+  background-color: #742b45;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none' stroke='%23fffaf9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 7.5 2.7 2.7L11 4.5'/%3E%3C/svg%3E");
+}
+
+html input[type="checkbox"]:focus-visible {
+  outline: 2px solid #742b45;
+  outline-offset: 2px;
+}
+
+html input[type="checkbox"]:disabled {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html input[type="checkbox"] {
+    transition: none;
+  }
 }

@@ -2,8 +2,12 @@
 
 import { useEffect } from "react";
 
-/** Only fields that open the keyboard: a checkbox or radio gets focus on tap and must not scroll the page (F14). */
-const FIELD = "input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=reset]):not([type=file]):not([type=range]):not([type=color]), textarea, select, [contenteditable='true']";
+/** Fields that open the on-screen keyboard. Checkboxes, radios and buttons must not scroll the page when focused. */
+const FIELD = [
+  "input:not([type='checkbox']):not([type='radio']):not([type='button']):not([type='submit']):not([type='reset']):not([type='range']):not([type='color']):not([type='file']):not([type='image'])",
+  "textarea",
+  "[contenteditable='true']",
+].join(", ");
 
 /**
  * Keeps the focused field visible above the on-screen keyboard on every screen. The viewport meta asks the

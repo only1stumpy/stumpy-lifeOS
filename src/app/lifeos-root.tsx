@@ -51,6 +51,7 @@ type TelegramMiniApp = {
   offEvent?(eventType: TelegramWebAppEvent, handler: () => void): void;
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
+  setBottomBarColor?(color: string): void;
 };
 
 const finishButtonStyle: CSSProperties = {
@@ -308,6 +309,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         }
         webApp.setHeaderColor?.("#f6f2ec");
         webApp.setBackgroundColor?.("#f6f2ec");
+        webApp.setBottomBarColor?.("#f6f2ec");
       } catch {
         // Telegram presentation methods vary by client version; auth remains server-verified.
       }

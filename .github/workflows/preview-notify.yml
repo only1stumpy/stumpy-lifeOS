@@ -1,0 +1,123 @@
+name: Preview notify
+
+# Присылает владельцу в Telegram (preview-бот) ссылку на Vercel Preview с кнопкой Mini App,
+# списком «Что исправлено» и «Что проверить» из описания PR. Настройка: docs/deployment.md, раздел 5a.
+# Workflow на событие deployment_status запускается только из файла на ветке по умолчанию,
+# поэтому до слияния в main проверять его можно только вручную (workflow_dispatch).
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Номер PR
+        required: true
+      url:
+        description: Адрес Preview (https://...)
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  notify:
+    name: Telegram
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Собрать и отправить сообщение
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.deployment.sha }}
+          PREVIEW_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url || inputs.url }}
+          PR_INPUT: ${{ inputs.pr }}
+          BOT_TOKEN: ${{ secrets.PREVIEW_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.PREVIEW_CHAT_ID }}
+          BYPASS: ${{ secrets.VERCEL_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BOT_TOKEN}" ] || [ -z "${CHAT_ID}" ]; then
+            echo "Секреты PREVIEW_BOT_TOKEN и PREVIEW_CHAT_ID не заданы, пропускаю."
+            exit 0
+          fi
+          if [ -n "${PR_INPUT}" ]; then
+            PR="${PR_INPUT}"
+          else
+            PR=$(gh api "repos/${REPO}/commits/${SHA}/pulls" --jq '.[0].number // empty')
+          fi
+          if [ -z "${PR:-}" ]; then
+            echo "Для коммита нет PR, пропускаю."
+            exit 0
+          fi
+          gh api "repos/${REPO}/pulls/${PR}" > pr.json
+          python3 - <<'PY'
+          import json, os, re, html, urllib.error, urllib.parse, urllib.request
+
+          pr = json.load(open("pr.json"))
+          repo = os.environ["REPO"]
+          # PR из форков не получает сообщений: тело PR недоверенный текст, а в ссылке секрет.
+          if (pr.get("head", {}).get("repo") or {}).get("full_name") != repo:
+              print("PR из форка, пропускаю.")
+              raise SystemExit(0)
+
+          def clean(text):
+              # Разметка Markdown в Telegram не нужна: убираем её и служебную строку подписи.
+              text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+              text = text.replace("**", "").replace("`", "")
+              lines = [l for l in text.splitlines() if "Generated with" not in l]
+              return "\n".join(lines).strip()
+
+          def section(body, title, limit):
+              m = re.search(r"(?ims)^##\s*" + title + r"[^\n]*\n(.*?)(?=^##\s|\Z)", body or "")
+              text = clean(m.group(1) if m else "")
+              if len(text) > limit:
+                  text = text[:limit].rsplit("\n", 1)[0].rstrip() + "\n…"
+              return text
+
+          body = pr.get("body") or ""
+          fixed = section(body, "Что исправлено", 450) or section(body, "Что изменено", 450)
+          check = section(body, "Что проверить", 900)
+          esc = lambda s: html.escape(s, quote=False)
+
+          lines = [f"<b>PR #{pr['number']}</b> · {esc(pr['title'])}"]
+          if fixed:
+              lines += ["", "<b>Что исправлено</b>", esc(fixed)]
+          if check:
+              lines += ["", "<b>Что проверить</b>", esc(check)]
+          if not check:
+              lines += ["", "В описании PR нет блока «Что проверить»."]
+          text = "\n".join(lines)[:3800]
+
+          url = os.environ["PREVIEW_URL"].strip()
+          bypass = os.environ.get("BYPASS", "")
+          if bypass:
+              sep = "&" if "?" in url else "?"
+              url += sep + urllib.parse.urlencode({"x-vercel-protection-bypass": bypass, "x-vercel-set-bypass-cookie": "samesitenone"})
+
+          chats = [c.strip() for c in os.environ["CHAT_ID"].split(",") if c.strip()]
+          failed = False
+          for chat in chats:
+              payload = {
+                  "chat_id": chat,
+                  "text": text,
+                  "parse_mode": "HTML",
+                  "disable_web_page_preview": True,
+                  "reply_markup": {"inline_keyboard": [[{"text": "Открыть Preview", "web_app": {"url": url}}], [{"text": "PR на GitHub", "url": pr["html_url"]}]]},
+              }
+              req = urllib.request.Request(
+                  f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
+                  data=json.dumps(payload).encode(),
+                  headers={"content-type": "application/json"},
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      print("Telegram:", r.status)
+              except urllib.error.HTTPError as e:
+                  # Тело ответа Telegram не содержит токен; без него в логе виден только код.
+                  print("Telegram error:", e.code, e.read().decode("utf-8", "replace")[:300])
+                  failed = True
+          if failed:
+              raise SystemExit(1)
+          PY
