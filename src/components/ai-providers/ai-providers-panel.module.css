@@ -84,20 +84,6 @@
   line-height: 1.55;
 }
 
-.sheet button.quotasLink {
-  flex: 0 0 auto;
-  min-height: 46px;
-  padding: 12px 16px;
-  border: 1px solid rgba(116, 43, 69, 0.2);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.45);
-  color: #742b45;
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
 .loadingState {
   min-height: 180px;
 }
@@ -195,62 +181,6 @@
   line-height: 1.45;
 }
 
-.providerTitle > .capabilityAvailable,
-.providerTitle > .capabilityLimited {
-  display: inline-flex;
-  width: fit-content;
-  margin-top: 8px;
-}
-
-.providerApiLink {
-  display: inline-flex;
-  width: fit-content;
-  max-width: 100%;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 8px 12px;
-  border: 1px solid rgba(116, 43, 69, 0.18);
-  border-radius: 15px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.34));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  color: #742b45;
-  font-size: 13px;
-  font-weight: 540;
-  line-height: 1.3;
-  text-decoration: none;
-  overflow-wrap: anywhere;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
-}
-
-.providerApiLink:hover {
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 4px 12px rgba(67, 40, 52, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transform: translateY(-1px);
-}
-
-.providerApiLink:active {
-  transform: translateY(1px) scale(0.99);
-}
-
-.providerApiLink:focus-visible {
-  outline: 3px solid rgba(116, 43, 69, 0.31);
-  outline-offset: 3px;
-}
-
-.providerApiLink svg {
-  flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.5;
-}
-
 .providerMeta {
   display: flex;
   grid-column: 2;
@@ -265,27 +195,6 @@
 .providerMeta > span:last-child {
   padding-left: 8px;
   border-left: 1px solid rgba(116, 43, 69, 0.16);
-}
-
-.capabilityAvailable,
-.capabilityLimited {
-  display: inline-flex;
-  min-height: 28px;
-  align-items: center;
-  padding: 4px 8px;
-  border: 1px solid rgba(102, 131, 109, 0.22);
-  border-radius: 999px;
-  background: rgba(115, 148, 122, 0.11);
-  color: #5d7563;
-  font-size: 13px;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.capabilityLimited {
-  border-color: rgba(116, 102, 109, 0.16);
-  background: rgba(116, 102, 109, 0.08);
-  color: #76666d;
 }
 
 .sectionHeading,
@@ -316,75 +225,6 @@
   line-height: 1.2;
 }
 
-.sheet button.primaryAction,
-.sheet button.secondaryAction,
-.sheet button.dangerAction {
-  display: inline-flex;
-  min-height: 52px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border: 1px solid rgba(116, 43, 69, 0.23);
-  border-radius: 17px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 550;
-  line-height: 1.3;
-  text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
-}
-
-.sheet button.primaryAction {
-  width: 100%;
-  border-color: rgba(116, 43, 69, 0.72);
-  background: #742b45;
-  box-shadow: 0 2px 6px rgba(53, 39, 44, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  color: #fffaf9;
-}
-
-.sheet button.secondaryAction {
-  flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.46);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  color: #742b45;
-}
-
-.secondaryAction > span {
-  font-size: 18px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.sheet button.dangerAction {
-  border-color: rgba(145, 47, 55, 0.2);
-  background: rgba(255, 235, 234, 0.64);
-  color: #852f38;
-}
-
-.sheet button.primaryAction:hover:not(:disabled),
-.sheet button.secondaryAction:hover:not(:disabled),
-.sheet button.dangerAction:hover:not(:disabled),
-.quotasLink:hover,
-.iconAction:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.sheet button.primaryAction:active:not(:disabled),
-.sheet button.secondaryAction:active:not(:disabled),
-.sheet button.dangerAction:active:not(:disabled),
-.quotasLink:active,
-.iconAction:active:not(:disabled) {
-  transform: translateY(1px) scale(0.99);
-}
-
-.sheet button.primaryAction:disabled,
-.sheet button.secondaryAction:disabled,
-.sheet button.dangerAction:disabled,
-.sheet button.textButton:disabled,
-.iconAction:disabled,
 .switch:disabled {
   cursor: wait;
   opacity: 0.58;
@@ -464,35 +304,6 @@
   gap: 4px;
 }
 
-.iconAction {
-  display: grid;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid rgba(116, 43, 69, 0.13);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.38);
-  color: #742b45;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 150ms ease, background-color 150ms ease;
-}
-
-.sheet button.iconAction {
-  color: #742b45;
-}
-
-.iconAction svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-}
-
 .switch {
   position: relative;
   display: inline-flex;
@@ -556,25 +367,6 @@
   gap: 8px;
 }
 
-.deleteConfirm .dangerAction {
-  min-height: 44px;
-  padding: 10px 16px;
-}
-
-.sheet button.textButton {
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: 13px;
-  background: transparent;
-  color: #742b45;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 530;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
 .empty,
 .state {
   padding: 10px 0 4px;
@@ -606,50 +398,6 @@
   margin-bottom: 1px;
 }
 
-.field {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  color: #4b333c;
-  font-size: 13px;
-  font-weight: 540;
-}
-
-.field input {
-  width: 100%;
-  min-width: 0;
-  min-height: 56px;
-  padding: 16px 16px;
-  border: 1px solid rgba(116, 43, 69, 0.14);
-  border-radius: 17px;
-  outline: none;
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
-  color: #35272c;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 450;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
-}
-
-.field input::placeholder {
-  color: #96868d;
-  opacity: 1;
-}
-
-.field input:focus-visible {
-  border-color: rgba(116, 43, 69, 0.52);
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 0 0 4px rgba(116, 43, 69, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.field small {
-  color: #806f77;
-  font-size: 13px;
-  font-weight: 420;
-  line-height: 1.5;
-}
-
 .securityNote {
   margin: -2px 0 0;
   padding: 12px 16px;
@@ -660,27 +408,49 @@
   line-height: 1.55;
 }
 
+/* Checkbox from the kit inside a framed block. */
 .confirmation {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid rgba(116, 43, 69, 0.14);
-  border-radius: 17px;
+  padding: 8px 16px;
+  border: 1px solid var(--ui-color-field-border);
+  border-radius: var(--ui-radius-field);
   background: rgba(255, 255, 255, 0.42);
-  color: #4b333c;
   font-size: 13px;
-  line-height: 1.5;
-  cursor: pointer;
 }
 
-.confirmation input,
-.modelChoice input {
+/* Layout of the link-to-site anchors: the kit Link gives color and focus, this keeps the touch size and the icon. */
+.apiLink {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.providerTitle .apiLink {
+  margin-top: 4px;
+}
+
+.apiLink svg {
   flex: 0 0 auto;
-  width: 19px;
-  height: 19px;
-  margin: 1px 0 0;
-  accent-color: #742b45;
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.quotasLink {
+  flex: 0 0 auto;
+}
+
+.sectionHeading > button {
+  flex: 0 0 auto;
 }
 
 .error,
@@ -715,13 +485,6 @@
   font-size: 14px;
 }
 
-.modelSearch input {
-  min-height: 50px;
-  padding: 12px 16px;
-  border-radius: 15px;
-  font-size: 13px;
-}
-
 .modelList {
   padding: 0;
 }
@@ -739,11 +502,7 @@
 }
 
 .modelChoice {
-  display: flex;
   min-width: 0;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
 }
 
 .modelCopy {
@@ -788,52 +547,7 @@
   white-space: nowrap;
 }
 
-.modelApiLink {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid rgba(116, 43, 69, 0.15);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.35);
-  color: #742b45;
-  font-size: 13px;
-  line-height: 1.2;
-  text-decoration: none;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.modelApiLink:hover {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.modelApiLink:focus-visible {
-  outline: 2px solid #742b45;
-  outline-offset: 2px;
-}
-
-.modelApiLink svg {
-  width: 11px;
-  height: 11px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.5;
-}
-
-.quotasLink:focus-visible,
-.primaryAction:focus-visible,
-.secondaryAction:focus-visible,
-.dangerAction:focus-visible,
-.textButton:focus-visible,
-.iconAction:focus-visible,
-.switch:focus-visible,
-.providerApiLink:focus-visible,
-.confirmation input:focus-visible,
-.modelChoice input:focus-visible {
+.switch:focus-visible {
   outline: 3px solid rgba(116, 43, 69, 0.31);
   outline-offset: 3px;
 }
@@ -887,12 +601,6 @@
     font-size: 18px;
   }
 
-  .providerApiLink {
-    min-height: 44px;
-    margin-top: 12px;
-    padding: 10px 12px;
-  }
-
   .providerMeta {
     grid-column: 1 / -1;
     margin-top: 0;
@@ -907,11 +615,6 @@
     font-size: 18px;
   }
 
-  .sectionHeading .secondaryAction {
-    min-height: 47px;
-    padding-inline: 12px;
-  }
-
   .account {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
@@ -921,12 +624,6 @@
   .accountActions {
     justify-content: flex-end;
     gap: 8px;
-  }
-
-  .iconAction {
-    flex-basis: 44px;
-    width: 44px;
-    height: 44px;
   }
 
   .switch {
@@ -956,7 +653,7 @@
     flex-wrap: wrap;
     justify-items: start;
     align-items: center;
-    padding-left: 29px;
+    padding-left: 34px;
   }
 
   .screenFooter {
@@ -980,22 +677,9 @@
   }
 }
 
-@media (max-width: 420px) {
-  .skipActions {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 @media (max-width: 360px) {
-
   .accountActions {
     gap: 4px;
-  }
-
-  .iconAction {
-    flex-basis: 44px;
-    width: 44px;
-    height: 44px;
   }
 
   .switch {
@@ -1009,16 +693,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .field input,
-.primaryAction,
-.secondaryAction,
-.dangerAction,
-.quotasLink,
-.providerApiLink,
-.iconAction,
-.switch,
-.switch::before,
-.switch > span {
+  .switch,
+  .switch::before,
+  .switch > span {
     transition-duration: 0.01ms;
   }
 }
@@ -1029,27 +706,17 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-
-  .providerApiLink {
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: none;
-  }
 }
 
 @media (prefers-contrast: more) {
   .connectForm,
-.account,
-.modelRow {
+  .account,
+  .modelRow {
     border-color: rgba(87, 37, 55, 0.42);
-  }
-
-  .providerApiLink {
-    border-color: rgba(87, 37, 55, 0.58);
   }
 
   .intro,
   .empty,
-  .field small,
   .modelsIntro,
   .providerTitle p,
   .providerTitle > span,
@@ -1076,21 +743,11 @@
   margin-top: 1px;
 }
 
-.sheet button.backButton {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
+/* Text button with a leading arrow; the negative margin aligns the arrow with the page edge. */
+.backButton {
+  margin: 0 0 8px -12px;
+  padding-inline: 12px;
   gap: 8px;
-  margin: 0 0 8px -8px;
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: transparent;
-  color: #742b45;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .backButton svg {
@@ -1101,16 +758,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.7;
-}
-
-.backButton:hover {
-  background: rgba(255, 255, 255, 0.44);
-}
-
-.backButton:focus-visible,
-.queueItem button:focus-visible {
-  outline: 3px solid rgba(116, 43, 69, 0.31);
-  outline-offset: 3px;
 }
 
 .screenContent {
@@ -1196,31 +843,8 @@
   line-height: 1.35;
 }
 
-.providerRowStatus {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border: 1px solid rgba(116, 102, 109, 0.16);
-  border-radius: 999px;
-  background: rgba(116, 102, 109, 0.075);
-  color: #76666d;
-  font-size: 13px;
-  line-height: 1.2;
+.rowStatus {
   white-space: nowrap;
-}
-
-.statusConnected {
-  border-color: rgba(102, 131, 109, 0.2);
-  background: rgba(115, 148, 122, 0.11);
-  color: #55715c;
-}
-
-.statusUnavailable {
-  border-color: rgba(164, 109, 52, 0.2);
-  background: rgba(240, 218, 181, 0.2);
-  color: #765c3d;
 }
 
 .rowChevron {
@@ -1290,16 +914,6 @@
   padding: 16px 0 0;
 }
 
-.sheet .screenFooter button.primaryAction {
-  min-height: 60px;
-  margin: 0;
-}
-
-.screenFooter .textButton {
-  justify-self: center;
-  color: #76666d;
-}
-
 .screenFooter .guidance {
   margin: 0;
   color: #6f6067;
@@ -1309,47 +923,6 @@
 
 .skipBlock {
   min-width: 0;
-}
-
-.sheet button.skipAction {
-  display: inline-flex;
-  width: 100%;
-  min-height: 60px;
-  align-items: center;
-  justify-content: center;
-  padding: 16px 20px;
-  border: 1px solid rgba(116, 43, 69, 0.28);
-  border-radius: 20px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.4)), rgba(255, 255, 255, 0.34);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 10px rgba(67, 40, 52, 0.045);
-  color: #742b45;
-  cursor: pointer;
-  font: 560 16px/1.35 "Medeo Sans", Inter, system-ui, sans-serif;
-  text-align: center;
-  -webkit-backdrop-filter: blur(14px) saturate(1.25);
-  backdrop-filter: blur(14px) saturate(1.25);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
-}
-
-.sheet button.skipAction:hover:not(:disabled) {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.48)), rgba(255, 255, 255, 0.4);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 5px 14px rgba(67, 40, 52, 0.06);
-  transform: translateY(-1px);
-}
-
-.sheet button.skipAction:active:not(:disabled) {
-  transform: translateY(1px) scale(0.99);
-}
-
-.sheet button.skipAction:focus-visible {
-  outline: 3px solid rgba(116, 43, 69, 0.35);
-  outline-offset: 3px;
-}
-
-.sheet button.skipAction:disabled {
-  cursor: wait;
-  opacity: 0.58;
 }
 
 .skipConfirmation,
@@ -1383,21 +956,6 @@
   color: #6f6067;
   font-size: 15px;
   line-height: 1.6;
-}
-
-.skipActions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.sheet .skipActions button {
-  width: 100%;
-  min-width: 0;
-  min-height: 56px;
-  padding: 12px 16px;
-  font-size: 14px;
 }
 
 .welcomePanel {
@@ -1525,12 +1083,6 @@
   gap: 4px;
 }
 
-.queueControls .iconAction {
-  width: 44px;
-  height: 44px;
-  flex-basis: 44px;
-}
-
 .dragHandle {
   display: grid;
   width: 28px;
@@ -1543,15 +1095,6 @@
   width: 20px;
   height: 24px;
   fill: currentColor;
-}
-
-.queueItem button:disabled {
-  cursor: default;
-  opacity: 0.42;
-}
-
-.modelSearch {
-  margin: 0;
 }
 
 .providerRow:focus-visible,
@@ -1583,7 +1126,7 @@
     font-size: 13px;
   }
 
-  .providerRowStatus {
+  .rowStatus {
     min-height: 32px;
     padding-inline: 8px;
     font-size: 13px;
@@ -1603,7 +1146,7 @@
     gap: 12px;
   }
 
-  .providerDetails .providerHeader > .providerRowStatus {
+  .providerDetails .providerHeader > .rowStatus {
     grid-column: 2;
     justify-self: start;
   }
@@ -1659,7 +1202,7 @@
     font-size: 14px;
   }
 
-  .providerRowStatus {
+  .rowStatus {
     grid-column: 2;
     justify-self: start;
     padding-inline: 8px;
@@ -1668,18 +1211,10 @@
   .queueControls {
     gap: 3px;
   }
-
-  .sheet button.skipAction {
-    min-height: 58px;
-    padding-inline: 16px;
-    font-size: 15px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .backButton,
-  .providerRow,
-  .skipAction {
+  .providerRow {
     transition-duration: 0.01ms;
   }
 }
@@ -1688,7 +1223,6 @@
   .providerRow,
   .providerDetails,
   .queueItem,
-  .skipAction,
   .skipConfirmation,
   .welcomePanel {
     background: rgba(250, 246, 245, 0.97);
@@ -1701,7 +1235,6 @@
   .providerRow,
   .providerDetails,
   .queueItem,
-  .skipAction,
   .skipConfirmation,
   .welcomePanel {
     border-color: rgba(87, 37, 55, 0.42);
@@ -1721,7 +1254,6 @@
   .providerRow,
   .providerDetails,
   .queueItem,
-  .skipAction,
   .skipConfirmation,
   .welcomePanel {
     background: rgba(250, 246, 245, 0.96);
@@ -1729,6 +1261,7 @@
 }
 
 /* First-run wizard */
+
 .wizardChoices {
   display: grid;
   gap: 12px;
@@ -1738,48 +1271,24 @@
   border: 0;
 }
 
-.wizardChoice {
+.wizardChoiceBody {
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 72px;
-  padding: 14px 16px;
-  border: 1px solid rgba(116, 43, 69, 0.14);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.42);
-  cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
-.wizardChoice .providerMark {
+.wizardChoiceBody .providerMark {
   flex: 0 0 52px;
 }
 
 .wizardChoiceCopy {
-  flex: 1 1 auto;
-}
-
-.wizardChoice input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.wizardChoiceActive {
-  border-color: rgba(116, 43, 69, 0.56);
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.wizardChoice:focus-within {
-  box-shadow: 0 0 0 4px rgba(116, 43, 69, 0.1);
-}
-
-.wizardChoiceCopy {
   display: grid;
+  flex: 1 1 auto;
   gap: 4px;
   min-width: 0;
-  color: #6f6067;
+  color: var(--ui-color-ink-soft);
   font-size: 13px;
+  font-weight: 400;
   line-height: 1.45;
 }
 
@@ -1788,18 +1297,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  color: #35272c;
+  color: var(--ui-color-ink);
   font-size: 16px;
-  font-weight: 600;
-}
-
-.wizardChoiceCopy em {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(102, 131, 109, 0.16);
-  color: #4d6b55;
-  font-size: 13px;
-  font-style: normal;
   font-weight: 600;
 }
 
@@ -1835,12 +1334,35 @@
   font: 600 13px/1 "Medeo Mono", ui-monospace, monospace;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .wizardChoice {
-    transition: none;
-  }
+.keyHelp { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #a5899538; border-radius: 12px; }
+
+.keyHelp summary { cursor: pointer; color: #742b45; font-size: 14px; font-weight: 550; }
+
+.keyHelp[open] summary { margin-bottom: 4px; }
+
+/* `.stage button { color: inherit }` in lifeos-app.module.css outranks the kit's single-class button color; restore it for the variants that rely on it. */
+.sheet button[data-variant="secondary"],
+.sheet button[data-variant="text"] {
+  color: var(--ui-color-accent);
 }
 
-.keyHelp { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #a5899538; border-radius: 12px; }
-.keyHelp summary { cursor: pointer; color: #742b45; font-size: 14px; font-weight: 550; }
-.keyHelp[open] summary { margin-bottom: 4px; }
+.sheet button[data-variant="danger"] {
+  color: var(--ui-color-danger);
+}
+
+/* Line icons inside kit IconButtons (the kit only sizes the svg). */
+.accountActions button svg,
+.queueControls button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.formHeading > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
