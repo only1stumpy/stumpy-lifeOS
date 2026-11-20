@@ -890,6 +890,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключи аккаунты и выбери модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
                 {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
               </div>
+              {(!guidedRun || queue.length > 0) && (
+                <div className={styles.screenFooter}>
+                  <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></button>
+                </div>
+              )}
               {guidedRun && queue.length === 0 && (
                 <div className={styles.skipBlock}>
                   {!confirmSkip ? (
@@ -1135,13 +1140,6 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           <footer className={styles.screenFooter}>
             <button className={styles.primaryAction} type="button" onClick={() => setScreen("key")} disabled={busyAction !== null}>Начать</button>
             <button className={styles.textButton} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : guidedRun ? "Настрою позже" : "Закрыть"}</button>
-          </footer>
-        )}
-
-        {loadState === "ready" && screen === "providers" && (
-          <footer className={styles.screenFooter}>
-            {!guidedRun && <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></button>}
-            {guidedRun && queue.length > 0 && <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></button>}
           </footer>
         )}
 

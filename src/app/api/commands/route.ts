@@ -3,6 +3,7 @@ import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { commandSchema } from "@/domain/commands";
 import { executeCommand, loadSnapshot } from "@/server/lifeos";
 import { AIAnalysisError } from "@/server/ai/types";
+import { alertAiFailure } from "@/server/ai/error-copy";
 import { withTelegramUser } from "@/server/owner-context";
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -28,7 +29,10 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
-    if (error instanceof AIAnalysisError) return Response.json({ error: error.message }, { status: 503 });
+    if (error instanceof AIAnalysisError) {
+      await alertAiFailure(error);
+      return Response.json({ error: error.message }, { status: 503 });
+    }
     return errorResponse(error);
   }
 }

@@ -29,7 +29,7 @@ test("цепочка ИИ: медленные кандидаты укладыв�
     const error = await outcome;
     assert.ok(error instanceof AIAnalysisError);
     assert.equal(error.code, "time_budget");
-    assert.match(error.message, /слишком медленно/);
+    assert.match(error.message, /не ответил вовремя/);
     assert.deepEqual(timeouts, [18_000, 18_000, 6_000], "третья попытка получает только остаток бюджета (42 с)");
     assert.equal(timeouts.reduce((sum, value) => sum + value, 0), 42_000, "сумма таймаутов равна бюджету");
   } finally {

@@ -133,7 +133,7 @@ test("429 Gemini и Groq объясняются как лимит API, а не �
     await assert.rejects(analyzeMessage(analysisInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "quota_exceeded");
-      assert.match(error.message, /лимит запросов/i);
+      assert.match(error.message, /лимит.*исчерпан/i);
       assert.match(error.message, /это не обязательно означает, что закончились оплаченные кредиты/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE|test-gemini-key/i);
       return true;
@@ -148,7 +148,7 @@ test("429 Gemini и Groq объясняются как лимит API, а не �
     await assert.rejects(answerLifeOSQuestion(referenceInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "quota_exceeded");
-      assert.match(error.message, /лимит запросов/i);
+      assert.match(error.message, /лимит.*исчерпан/i);
       assert.match(error.message, /это не обязательно означает, что закончились оплаченные кредиты/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE|test-groq-key/i);
       return true;
