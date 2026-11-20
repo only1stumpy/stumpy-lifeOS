@@ -91,12 +91,15 @@
 
 .timeField {
   display: grid;
+  min-width: 0;
   gap: 6px;
   padding-top: 6px;
 }
 
-.timeField input {
-  max-width: 200px;
+.timeField input,
+.timeField select {
+  min-width: 0;
+  max-width: 100%;
   min-height: 48px;
   padding: 0 14px;
   border: 1px solid #a5899538;
@@ -107,6 +110,10 @@
   accent-color: #742b45;
 }
 
+.timeField input[type="time"] {
+  max-width: 200px;
+}
+
 .actions {
   display: grid;
   gap: 8px;
@@ -114,7 +121,8 @@
 }
 
 /* Specificity above the app-wide ".stage button { color: inherit }", which otherwise turns the label dark. */
-.page .save {
+.page .save,
+.saveBar .save {
   min-height: 52px;
   border: 0;
   border-radius: 17px;
@@ -125,7 +133,8 @@
   cursor: pointer;
 }
 
-.page .save:disabled {
+.page .save:disabled,
+.saveBar .save:disabled {
   color: #fff;
   opacity: 0.6;
   cursor: default;
@@ -159,4 +168,47 @@
 .danger:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* Save button of a settings form: slides in above the dock on the first change. */
+.saveBar {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(94px + var(--lifeos-inset-bottom));
+  display: grid;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 16px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+
+.saveBar[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Room at the end of the page so the bar never covers the last item. */
+.saveSpacer {
+  height: 0;
+}
+
+.saveSpacer[data-open="true"] {
+  height: 72px;
+}
+
+/* A section toggled off changes the height of the list; the browser must not shift the scroll for it. */
+.page[data-no-scroll-anchor] {
+  overflow-anchor: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saveBar,
+  .saveBar[data-open="true"] {
+    transition: none;
+  }
 }

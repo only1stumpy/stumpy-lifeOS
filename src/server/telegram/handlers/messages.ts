@@ -14,6 +14,7 @@ import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
+import { alertAiFailure } from "@/server/ai/error-copy";
 import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
 import { clearEditingCapture, formatSigned, isOwner, round1, updateRowIds } from "@/server/telegram/shared";
 import { downloadTelegramPhoto } from "@/server/telegram/handlers/photo";
@@ -228,6 +229,7 @@ export function registerMessages(bot: Bot<Context>): void {
       if (result.clarification) await ctx.reply(result.clarification);
     } catch (error) {
       if (statusMessageId) await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
+      if (error instanceof AIAnalysisError) await alertAiFailure(error);
       const messageText = error instanceof AppError || error instanceof AIAnalysisError
         ? error.message
         : "Не получилось разобрать сообщение. Попробуй ещё раз или напиши, что съел или купил и сколько это стоило.";

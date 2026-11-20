@@ -84,18 +84,29 @@ export type AIAnalysisErrorCode =
   | "invalid_response"
   | "time_budget";
 
+/** One failed provider call, safe for the admin bot: no key, no prompt, no provider text. */
+export type AIAttempt = {
+  provider: AnalysisProvider;
+  model: string;
+  kind: string;
+  status?: number;
+};
+
 export class AIAnalysisError extends Error {
   readonly code: AIAnalysisErrorCode;
   readonly attemptedProviders: readonly AnalysisProvider[];
+  readonly attempts: readonly AIAttempt[];
 
   constructor(
     code: AIAnalysisErrorCode,
     message: string,
     attemptedProviders: readonly AnalysisProvider[] = [],
+    attempts: readonly AIAttempt[] = [],
   ) {
     super(message);
     this.name = "AIAnalysisError";
     this.code = code;
     this.attemptedProviders = attemptedProviders;
+    this.attempts = attempts;
   }
 }

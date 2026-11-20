@@ -25,6 +25,7 @@ export const COMMON_CURRENCIES: readonly CurrencyInfo[] = [
   { code: "EUR", name: "Евро", unit: "€" },
   { code: "RUB", name: "Российский рубль", unit: "₽" },
   { code: "MDL", name: "Молдавский лей", unit: "лей" },
+  { code: "PRB", name: "Рубль ПМР", unit: "р. ПМР" },
   { code: "UAH", name: "Украинская гривна", unit: "₴" },
   { code: "BYN", name: "Белорусский рубль", unit: "Br" },
   { code: "KZT", name: "Казахстанский тенге", unit: "₸" },
@@ -39,11 +40,8 @@ export const COMMON_CURRENCIES: readonly CurrencyInfo[] = [
   { code: "AED", name: "Дирхам ОАЭ", unit: "AED" },
 ];
 
-/** Known but not listed in pickers: the Transnistrian ruble used before currencies became configurable. */
-const EXTRA_CURRENCIES: readonly CurrencyInfo[] = [{ code: "PRB", name: "Рубль ПМР", unit: "р. ПМР" }];
-
 function infoFor(code: CurrencyCode): CurrencyInfo | undefined {
-  return COMMON_CURRENCIES.find((item) => item.code === code) ?? EXTRA_CURRENCIES.find((item) => item.code === code);
+  return COMMON_CURRENCIES.find((item) => item.code === code);
 }
 
 /** Short suffix for amounts: «$», «€», «р. ПМР», or the code itself for unknown currencies. */

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { ALL_FEATURES, ALL_MODULES, LIFE_FEATURES, LIFE_MODULES, type LifeFeature, type LifeModule } from "@/domain/modules";
@@ -29,9 +30,8 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
   const [timeZone, setTimeZone] = useState(savedZone);
   const zones = timeZoneList(savedZone);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
-  const touch = () => { setSaved(false); setError(null); };
+  const touch = () => setError(null);
   const toggle = <T,>(list: T[], setList: (next: T[]) => void, value: T, on: boolean) => {
     touch();
     setList(on ? [...list, value] : list.filter((item) => item !== value));
@@ -46,6 +46,8 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
     || summaryTime !== (notifications.summaryTime ?? "19:30")
     || timeZone !== savedZone;
 
+  const open = dirty || pending || error !== null;
+
   async function save() {
     if (pending) return;
     if (!modules.length) { setError("Оставь хотя бы один раздел."); return; }
@@ -54,12 +56,11 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
       ...(timeZone !== savedZone ? [{ type: "settings.save" as const, timeZone, target: null }] : []),
       { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, weightReminder, summaryTime: summaryTime || null } },
     ]);
-    if (ok) setSaved(true);
-    else setError("Не удалось сохранить. Проверь соединение и повтори.");
+    if (!ok) setError("Не удалось сохранить. Проверь соединение и повтори.");
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-no-scroll-anchor="true">
       <h1 className={styles.title}>Персонализация</h1>
       <p className={styles.hint}>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включи снова, и всё будет на месте.</p>
 
@@ -98,30 +99,33 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
           <input type="checkbox" checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} />
           <span><strong>Напоминание взвеситься</strong><small>По четвергам, если за 7 дней меньше трёх замеров.</small></span>
         </label>}
-        <label className={styles.timeField}>
-          <strong>Время сводок и напоминаний</strong>
-          <input type="time" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
-          <small className={styles.hint}>Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
-        </label>
+        <div className={styles.timeField}>
+          <label htmlFor="summary-time"><strong>Время сводок и напоминаний</strong></label>
+          <input id="summary-time" type="time" aria-describedby="summary-time-hint" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
+          <small id="summary-time-hint" className={styles.hint}>Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
+        </div>
       </section>
 
       <section className={styles.section} aria-labelledby="timezone-heading">
         <h2 id="timezone-heading">Часовой пояс</h2>
-        <label className={styles.timeField}>
-          <strong>Твой пояс</strong>
-          <select value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
+        <div className={styles.timeField}>
+          <label htmlFor="time-zone"><strong>Твой пояс</strong></label>
+          <select id="time-zone" aria-describedby="time-zone-hint" value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
             {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
           </select>
-          <small className={styles.hint}>По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени.</small>
-        </label>
+          <small id="time-zone-hint" className={styles.hint}>По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени.</small>
+        </div>
         {detectedZone() && detectedZone() !== timeZone ? <button type="button" className={styles.save} onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</button> : null}
       </section>
 
-      <div className={styles.actions}>
+      {/* The bar is a portal: ancestors animated by framer-motion carry a transform, which would make them the containing block of position: fixed. */}
+      <div className={styles.saveSpacer} data-open={open} aria-hidden="true" />
+      {typeof document !== "undefined" ? createPortal(
+      <div className={styles.saveBar} data-open={open} inert={!open}>
         {error ? <p className={`${styles.status} ${styles.error}`} role="alert">{error}</p> : null}
-        {saved ? <p className={`${styles.status} ${styles.ok}`} role="status">Сохранено.</p> : null}
-        <button type="button" className={styles.save} disabled={pending || !dirty} onClick={() => void save()}>Сохранить</button>
+        <button type="button" className={styles.save} disabled={pending || !dirty} aria-busy={pending} onClick={() => void save()}>{pending ? "Сохраняю…" : "Сохранить"}</button>
       </div>
+        , document.body) : null}
     </div>
   );
 }
