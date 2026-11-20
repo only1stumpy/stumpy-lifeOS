@@ -1,0 +1,115 @@
+.root {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-1);
+}
+
+.row {
+  display: flex;
+  min-height: var(--ui-size-touch);
+  align-items: center;
+  gap: var(--ui-space-3);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.input {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--ui-size-check);
+  height: var(--ui-size-check);
+  min-width: var(--ui-size-check);
+  min-height: var(--ui-size-check);
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--ui-color-control-border);
+  border-radius: var(--ui-radius-checkbox);
+  background-color: var(--ui-color-field-fill);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: inherit;
+  transition: background-color var(--motion-duration-micro, 140ms) ease, border-color var(--motion-duration-micro, 140ms) ease;
+}
+
+.input[type="checkbox"]:checked {
+  border-color: var(--ui-color-accent);
+  background-color: var(--ui-color-accent);
+  /* Check mark; the stroke repeats --ui-color-on-accent (a data URI cannot read variables). */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none' stroke='%23fffaf9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 7.5 2.7 2.7L11 4.5'/%3E%3C/svg%3E");
+}
+
+.input[type="radio"] {
+  border-radius: 50%;
+}
+
+.input[type="radio"]:checked {
+  border-color: var(--ui-color-accent);
+  background-image: radial-gradient(circle, var(--ui-color-accent) 0 38%, transparent 42%);
+  background-size: 100% 100%;
+}
+
+.input:focus-visible {
+  outline: var(--ui-focus-width) solid var(--ui-focus-color);
+  outline-offset: var(--ui-focus-offset);
+  box-shadow: var(--ui-focus-halo);
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--ui-color-danger);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.root[data-disabled="true"] .row {
+  cursor: not-allowed;
+}
+
+.root[data-disabled="true"] .text {
+  opacity: 0.5;
+}
+
+.description {
+  margin: 0;
+  padding-left: calc(var(--ui-size-check) + var(--ui-space-3));
+  color: var(--ui-color-ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.error {
+  color: var(--ui-color-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .input {
+    border-color: currentColor;
+    background-color: #fff;
+  }
+}
+
+@media (forced-colors: active) {
+  .input {
+    border-color: ButtonText;
+  }
+
+  .input:checked {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    border-color: Highlight;
+  }
+}

@@ -1,0 +1,80 @@
+/*
+ * Design tokens of the UI kit. Only custom properties: no selectors besides :root, no dependencies.
+ * The same values live in tokens.ts (for HTML strings: bot widgets, reports, letters);
+ * tests/ui-tokens.test.ts fails when the two files drift apart.
+ * Name rule: tokens.<group>.<camelCase> in TS is --ui-<group>-<kebab-case> here.
+ * Safe-area and motion variables stay in globals.css (--lifeos-inset-*, --motion-*).
+ */
+:root {
+  /* Colors */
+  --ui-color-paper: #f6f2ec;
+  --ui-color-ink: #35272c;
+  --ui-color-ink-soft: #76666d;
+  --ui-color-accent: #742b45;
+  --ui-color-accent-pressed: #61223a;
+  --ui-color-accent-ring: #5b2439;
+  --ui-color-accent-tint: #742b4512;
+  --ui-color-accent-border: #742b4530;
+  --ui-color-on-accent: #fffaf9;
+  --ui-color-danger: #a3261f;
+  --ui-color-danger-border: #a3261f55;
+  --ui-color-danger-tint: #a3261f12;
+  --ui-color-success: #3d6b4f;
+  --ui-color-divider: rgba(96, 45, 62, 0.16);
+  --ui-color-field-fill: #ffffff60;
+  --ui-color-field-border: #a5899538;
+  --ui-color-control-border: #a58995;
+  --ui-color-secondary-fill: #ffffff70;
+
+  /* Radii */
+  --ui-radius-field: 14px;
+  --ui-radius-button: 16px;
+  --ui-radius-checkbox: 7px;
+  --ui-radius-panel: 22px;
+  --ui-radius-surface: 28px;
+  --ui-radius-pill: 999px;
+
+  /* Control sizes (heights), 44px is the touch minimum */
+  --ui-size-touch: 44px;
+  --ui-size-button-sm: 44px;
+  --ui-size-button-md: 48px;
+  --ui-size-button-lg: 52px;
+  --ui-size-field: 52px;
+  --ui-size-textarea: 112px;
+  --ui-size-check: 22px;
+
+  /* Spacing */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+
+  /* Typography */
+  --ui-font-family: "Medeo Sans", sans-serif;
+  --ui-font-mono: "Medeo Mono", monospace;
+  --ui-font-size-caption: 13px;
+  --ui-font-size-body: 16px;
+  --ui-font-weight-regular: 400;
+  --ui-font-weight-medium: 550;
+  --ui-font-weight-strong: 600;
+
+  /* Focus ring: opaque ring with a light halo, readable on glass, paper and dark backdrops */
+  --ui-focus-color: #5b2439;
+  --ui-focus-width: 3px;
+  --ui-focus-offset: 3px;
+  --ui-focus-halo: 0 0 0 6px #fff;
+
+  /* Shadows */
+  --ui-shadow-button: 0 2px 6px rgba(53, 39, 44, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --ui-shadow-sheet: 0 -10px 60px #742b4520;
+  --ui-shadow-toast: 0 10px 28px rgba(53, 39, 44, 0.28);
+
+  /* Glass: parameters of the approved material (see DESIGN.md) */
+  --ui-glass-alpha: 0.085;
+  --ui-glass-blur: blur(9px) saturate(1.3);
+  --ui-glass-rim: rgba(255, 255, 255, 0.68);
+  --ui-glass-rim-top: rgba(255, 255, 255, 0.9);
+}

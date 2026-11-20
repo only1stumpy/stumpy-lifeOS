@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import "../components/ui/tokens.css";
 import "./globals.css";
 import { KeyboardAvoidance } from "./keyboard-avoidance";
 
