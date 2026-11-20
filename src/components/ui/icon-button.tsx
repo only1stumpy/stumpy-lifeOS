@@ -10,7 +10,7 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "dis
   size?: "sm" | "md";
   disabled?: boolean;
   loading?: boolean;
-  /** React 19 passes `ref` as a prop; it reaches the native button through the rest spread (e.g. to focus it on open). */
+  /** React 19 passes ref as a prop; the sheet close button needs it for initial focus. */
   ref?: Ref<HTMLButtonElement>;
 };
 
