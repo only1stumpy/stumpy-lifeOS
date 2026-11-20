@@ -434,3 +434,16 @@
   .dialog::backdrop { background: rgba(47, 30, 39, 0.42); }
   .sheet { background: rgba(249, 245, 245, 0.97); }
 }
+
+/* Light mode: the same opaque fallbacks as for reduced transparency (blur itself is switched off in globals.css). */
+:global(:root[data-lifeos-light="1"]) .dialog::backdrop {
+  background: rgba(47, 30, 39, 0.42);
+}
+
+:global(:root[data-lifeos-light="1"]) .sheet {
+  background: rgba(249, 245, 245, 0.98);
+}
+
+:global(:root[data-lifeos-light="1"]) .metric {
+  border-color: rgba(69, 42, 54, 0.42);
+}
