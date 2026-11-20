@@ -1,5 +1,6 @@
 "use client";
 
+import { useBodyScrollLock } from "@/components/scroll-lock";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -169,6 +170,7 @@ function MacroFields({ values }: { values?: { calories: number; proteinGrams: nu
 export function EditorDialog({ editor, snapshot, pending, error, onClose: closeNow, onChange, onCommand, onRegisterTelegramBackHandler, restoreValues, onRememberForm, onConnectAi }: EditorDialogProps) {
   const motionVariants = useMotionVariants();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  useBodyScrollLock();
   /** The browser reports every invalid field of a form; only the first one is shown and focused. */
   const invalidHandledRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
