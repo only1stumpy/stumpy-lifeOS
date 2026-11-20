@@ -1,28 +1,31 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { counted, maskCount, type Counted, type Masked } from "@/server/admin/mask";
 import { readKv, writeKv } from "@/server/admin/kv";
 
 /**
  * Aggregate usage statistics: only counts and shares. There is no query here that returns a row per user,
- * no identifiers, names or diary content; every count of 1-4 is shown as "<5".
+ * no identifiers, names or diary content; counts are real values, including 0 and 1-4.
  */
+export type Counted = { count: number; share: number | null };
+/** Share in percent (one decimal); null (shown as a dash) only when the whole is zero. */
+const counted = (part: number, whole: number): Counted => ({ count: part, share: whole > 0 ? Math.round((part / whole) * 1000) / 10 : null });
+
 export type AdminStats = {
   computedAt: string;
   audience: {
-    total: Masked;
-    newDay: Masked; newWeek: Masked; newMonth: Masked;
-    dau: Masked; wau: Masked; mau: Masked;
-    registrationsByDay: { date: string; count: Masked }[];
+    total: number;
+    newDay: number; newWeek: number; newMonth: number;
+    dau: number; wau: number; mau: number;
+    registrationsByDay: { date: string; count: number }[];
   };
-  retention: { cohortWeek: string; size: Masked; day1: Counted; day7: Counted; day30: Counted }[];
+  retention: { cohortWeek: string; size: number; day1: Counted; day7: Counted; day30: Counted }[];
   onboarding: { consent: Counted; profile: Counted; firstEntry: Counted; aiConnected: Counted };
-  modules: { module: string; enabled: Counted; active30d: Counted; entriesPerDay7d: Masked }[];
+  modules: { module: string; enabled: Counted; active30d: Counted; entriesPerDay7d: number }[];
   channels: { chat: Counted; miniApp: Counted; other: Counted };
   ai: {
     withKeys: Counted;
     byProvider: { provider: string; users: Counted }[];
-    events7d: { success: Masked; failures: { kind: string; count: Masked }[] };
+    events7d: { success: number; failures: { kind: string; count: number }[] };
   };
   slices: { timezones: { value: string; users: Counted }[]; currencies: { value: string; users: Counted }[] };
 };
@@ -81,8 +84,8 @@ export async function computeStats(now: Date = new Date()): Promise<AdminStats> 
 
   const enabled = await q(sql`SELECT m AS module, count(*) AS c FROM owner_settings, unnest(enabled_modules) AS m GROUP BY 1`);
   const enabledOf = (name: string) => n(enabled.find((row) => row.module === name)?.c);
-  // Average per day over 7 days; hidden when the weekly total itself is a small group.
-  const perDay = (weekTotal: unknown): Masked => (n(weekTotal) > 0 && n(weekTotal) < 5 ? "<5" : Math.round((n(weekTotal) / 7) * 10) / 10);
+  // Average per day over 7 days.
+  const perDay = (weekTotal: unknown): number => Math.round((n(weekTotal) / 7) * 10) / 10;
 
   const [channels] = await q(sql`
     SELECT
@@ -111,14 +114,14 @@ export async function computeStats(now: Date = new Date()): Promise<AdminStats> 
   return {
     computedAt: now.toISOString(),
     audience: {
-      total: maskCount(total),
-      newDay: maskCount(n(a.new_day)), newWeek: maskCount(n(a.new_week)), newMonth: maskCount(n(a.new_month)),
-      dau: maskCount(n(a.dau)), wau: maskCount(n(a.wau)), mau: maskCount(n(a.mau)),
-      registrationsByDay: registrations.map((row) => ({ date: String(row.d), count: maskCount(n(row.c)) })),
+      total: total,
+      newDay: n(a.new_day), newWeek: n(a.new_week), newMonth: n(a.new_month),
+      dau: n(a.dau), wau: n(a.wau), mau: n(a.mau),
+      registrationsByDay: registrations.map((row) => ({ date: String(row.d), count: n(row.c) })),
     },
     retention: cohorts.map((row) => ({
       cohortWeek: String(row.w),
-      size: maskCount(n(row.size)),
+      size: n(row.size),
       day1: counted(n(row.r1), n(row.e1)),
       day7: counted(n(row.r7), n(row.e7)),
       day30: counted(n(row.r30), n(row.e30)),
@@ -143,8 +146,8 @@ export async function computeStats(now: Date = new Date()): Promise<AdminStats> 
       withKeys: counted(n(a.ai), total),
       byProvider: providers.map((row) => ({ provider: String(row.p), users: counted(n(row.c), total) })),
       events7d: {
-        success: maskCount(events.filter((row) => row.outcome === "success").reduce((sum, row) => sum + n(row.c), 0)),
-        failures: events.filter((row) => row.outcome === "failure").map((row) => ({ kind: String(row.kind), count: maskCount(n(row.c)) })),
+        success: events.filter((row) => row.outcome === "success").reduce((sum, row) => sum + n(row.c), 0),
+        failures: events.filter((row) => row.outcome === "failure").map((row) => ({ kind: String(row.kind), count: n(row.c) })),
       },
     },
     slices: {

@@ -79,7 +79,7 @@ test("админ-API: подпись админ-бота и ID из списка
   await rejectsWith(requireAdmin(req(signed(ADMIN_TOKEN, ADMIN_ID))), 503);
 });
 
-test("статистика: нет идентификаторов, малые группы скрыты", async (t) => {
+test("статистика: нет идентификаторов, малые значения показываются как есть", async (t) => {
   isolate(t);
   const { db } = await createCommandDb();
   const ids: string[] = [];
@@ -88,7 +88,7 @@ test("статистика: нет идентификаторов, малые г
     ids.push(id);
     await ownerOf(db, id);
   }
-  // Три пользователя с другой валютой и поясом: меньше порога.
+  // Три пользователя с другой валютой и поясом: малая группа (1–4).
   for (const id of ids.slice(0, 3)) await db.update(schema.ownerSettings).set({ baseCurrency: "PRB", timezone: "Asia/Tokyo" }).where(eq(schema.ownerSettings.telegramUserId, id));
   const stats = await computeStats();
   const json = JSON.stringify(stats);
@@ -96,8 +96,8 @@ test("статистика: нет идентификаторов, малые г
   assert.ok(!/telegram|username|owner_id|ownerId/i.test(json), "в ответе нет полей идентификации");
   assert.equal(stats.audience.total, 8);
   const prb = stats.slices.currencies.find((item) => item.value === "PRB");
-  assert.deepEqual(prb?.users, { count: "<5", share: null });
-  assert.deepEqual(stats.slices.timezones.find((item) => item.value === "Asia/Tokyo")?.users, { count: "<5", share: null });
+  assert.deepEqual(prb?.users, { count: 3, share: 37.5 });
+  assert.deepEqual(stats.slices.timezones.find((item) => item.value === "Asia/Tokyo")?.users, { count: 3, share: 37.5 });
   assert.equal(stats.slices.timezones.find((item) => item.value === "Europe/Chisinau")?.users.count, 5);
   assert.equal(stats.audience.dau, 0);
 });
