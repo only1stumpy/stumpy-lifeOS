@@ -246,6 +246,13 @@ async function main() {
   await settingsPage("06-personalization", "Персонализация");
   await settingsPage("07-ai-providers", "ИИ-провайдеры");
   await settingsPage("08-privacy", "Данные и приватность");
+  // Deletion confirmation: the word is typed through the native setter so React sees the change.
+  if (await clickText("^Удалить все данные$")) {
+    await wait(300);
+    await evaluate(`(() => { const el = document.querySelector('input[placeholder="УДАЛИТЬ"]'); if (!el) return; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "УДАЛИТЬ"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await wait(300);
+    await shot("08a-privacy-delete");
+  } else skip("08a-privacy-delete", "нет кнопки «Удалить все данные»");
 
   // Sub-tabs of finance.
   await openAs(users.main, /Сегодня/);

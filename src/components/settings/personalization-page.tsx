@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { Button, Checkbox, Select, TextField } from "@/components/ui";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { ALL_FEATURES, ALL_MODULES, LIFE_FEATURES, LIFE_MODULES, type LifeFeature, type LifeModule } from "@/domain/modules";
@@ -70,15 +71,11 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
           const moduleOn = modules.includes(module);
           return (
             <div key={module}>
-              <label className={styles.option}>
-                <input type="checkbox" checked={moduleOn} onChange={(event) => toggle(modules, setModules, module, event.target.checked)} />
-                <span><strong>{LIFE_MODULES[module].label}</strong><small>{LIFE_MODULES[module].description}</small></span>
-              </label>
+              <Checkbox checked={moduleOn} onChange={(event) => toggle(modules, setModules, module, event.target.checked)} label={<strong>{LIFE_MODULES[module].label}</strong>} description={LIFE_MODULES[module].description} />
               {ALL_FEATURES.filter((feature) => LIFE_FEATURES[feature].module === module).map((feature) => (
-                <label key={feature} className={styles.option} data-nested="true" data-dimmed={!moduleOn}>
-                  <input type="checkbox" checked={features.includes(feature)} disabled={!moduleOn} onChange={(event) => toggle(features, setFeatures, feature, event.target.checked)} />
-                  <span><strong>{LIFE_FEATURES[feature].label}</strong><small>{LIFE_FEATURES[feature].description}</small></span>
-                </label>
+                <div key={feature} className={styles.nested} data-dimmed={!moduleOn}>
+                  <Checkbox checked={features.includes(feature)} disabled={!moduleOn} onChange={(event) => toggle(features, setFeatures, feature, event.target.checked)} label={<strong>{LIFE_FEATURES[feature].label}</strong>} description={LIFE_FEATURES[feature].description} />
+                </div>
               ))}
             </div>
           );
@@ -87,35 +84,30 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
 
       <section className={styles.section} aria-labelledby="notifications-heading">
         <h2 id="notifications-heading">Сводки и напоминания</h2>
-        <label className={styles.option}>
-          <input type="checkbox" checked={dailySummary} onChange={(event) => { touch(); setDailySummary(event.target.checked); }} />
-          <span><strong>Дневная сводка</strong><small>{summaryText(modules, "day")}</small></span>
-        </label>
-        <label className={styles.option}>
-          <input type="checkbox" checked={weeklySummary} onChange={(event) => { touch(); setWeeklySummary(event.target.checked); }} />
-          <span><strong>Недельная сводка</strong><small>По воскресеньям: {summaryText(modules, "week")}</small></span>
-        </label>
-        {modules.includes("nutrition") && <label className={styles.option}>
-          <input type="checkbox" checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} />
-          <span><strong>Напоминание взвеситься</strong><small>По четвергам, если за 7 дней меньше трёх замеров.</small></span>
-        </label>}
-        <div className={styles.timeField}>
-          <label htmlFor="summary-time"><strong>Время сводок и напоминаний</strong></label>
-          <input id="summary-time" type="time" aria-describedby="summary-time-hint" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
-          <small id="summary-time-hint" className={styles.hint}>Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
-        </div>
+        <Checkbox checked={dailySummary} onChange={(event) => { touch(); setDailySummary(event.target.checked); }} label={<strong>Дневная сводка</strong>} description={summaryText(modules, "day")} />
+        <Checkbox checked={weeklySummary} onChange={(event) => { touch(); setWeeklySummary(event.target.checked); }} label={<strong>Недельная сводка</strong>} description={`По воскресеньям: ${summaryText(modules, "week")}`} />
+        {modules.includes("nutrition") && <Checkbox checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} label={<strong>Напоминание взвеситься</strong>} description="По четвергам, если за 7 дней меньше трёх замеров." />}
+        <TextField
+          type="time"
+          className={styles.timeInput}
+          label={<strong>Время сводок и напоминаний</strong>}
+          hint="Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции."
+          value={summaryTime}
+          onChange={(event) => { touch(); setSummaryTime(event.target.value); }}
+        />
       </section>
 
       <section className={styles.section} aria-labelledby="timezone-heading">
         <h2 id="timezone-heading">Часовой пояс</h2>
-        <div className={styles.timeField}>
-          <label htmlFor="time-zone"><strong>Твой пояс</strong></label>
-          <select id="time-zone" aria-describedby="time-zone-hint" value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
-            {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
-          </select>
-          <small id="time-zone-hint" className={styles.hint}>По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени.</small>
-        </div>
-        {detectedZone() && detectedZone() !== timeZone ? <button type="button" className={styles.save} onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</button> : null}
+        <Select
+          label={<strong>Твой пояс</strong>}
+          hint="По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени."
+          value={timeZone}
+          onChange={(event) => { touch(); setTimeZone(event.target.value); }}
+        >
+          {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+        </Select>
+        {detectedZone() && detectedZone() !== timeZone ? <Button variant="secondary" onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</Button> : null}
       </section>
 
       {/* The bar is a portal: ancestors animated by framer-motion carry a transform, which would make them the containing block of position: fixed. */}
@@ -123,7 +115,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
       {typeof document !== "undefined" ? createPortal(
       <div className={styles.saveBar} data-open={open} inert={!open}>
         {error ? <p className={`${styles.status} ${styles.error}`} role="alert">{error}</p> : null}
-        <button type="button" className={styles.save} disabled={pending || !dirty} aria-busy={pending} onClick={() => void save()}>{pending ? "Сохраняю…" : "Сохранить"}</button>
+        <Button variant="primary" size="lg" fullWidth disabled={!dirty} loading={pending} onClick={() => void save()}>{pending ? "Сохраняю…" : "Сохранить"}</Button>
       </div>
         , document.body) : null}
     </div>

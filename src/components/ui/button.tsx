@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import styles from "./button.module.css";
 import { cx } from "./cx";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "text";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "danger-solid" | "text";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "disabled"> & {
