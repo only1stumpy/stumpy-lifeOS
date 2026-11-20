@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { ExerciseCatalogEntry, ExerciseIllustration } from "@/domain/exercise-catalog";
+import { Select, TextField } from "@/components/ui";
+import styles from "./exercise-guide.module.css";
 
 type ExerciseGuideProps = {
   entries: ExerciseCatalogEntry[];
@@ -19,12 +21,12 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
   const selected = entries.find((entry) => entry.id === selectedId) ?? null;
 
   return (
-    <section className="exercise-guide" aria-label="Каталог упражнений">
-      <div className="fields-row exercise-guide__filters">
-        <label>Поиск упражнения<input type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Название, мышцы или инвентарь" /></label>
-        <label>Раздел<select value={category} onChange={(event) => setCategory(event.currentTarget.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
+    <section className={styles.guide} aria-label="Каталог упражнений">
+      <div className={styles.filters}>
+        <TextField label="Поиск упражнения" type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Название, мышцы или инвентарь" />
+        <Select label="Раздел" value={category} onChange={(event) => setCategory(event.currentTarget.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</Select>
       </div>
-      <div className="exercise-guide__list" role="group" aria-label="Найденные упражнения" tabIndex={0}>
+      <div className={styles.list} role="group" aria-label="Найденные упражнения" tabIndex={0}>
         {filtered.map((entry) => {
           const isSelected = entry.id === selectedId;
           return (
@@ -34,10 +36,10 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
               aria-pressed={isSelected}
               aria-label={`${entry.name}; ${entry.muscles}; ${entry.equipment}`}
               onClick={() => onSelect(entry.id)}
-              className={`exercise-guide__item${isSelected ? " is-selected" : ""}`}
+              className={styles.item}
             >
               <ExerciseIllustration kind={entry.illustration} />
-              <span className="exercise-guide__item-copy">
+              <span className={styles.itemCopy}>
                 <strong>{entry.name}</strong>
                 <small>{entry.muscles} · {entry.equipment}</small>
               </span>
@@ -47,7 +49,7 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
         {filtered.length === 0 && <p role="status">Ничего не нашлось. Попробуй другое название или выбери упражнение вручную.</p>}
       </div>
       {selected && (
-        <p className="exercise-guide__details" aria-live="polite">
+        <p className={styles.details} aria-live="polite">
           <strong>{selected.category}</strong> · {selected.muscles}<br />
           <small>{selected.instructions}</small>
         </p>
@@ -58,7 +60,7 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
 
 function ExerciseIllustration({ kind }: { kind: ExerciseIllustration }) {
   return (
-    <svg className="exercise-guide__illustration" width="62" height="54" viewBox="0 0 96 72" aria-hidden="true" focusable="false">
+    <svg className={styles.illustration} width="62" height="54" viewBox="0 0 96 72" aria-hidden="true" focusable="false">
       <path d="M9 61H87" stroke="#742b4530" strokeWidth="1.5" strokeLinecap="round" />
       <g fill="none" stroke="#742b45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         {drawMovement(kind)}

@@ -1,0 +1,107 @@
+/* Layout of the editor sheet forms. Controls come from the UI kit (src/components/ui); the sheet itself (.editor) stays in globals.css. */
+
+.form {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-5);
+}
+
+.form > p,
+.form > h3 {
+  margin: 0;
+}
+
+.fieldsRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-5) var(--ui-space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--ui-space-4);
+  margin-top: var(--ui-space-8);
+}
+
+.form > .actions {
+  margin-top: var(--ui-space-3);
+}
+
+.actions > small {
+  flex: 1 1 100%;
+}
+
+/* Toggle capsules (direction of a debt, source of an exercise). */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
+  margin-bottom: var(--ui-space-5);
+}
+
+.form > .chips {
+  margin-bottom: 0;
+}
+
+.templateList {
+  display: flex;
+  max-height: 11rem;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  overflow-y: auto;
+}
+
+/* Small buttons under a list row. */
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-space-2);
+  margin-top: var(--ui-space-2);
+}
+
+.details > summary {
+  min-height: var(--ui-size-touch);
+  cursor: pointer;
+  line-height: var(--ui-size-touch);
+}
+
+.details[open] > summary {
+  margin-bottom: var(--ui-space-3);
+}
+
+/* Weight and repetitions: each stepper gets the whole row, so the number has room. */
+.stepRows {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-5);
+}
+
+/* Number field with minus and plus: weight and repetitions change by one tap. */
+.stepper {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: var(--ui-size-button-md) minmax(0, 1fr) var(--ui-size-button-md);
+  gap: 6px;
+  align-items: center;
+}
+
+.stepButton {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.stepInput {
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .fieldsRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ui-space-4);
+  }
+}
