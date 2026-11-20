@@ -30,6 +30,7 @@ export function ExerciseGuide({ entries, selectedId, onSelect }: ExerciseGuidePr
         {filtered.map((entry) => {
           const isSelected = entry.id === selectedId;
           return (
+            // eslint-disable-next-line no-restricted-syntax -- строка-карточка упражнения, не кнопка действия
             <button
               key={entry.id}
               type="button"

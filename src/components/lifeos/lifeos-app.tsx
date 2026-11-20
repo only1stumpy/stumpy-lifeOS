@@ -842,6 +842,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <li className={styles.setRow} key={set.id}>
             <strong>{numberFormat.format(set.index)}</strong>
             <ExerciseMetrics set={set} />
+            {/* eslint-disable-next-line no-restricted-syntax -- отметка подхода: круглая кнопка-состояние */}
             <button type="button" className={`${styles.setButton} ${set.completed ? styles.completedSet : ""}`} aria-label={set.completed ? `Подход ${set.index} выполнен` : `Отметить подход ${set.index} выполненным`} onClick={() => onAction({ type: "gym.complete-set", workoutId: workout.id, exerciseId: exercise.id, setId: set.id })}>
               <Icon name="check" />{set.completed ? "Готово" : "Отметить"}
             </button>
@@ -873,6 +874,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
       {workout.exercises.length ? <ol className={styles.workoutList}>{workout.exercises.map((exercise, index) => (
         <li key={exercise.id} className={styles.workoutExercise}>
           <span className={styles.exerciseIndex}>{String(index + 1).padStart(2, "0")}</span>
+          {/* eslint-disable-next-line no-restricted-syntax -- строка-карточка упражнения */}
           <button type="button" className={styles.exerciseOpen} onClick={() => openExercise(workout, exercise)}><strong>{exercise.name}</strong><span>{exercise.sets.length} {pluralize(exercise.sets.length, "подход", "подхода", "подходов")} {exercise.previousPerformance && `· Было ${exercise.previousPerformance}`}{exercise.progressionHint && " · Можно увеличить вес"}</span></button>
           <Icon name="arrow" className={styles.smallArrow} />
         </li>
@@ -903,6 +905,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
         )}
         <GlassSurface className={styles.listSurface}>
           <div className={styles.listHeading}><div><span className={styles.eyebrow}>Мой план</span><h2>Тренировочные дни</h2></div><Button variant="text" size="sm" className={styles.textLink} onClick={() => onAction({ type: "gym.edit-program" })}><Icon name="edit" />Изменить</Button></div>
+          {/* eslint-disable-next-line no-restricted-syntax -- строка-карточка дня программы */}
           <AnimatePresence mode="wait">{workouts.length ? <motion.ul key="program" layout className={styles.programList} exit="exit" variants={motionVariants.staggerGroup}><AnimatePresence>{workouts.map((workout) => <motion.li layout variants={motionVariants.listItem} initial="initial" animate="animate" exit="exit" transition={{ layout: { type: "tween", duration: motionDuration.enter, ease: motionEase.inOut } }} key={workout.id}><button type="button" className={styles.programButton} onClick={() => { setSelectedWorkoutId(workout.id); setSelectedExerciseId(null); }}><div><strong>{workout.name}</strong><span>{workout.exercises.length} {pluralize(workout.exercises.length, "упражнение", "упражнения", "упражнений")}</span></div><Icon name="arrow" /></button></motion.li>)}</AnimatePresence></motion.ul> : <motion.p key="program-empty" className={styles.emptyInline} variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Тренировочный план пока пуст. Добавь дни и упражнения.</motion.p>}</AnimatePresence>
           <Button size="lg" className={styles.secondaryButton} onClick={() => onAction({ type: "gym.edit-program" })}><Icon name="plus" />Собрать программу</Button>
         </GlassSurface>
@@ -952,6 +955,7 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
           <GlassRefraction surfaceRef={dockRef} filterId={dockFilterId} profile="thin" shape="pill" />
           {navItems.map((item) => item.key === activeTab ? <motion.span key={item.key} layoutId="lifeos-active-dock-lens" className={styles.dockLens} aria-hidden="true" transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", duration: motionDuration.transition, bounce: 0.06 }} /> : null)}
           {navItems.map((item) => (
+            // eslint-disable-next-line no-restricted-syntax -- иконка дока
             <button key={item.key} type="button" className={styles.dockButton} aria-label={item.label} title={item.label} aria-current={item.key === activeTab ? "page" : undefined} onClick={() => activateTab(item.key)}>
               <Icon name={item.icon} />
               <span className={styles.srOnly}>{item.label}</span>
@@ -1039,6 +1043,7 @@ function ActionSheet({
         </div>
         <p id="lifeos-sheet-description" className={styles.sheetDescription}>{config.description}</p>
         <div className={styles.sheetOptions}>
+          {/* eslint-disable-next-line no-restricted-syntax -- строка-карточка опции шторки */}
           {config.options.map(({ label, detail, action }) => <button type="button" className={styles.sheetOption} key={label} onClick={() => onAction(action)}><span><strong>{label}</strong><small>{detail}</small></span><Icon name="arrow" /></button>)}
         </div>
       </motion.section>

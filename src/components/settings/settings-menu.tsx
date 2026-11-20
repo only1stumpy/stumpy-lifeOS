@@ -15,6 +15,7 @@ export function SettingsMenu({ onOpen }: { onOpen(page: Exclude<SettingsPage, "m
   return (
     <nav className={styles.menu} aria-label="Настройки">
       {ITEMS.map((item) => (
+        // eslint-disable-next-line no-restricted-syntax -- строка-карточка пункта меню
         <button key={item.page} type="button" className={styles.menuItem} onClick={() => onOpen(item.page)}>
           <strong>{item.title}</strong>
           <span>{item.description}</span>
