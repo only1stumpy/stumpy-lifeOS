@@ -692,7 +692,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           {account && <p>Остаток складывается из начального {amountLabel(account.openingBalanceMinor, account.currency)} и операций {signedAmountLabel(account.balanceMinor - account.openingBalanceMinor, account.currency)}. Если поправишь сумму, начальный остаток пересчитается сам.</p>}
           {!account && <CurrencyPicker value={newAccountCurrency} onChange={setNewAccountCurrency} legend="Валюта счёта" />}
           {!account && snapshot.finance.accounts.length === 0 && <p>Валюта первого счёта становится основной: в ней считаются итоги, планы и долги.</p>}
-          <label className="check-field"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
+          <label className="checkbox-row"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
           <div className="actions"><button type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Отмена</button><button className="submit" type="submit" disabled={pending}>{account ? "Сохранить счёт" : "Добавить счёт"}</button></div>
         </form>
         <hr />
