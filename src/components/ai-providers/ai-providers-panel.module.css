@@ -1356,3 +1356,16 @@
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+/* Light mode: the same opaque fallbacks as for reduced transparency (blur itself is switched off in globals.css). */
+:global(:root[data-lifeos-light="1"]) .connectForm {
+  background: rgba(250, 246, 245, 0.96);
+}
+
+:global(:root[data-lifeos-light="1"]) .providerRow,
+:global(:root[data-lifeos-light="1"]) .providerDetails,
+:global(:root[data-lifeos-light="1"]) .queueItem,
+:global(:root[data-lifeos-light="1"]) .skipConfirmation,
+:global(:root[data-lifeos-light="1"]) .welcomePanel {
+  background: rgba(250, 246, 245, 0.97);
+}

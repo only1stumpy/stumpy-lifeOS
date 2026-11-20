@@ -271,3 +271,17 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+/* Light mode (see src/components/glass/light-mode.ts): no backdrop blur anywhere. Overlays that sit above content get
+   an opaque background from the stylesheet of their component, next to the reduced-transparency fallback. */
+:root[data-lifeos-light="1"] *,
+:root[data-lifeos-light="1"] *::before,
+:root[data-lifeos-light="1"] *::after,
+:root[data-lifeos-light="1"] ::backdrop {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-lifeos-light="1"] .editor {
+  background: #f9f4f1;
+}

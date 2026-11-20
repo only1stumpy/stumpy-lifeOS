@@ -3,6 +3,8 @@ import Script from "next/script";
 import "../components/ui/tokens.css";
 import "./globals.css";
 import { KeyboardAvoidance } from "./keyboard-avoidance";
+import { LightModeSync } from "@/components/glass/light-mode-sync";
+import { LIGHT_MODE_BOOT_SCRIPT } from "@/components/glass/light-mode";
 
 export const metadata: Metadata = {
   title: "LifeOS",
@@ -14,6 +16,6 @@ export const viewport: Viewport = {
   themeColor: "#f6f2ec", colorScheme: "light",
 };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ru"><body><Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" /><KeyboardAvoidance />{children}</body></html>;
+  return <html lang="ru" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: LIGHT_MODE_BOOT_SCRIPT }} /></head><body><Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" /><KeyboardAvoidance /><LightModeSync />{children}</body></html>;
 }
 

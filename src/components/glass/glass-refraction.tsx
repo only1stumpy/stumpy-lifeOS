@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
+import { useLightMode } from "./light-mode";
 
 type GlassProfile = "soft" | "thin";
 type GlassShape = "rounded-rectangle" | "pill";
@@ -168,8 +169,11 @@ export function GlassRefraction({
   filterId,
   profile,
   shape = "rounded-rectangle",
-  forceFallback = false,
+  forceFallback: forceFallbackProp = false,
 }: GlassRefractionProps) {
+  // Light mode: no feDisplacementMap filter at all, the surface keeps the plain CSS blur (or none, see the stylesheets).
+  const lightMode = useLightMode();
+  const forceFallback = forceFallbackProp || lightMode;
   const filterRef = useRef<SVGFilterElement>(null);
 
   useEffect(() => {

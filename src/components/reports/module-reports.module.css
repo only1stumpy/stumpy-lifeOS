@@ -689,3 +689,16 @@
       rgba(249, 244, 241, 0.92);
   }
 }
+
+/* Light mode: the same opaque fallbacks as for reduced transparency (blur itself is switched off in globals.css). */
+:global(:root[data-lifeos-light="1"]) .reportSurface {
+  border-color: rgba(96, 45, 62, 0.22);
+  background: rgba(249, 244, 241, 0.96);
+}
+
+:global(:root[data-lifeos-light="1"]) .segmented,
+:global(:root[data-lifeos-light="1"]) .calendar,
+:global(:root[data-lifeos-light="1"]) .calendarDay,
+:global(:root[data-lifeos-light="1"]) .macroValues > div {
+  background: #f9f4f1;
+}

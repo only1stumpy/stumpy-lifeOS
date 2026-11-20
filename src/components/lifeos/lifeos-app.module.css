@@ -1632,3 +1632,28 @@ button.dateChip {
   outline-offset: 3px;
   border-radius: 8px;
 }
+
+/* Light mode: the same opaque fallbacks as for reduced transparency (blur itself is switched off in globals.css). */
+:global(:root[data-lifeos-light="1"]) .glassSurface {
+  --glass-alpha: 0.82;
+}
+
+:global(:root[data-lifeos-light="1"]) .todaySurface {
+  background: rgba(250, 247, 246, 0.9);
+}
+
+:global(:root[data-lifeos-light="1"]) .dock {
+  background: rgba(250, 247, 246, 0.92);
+}
+
+:global(:root[data-lifeos-light="1"]) .dockLens {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+:global(:root[data-lifeos-light="1"]) .actionSheet {
+  background: #f8f4f4;
+}
+
+:global(:root[data-lifeos-light="1"]) .sheetOption {
+  background: rgba(255, 255, 255, 0.82);
+}

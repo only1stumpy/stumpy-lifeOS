@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Button, Checkbox, Select, TextField } from "@/components/ui";
+import { Button, Checkbox, Radio, Select, TextField } from "@/components/ui";
+import { setLightPreference, useLightMode, useLightPreference, type LightPreference } from "@/components/glass/light-mode";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { ALL_FEATURES, ALL_MODULES, LIFE_FEATURES, LIFE_MODULES, type LifeFeature, type LifeModule } from "@/domain/modules";
@@ -110,6 +111,8 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         {detectedZone() && detectedZone() !== timeZone ? <Button variant="secondary" onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</Button> : null}
       </section>
 
+      <LightModeSection />
+
       {/* The bar is a portal: ancestors animated by framer-motion carry a transform, which would make them the containing block of position: fixed. */}
       <div className={styles.saveSpacer} data-open={open} aria-hidden="true" />
       {typeof document !== "undefined" ? createPortal(
@@ -119,6 +122,27 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
       </div>
         , document.body) : null}
     </div>
+  );
+}
+
+const LIGHT_OPTIONS: { value: LightPreference; label: string; description: string }[] = [
+  { value: "auto", label: "Авто", description: "Включается само на слабых устройствах (по классу устройства в Telegram для Android и по плавности кадров) и при настройках ОС «уменьшить анимацию / прозрачность». Само назад не выключается." },
+  { value: "on", label: "Вкл", description: "Без преломления и размытия: плавнее на медленных телефонах." },
+  { value: "off", label: "Выкл", description: "Полное стеклянное оформление." },
+];
+
+/** Applies at once and is kept on this device only (not in the account), so it has nothing to do with the Save button. */
+function LightModeSection() {
+  const preference = useLightPreference();
+  const active = useLightMode();
+  return (
+    <section className={styles.section} role="radiogroup" aria-labelledby="light-heading">
+      <h2 id="light-heading">Лёгкое оформление</h2>
+      <p className={styles.hint}>Настройка хранится только на этом устройстве. Сейчас: {active ? "лёгкое оформление" : "полное оформление"}.</p>
+      {LIGHT_OPTIONS.map((option) => (
+        <Radio key={option.value} name="light-mode" checked={preference === option.value} onChange={() => setLightPreference(option.value)} label={<strong>{option.label}</strong>} description={option.description} />
+      ))}
+    </section>
   );
 }
 
