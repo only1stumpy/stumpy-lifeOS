@@ -89,7 +89,7 @@ Workflow `.github/workflows/preview-notify.yml` после успешного Ve
 2. Создайте ветку Neon под Preview (боевые данные не затрагиваются).
 3. В Vercel задайте для окружения Preview: `DATABASE_URL` (ветка Neon), `TELEGRAM_BOT_TOKEN` (токен preview-бота), `TELEGRAM_WEBHOOK_SECRET`, `CRON_SECRET`, `AI_PROVIDER_ENCRYPTION_KEY`. Подпись `initData` проверяется токеном бота, который открыл Mini App, поэтому токен должен быть preview-бота. Webhook и cron для Preview не нужны.
 4. В Vercel, Settings, Deployment Protection включите Protection Bypass for Automation и скопируйте секрет.
-5. В GitHub, Settings, Secrets and variables, Actions, задайте `PREVIEW_BOT_TOKEN`, `PREVIEW_CHAT_ID` (ваш Telegram ID; бот должен получить от вас `/start`) и `VERCEL_BYPASS_SECRET`.
+5. В GitHub, Settings, Secrets and variables, Actions, задайте `PREVIEW_BOT_TOKEN`, `PREVIEW_CHAT_ID` (Telegram ID получателя или несколько через запятую; каждый должен отправить боту `/start`) и `VERCEL_BYPASS_SECRET`.
 
 Секрет обхода защиты попадает в ссылку кнопки, то есть в историю личного чата с preview-ботом: при подозрении на утечку перевыпустите его в Vercel. Сообщения не отправляются для PR из форков. Без секретов `PREVIEW_BOT_TOKEN` и `PREVIEW_CHAT_ID` workflow ничего не делает. До слияния workflow в `main` его можно проверить вручную: Actions, Preview notify, Run workflow (номер PR и адрес Preview).
 
