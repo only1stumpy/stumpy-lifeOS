@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from "react";
 import { motion } from "motion/react";
+import { Button, Checkbox, Chip, ChoiceCard, IconButton, Link, TextField } from "@/components/ui";
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
 import { useMotionVariants } from "@/components/motion/motion-system";
 import { ProviderBrandMark } from "./provider-brand-mark";
@@ -730,26 +731,26 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 </div>
               </div>
               <div className={styles.accountActions}>
-                <button type="button" className={styles.iconAction} aria-label={`Поднять ${account.name} выше в общем списке резервов`} title="Поднять в общем списке" onClick={() => void reorderAccount(account, -1)} disabled={busyAction !== null || !provider.connectable || globalIndex <= 0}>
+                <IconButton size="sm" label={`Поднять ${account.name} выше в общем списке резервов`} title="Поднять в общем списке" onClick={() => void reorderAccount(account, -1)} disabled={busyAction !== null || !provider.connectable || globalIndex <= 0}>
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5" /></svg>
-                </button>
-                <button type="button" className={styles.iconAction} aria-label={`Опустить ${account.name} ниже в общем списке резервов`} title="Опустить в общем списке" onClick={() => void reorderAccount(account, 1)} disabled={busyAction !== null || !provider.connectable || globalIndex < 0 || globalIndex === globalAccounts.length - 1}>
+                </IconButton>
+                <IconButton size="sm" label={`Опустить ${account.name} ниже в общем списке резервов`} title="Опустить в общем списке" onClick={() => void reorderAccount(account, 1)} disabled={busyAction !== null || !provider.connectable || globalIndex < 0 || globalIndex === globalAccounts.length - 1}>
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
-                </button>
-                <button type="button" className={styles.iconAction} aria-label={`Обновить список моделей для ${account.name}`} title="Обновить модели" onClick={() => void refreshModels(provider, account)} disabled={busyAction !== null || !provider.connectable}>
+                </IconButton>
+                <IconButton size="sm" label={`Обновить список моделей для ${account.name}`} title="Обновить модели" onClick={() => void refreshModels(provider, account)} disabled={busyAction !== null || !provider.connectable}>
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3" /></svg>
-                </button>
+                </IconButton>
                 <button type="button" role="switch" aria-checked={account.enabled} aria-label={`${account.enabled ? "Выключить" : "Включить"} аккаунт ${account.name}`} className={`${styles.switch} ${account.enabled ? styles.switchOn : ""}`} onClick={() => void toggleAccount(provider.id, account)} disabled={busyAction !== null || !provider.connectable}><span /></button>
-                <button type="button" className={styles.iconAction} aria-label={`Удалить аккаунт ${account.name}`} title="Удалить аккаунт" onClick={() => setConfirmDelete(deleting ? null : { providerId: provider.id, account })} disabled={busyAction !== null}>
+                <IconButton size="sm" label={`Удалить аккаунт ${account.name}`} title="Удалить аккаунт" onClick={() => setConfirmDelete(deleting ? null : { providerId: provider.id, account })} disabled={busyAction !== null}>
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 3v6m4-6v6" /></svg>
-                </button>
+                </IconButton>
               </div>
               {deleting && (
                 <div className={styles.deleteConfirm} role="group" aria-label={`Подтверждение удаления аккаунта ${account.name}`}>
                   <p>Удалить аккаунт и сохранённый ключ?</p>
                   <div>
-                    <button type="button" className={styles.dangerAction} onClick={() => void deleteAccount(provider.id, account)} disabled={busyAction !== null}>Удалить</button>
-                    <button type="button" className={styles.textButton} onClick={() => setConfirmDelete(null)} disabled={busyAction !== null}>Отмена</button>
+                    <Button variant="danger" size="sm" onClick={() => void deleteAccount(provider.id, account)} disabled={busyAction !== null}>Удалить</Button>
+                    <Button variant="text" onClick={() => setConfirmDelete(null)} disabled={busyAction !== null}>Отмена</Button>
                   </div>
                 </div>
               )}
@@ -763,21 +764,26 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
   const renderModel = (provider: AiProvider, model: ProviderModel) => (
     <li key={model.id} className={styles.modelRow}>
-      <label className={styles.modelChoice}>
-        <input type="checkbox" checked={model.selected} onChange={() => toggleModel(provider, model)} disabled={busyAction !== null || !provider.connectable} />
-        <span className={styles.modelCopy}>
-          <strong>{model.name}</strong>
-          <span className={styles.modelId}>{model.id}</span>
-          <span className={styles.modelAvailability}>{availableAccountNames(provider, model)}</span>
-        </span>
-      </label>
+      <Checkbox
+        className={styles.modelChoice}
+        checked={model.selected}
+        onChange={() => toggleModel(provider, model)}
+        disabled={busyAction !== null || !provider.connectable}
+        label={(
+          <span className={styles.modelCopy}>
+            <strong>{model.name}</strong>
+            <span className={styles.modelId}>{model.id}</span>
+            <span className={styles.modelAvailability}>{availableAccountNames(provider, model)}</span>
+          </span>
+        )}
+      />
       <span className={styles.modelBadges}>
-        {model.supportsImages ? <span className={styles.capabilityAvailable}>Текст + фото</span> : <span className={styles.capabilityLimited}>Только текст</span>}
+        {model.supportsImages ? <Chip variant="success">Текст + фото</Chip> : <Chip>Только текст</Chip>}
         {model.contextLength !== null && <span className={styles.contextLength}>{compactNumber(model.contextLength)} конт.</span>}
         {activeProviderApiUrl && provider.id === activeProvider?.id && (
-          <a className={styles.modelApiLink} href={activeProviderApiUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, activeProviderApiUrl)} aria-label={`Открыть API-ключи ${provider.name} в новой вкладке`} title={`Страница API-ключей ${provider.name}`}>
+          <Link className={styles.apiLink} href={activeProviderApiUrl} external onClick={(event) => openProviderLink(event, activeProviderApiUrl)} aria-label={`Открыть API-ключи ${provider.name} в новой вкладке`} title={`Страница API-ключей ${provider.name}`}>
             API-ключи <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
-          </a>
+          </Link>
         )}
       </span>
     </li>
@@ -799,8 +805,8 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       <div className={styles.panelContent}>
         <header className={styles.header}>
           <div className={styles.headerTitle}>
-            {screen === "key" && !embedded && <button className={styles.backButton} type="button" onClick={() => { setFormError(""); setScreen("intro"); }} disabled={busyAction !== null}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
-            {screen !== "providers" && screen !== "welcome" && screen !== "intro" && screen !== "key" && <button className={styles.backButton} type="button" onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</button>}
+            {screen === "key" && !embedded && <Button variant="text" size="sm" className={styles.backButton} onClick={() => { setFormError(""); setScreen("intro"); }} disabled={busyAction !== null}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</Button>}
+            {screen !== "providers" && screen !== "welcome" && screen !== "intro" && screen !== "key" && <Button variant="text" size="sm" className={styles.backButton} onClick={backToProviders} aria-label="Назад к списку провайдеров"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7M7 12h13" /></svg>Назад</Button>}
             {!embedded && <p className={styles.eyebrow}>{screen === "intro" ? "Шаг 1 из 3" : screen === "key" ? "Шаг 2 из 3" : screen === "welcome" && wizardConnected ? "Шаг 3 из 3" : screen === "providers" ? "Персональные настройки ИИ" : screen === "queue" ? "Общий порядок использования" : screen === "welcome" ? "Настройка завершена" : "Настройка провайдера"}</p>}
             <h1 id={`${id}-title`}>{screenTitle}</h1>
           </div>
@@ -822,7 +828,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "error" && (
             <div className={styles.state} role="alert">
               <p>{loadError || "Не удалось загрузить каталог ИИ."}</p>
-              <button type="button" className={styles.secondaryAction} onClick={() => void reloadProviders()} disabled={busyAction !== null}>Повторить</button>
+              <Button onClick={() => void reloadProviders()} disabled={busyAction !== null}>Повторить</Button>
             </div>
           )}
 
@@ -845,17 +851,25 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                   const provider = sortedProviders.find((entry) => entry.id === providerId);
                   if (!provider?.connectable) return null;
                   return (
-                    <label key={providerId} className={`${styles.wizardChoice} ${wizardProviderId === providerId ? styles.wizardChoiceActive : ""}`}>
-                      <input type="radio" name={`${id}-wizard-provider`} checked={wizardProviderId === providerId} onChange={() => { setWizardProviderId(providerId); setFormError(""); }} />
-                      <span className={`${styles.providerMark} ${providerBrandClasses[providerId]}`} aria-hidden="true"><ProviderBrandMark provider={providerId} /></span>
-                      <span className={styles.wizardChoiceCopy}>
-                        <strong>{provider.name}{index === 0 && providerId === "gemini" ? <em>Советуем</em> : null}</strong>
-                        <span>{wizardCopy[providerId].summary}</span>
-                      </span>
-                    </label>
+                    <ChoiceCard
+                      key={providerId}
+                      mode="single"
+                      name={`${id}-wizard-provider`}
+                      checked={wizardProviderId === providerId}
+                      onChange={() => { setWizardProviderId(providerId); setFormError(""); }}
+                      title={(
+                        <span className={styles.wizardChoiceBody}>
+                          <span className={`${styles.providerMark} ${providerBrandClasses[providerId]}`} aria-hidden="true"><ProviderBrandMark provider={providerId} /></span>
+                          <span className={styles.wizardChoiceCopy}>
+                            <strong>{provider.name}{index === 0 && providerId === "gemini" ? <Chip variant="success">Советуем</Chip> : null}</strong>
+                            <span>{wizardCopy[providerId].summary}</span>
+                          </span>
+                        </span>
+                      )}
+                    />
                   );
                 })}
-                {!wizardShowOthers && <button type="button" className={styles.textButton} onClick={() => setWizardShowOthers(true)}>Не открывается или нет аккаунта Google? Другие сервисы</button>}
+                {!wizardShowOthers && <Button variant="text" onClick={() => setWizardShowOthers(true)}>Не открывается или нет аккаунта Google? Другие сервисы</Button>}
               </fieldset>
 
               <form className={styles.connectForm} onSubmit={submitWizardKey}>
@@ -863,24 +877,21 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                   {wizardCopy[wizardProviderId].steps.map((step) => <li key={step}>{step}</li>)}
                 </ol>
                 {wizardApiUrl && (
-                  <a className={styles.providerApiLink} href={wizardApiUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, wizardApiUrl)}>
+                  <Link className={styles.apiLink} href={wizardApiUrl} external onClick={(event) => openProviderLink(event, wizardApiUrl)}>
                     Открыть {wizardCopy[wizardProviderId].site}
                     <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
-                  </a>
+                  </Link>
                 )}
-                <label className={styles.field}><span>Ключ</span><input autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => setWizardKey(event.target.value)} placeholder="Вставь скопированный ключ" required /></label>
-                <label className={styles.confirmation}>
-                  <input type="checkbox" checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} />
-                  <span>Я на бесплатном тарифе и не привязывал карту к {wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.</span>
-                </label>
+                <TextField label="Ключ" autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => setWizardKey(event.target.value)} placeholder="Вставь скопированный ключ" required />
+                <Checkbox className={styles.confirmation} checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} label={`Я на бесплатном тарифе и не привязывал карту к ${wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.`} />
                 <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
                 {formError && <p className={styles.error} role="alert">{formError}</p>}
                 {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметь галочку выше.</p>}
-                <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</button>
+                <Button variant="primary" size="lg" fullWidth type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</Button>
               </form>
               {embedded
-                ? <button type="button" className={styles.textButton} onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>Настрою позже</button>
-                : <button type="button" className={styles.textButton} onClick={() => { setFormError(""); setScreen("providers"); }} disabled={busyAction !== null}>Расширенные настройки</button>}
+                ? <Button variant="text" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>Настрою позже</Button>
+                : <Button variant="text" onClick={() => { setFormError(""); setScreen("providers"); }} disabled={busyAction !== null}>Расширенные настройки</Button>}
             </motion.div>
           )}
 
@@ -888,17 +899,17 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}>
                 <p className={styles.intro}>{guidedRun ? "Выбери провайдера и подключи ключ. LifeOS проверит его, после чего покажет доступные модели." : "Подключи аккаунты и выбери модели. Ключи хранятся зашифрованно и не отображаются."} Настройки доступны по шестерёнке в нижней панели.</p>
-                {onOpenQuotas && <button className={styles.quotasLink} type="button" onClick={onOpenQuotas}>Лимиты ИИ</button>}
+                {onOpenQuotas && <Button className={styles.quotasLink} onClick={onOpenQuotas}>Лимиты ИИ</Button>}
               </div>
               {(!guidedRun || queue.length > 0) && (
                 <div className={styles.screenFooter}>
-                  <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></button>
+                  <Button variant="primary" size="lg" fullWidth onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }}>Порядок использования моделей <span aria-hidden="true">→</span></Button>
                 </div>
               )}
               {guidedRun && queue.length === 0 && (
                 <div className={styles.skipBlock}>
                   {!confirmSkip ? (
-                    <button className={styles.skipAction} type="button" onClick={() => {
+                    <Button size="lg" fullWidth onClick={() => {
                       setConfirmSkip(true);
                       requestAnimationFrame(() => skipConfirmationRef.current?.scrollIntoView({
                         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
@@ -906,16 +917,16 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                       }));
                     }} disabled={busyAction !== null}>
                       Пропустить настройку
-                    </button>
+                    </Button>
                   ) : (
                     <div ref={skipConfirmationRef} className={styles.skipConfirmation} role="group" aria-labelledby={`${id}-skip-title`} aria-live="polite">
                       <h2 id={`${id}-skip-title`}>Отказаться от ИИ-функций?</h2>
                       <p>ИИ-функции останутся выключены. К настройке можно вернуться в любой момент — нажми шестерёнку в нижней панели.</p>
                       <div className={styles.skipActions}>
-                        <button className={styles.secondaryAction} type="button" onClick={() => setConfirmSkip(false)} disabled={busyAction !== null}>Продолжить настройку</button>
-                        <button className={styles.dangerAction} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>
+                        <Button fullWidth onClick={() => setConfirmSkip(false)} disabled={busyAction !== null}>Продолжить настройку</Button>
+                        <Button variant="danger" fullWidth onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>
                           {busyAction === "complete-onboarding" ? "Сохраняю…" : "Отказаться от ИИ-функций"}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -942,7 +953,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                         <strong>{provider.name}</strong>
                         <span>{accountCountLabel(provider.accounts.length)} · {selectedCount} моделей</span>
                       </span>
-                      <span className={`${styles.providerRowStatus} ${status === "Подключён" ? styles.statusConnected : status === "Недоступен" ? styles.statusUnavailable : ""}`}>{status}</span>
+                      <Chip className={styles.rowStatus} variant={status === "Подключён" ? "success" : status === "Недоступен" ? "danger" : "neutral"}>{status}</Chip>
                       <svg className={styles.rowChevron} aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg>
                     </motion.button>
                   );
@@ -963,16 +974,16 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     <h3 id={`${id}-provider-name`}>{activeProvider.name}</h3>
                     <p>{!activeProvider.connectable ? activeProvider.connectionBlockReason || "Подключение этого провайдера сейчас недоступно." : providerCopy[activeProvider.id].description}</p>
                     {activeProviderApiUrl && (
-                      <a className={styles.providerApiLink} href={activeProviderApiUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, activeProviderApiUrl)} aria-label={`Получить API-ключ ${activeProvider.name} в новой вкладке`}>
+                      <Link className={styles.apiLink} href={activeProviderApiUrl} external onClick={(event) => openProviderLink(event, activeProviderApiUrl)} aria-label={`Получить API-ключ ${activeProvider.name} в новой вкладке`}>
                         Получить API-ключ
                         <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
-                      </a>
+                      </Link>
                     )}
                   </div>
-                  <span className={`${styles.providerRowStatus} ${providerStatus(activeProvider) === "Подключён" ? styles.statusConnected : ""}`}>{providerStatus(activeProvider)}</span>
+                  <Chip className={styles.rowStatus} variant={providerStatus(activeProvider) === "Подключён" ? "success" : "neutral"}>{providerStatus(activeProvider)}</Chip>
                 </div>
                 <div className={styles.providerMeta}>
-                  <span className={activeProvider.supportsImages ? styles.capabilityAvailable : styles.capabilityLimited}>{activeProvider.supportsImages ? "Есть модели с фото" : "Только текст"}</span>
+                  <Chip variant={activeProvider.supportsImages ? "success" : "neutral"}>{activeProvider.supportsImages ? "Есть модели с фото" : "Только текст"}</Chip>
                   <span>{accountCountLabel(activeProvider.accounts.length)}</span>
                   <span>{activeProvider.models.filter((model) => model.selected).length} моделей в очереди</span>
                 </div>
@@ -980,7 +991,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 <div className={styles.detailSection}>
                   <div className={styles.sectionHeading}>
                     <div><p className={styles.eyebrow}>Аккаунты</p><h4>Подключения</h4></div>
-                    <button className={styles.secondaryAction} type="button" onClick={() => beginConnect(activeProvider.id)} disabled={busyAction !== null || !activeProvider.connectable}><span aria-hidden="true">+</span> Добавить</button>
+                    <Button onClick={() => beginConnect(activeProvider.id)} disabled={busyAction !== null || !activeProvider.connectable}><span aria-hidden="true">+</span> Добавить</Button>
                   </div>
                   {renderAccountList(activeProvider)}
                 </div>
@@ -991,14 +1002,14 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     <span className={styles.modelsCount}>{activeProvider.models.filter((model) => model.selected).length} из {activeProvider.models.length} выбрано</span>
                   </div>
                   <p className={styles.modelsIntro}>{activeProvider.models.length ? "Нажми, чтобы настроить доступные модели и перейти к общему порядку." : "Подключи аккаунт, чтобы получить список моделей."}</p>
-                  {activeProvider.models.length > 0 && <button className={styles.primaryAction} type="button" onClick={() => { setModelQuery((current) => ({ ...current, [activeProvider.id]: "" })); setScreen("models"); }} disabled={!activeProvider.connectable}>Выбрать модели</button>}
+                  {activeProvider.models.length > 0 && <Button variant="primary" fullWidth onClick={() => { setModelQuery((current) => ({ ...current, [activeProvider.id]: "" })); setScreen("models"); }} disabled={!activeProvider.connectable}>Выбрать модели</Button>}
                 </div>
 
                 {connectProviderId === activeProvider.id && activeProvider.id !== "custom" && activeProvider.connectable && (
                   <form ref={connectRef} className={styles.connectForm} onSubmit={submitConnect}>
                     <div className={styles.formHeading}>
                       <div><p className={styles.eyebrow}>Новый аккаунт</p><h4>Проверить и подключить</h4></div>
-                      <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setFormError(""); }} disabled={busyAction !== null}>Отмена</button>
+                      <Button variant="text" onClick={() => { setConnectProviderId(null); setFormError(""); }} disabled={busyAction !== null}>Отмена</Button>
                     </div>
                     {(activeProvider.id === "gemini" || activeProvider.id === "groq" || activeProvider.id === "openrouter") && (
                       <details className={styles.keyHelp}>
@@ -1006,11 +1017,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                         <ol className={styles.wizardSteps}>
                           {wizardCopy[activeProvider.id].steps.map((step) => <li key={step}>{step}</li>)}
                         </ol>
-                        {activeProviderApiUrl && <a className={styles.providerApiLink} href={activeProviderApiUrl} target="_blank" rel="noreferrer noopener" onClick={(event) => openProviderLink(event, activeProviderApiUrl)}>Открыть {wizardCopy[activeProvider.id].site}</a>}
+                        {activeProviderApiUrl && <Link className={styles.apiLink} href={activeProviderApiUrl} external onClick={(event) => openProviderLink(event, activeProviderApiUrl)}>Открыть {wizardCopy[activeProvider.id].site}</Link>}
                       </details>
                     )}
-                    <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required /></label>
-                    <label className={styles.field}><span>API-ключ</span><input autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required /></label>
+                    <TextField label="Название аккаунта" autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required />
+                    <TextField label="API-ключ" autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required />
                     {(activeProvider.id === "gemini" || activeProvider.id === "openrouter") && (
                       <p className={styles.securityNote} role="note">
                         {activeProvider.id === "gemini"
@@ -1018,13 +1029,10 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                           : "Внимание: бесплатные модели OpenRouter могут передавать запросы своим провайдерам, которые вправе хранить их и использовать для обучения. Не отправляй туда персональные данные. Соблюдать условия OpenRouter и провайдеров моделей нужно тебе как владельцу ключа."}
                       </p>
                     )}
-                    <label className={styles.confirmation}>
-                      <input type="checkbox" checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} />
-                      <span>{activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : activeProvider.id === "openrouter" ? "Я прочитал предупреждение и подключаю бесплатные модели. LifeOS не может проверить подписку или настройки оплаты аккаунта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."}</span>
-                    </label>
+                    <Checkbox className={styles.confirmation} checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} label={activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : activeProvider.id === "openrouter" ? "Я прочитал предупреждение и подключаю бесплатные модели. LifeOS не может проверить подписку или настройки оплаты аккаунта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."} />
                     <p className={styles.securityNote}>Перед сохранением LifeOS проверит ключ коротким тестовым запросом. Он может использовать одну бесплатную квоту. Сам ключ после подключения не показывается.</p>
                     {formError && <p className={styles.error} role="alert">{formError}</p>}
-                    <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !providerFreeTierConfirmed}>{busyAction === `connect:${activeProvider.id}` ? "Проверяю ключ…" : "Проверить и подключить"}</button>
+                    <Button variant="primary" fullWidth type="submit" disabled={busyAction !== null || !providerFreeTierConfirmed}>{busyAction === `connect:${activeProvider.id}` ? "Проверяю ключ…" : "Проверить и подключить"}</Button>
                   </form>
                 )}
 
@@ -1032,7 +1040,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                   <form ref={connectRef} className={styles.connectForm} onSubmit={submitCustom}>
                     <div className={styles.formHeading}>
                       <div><p className={styles.eyebrow}>Расширенное подключение</p><h4>Свой endpoint</h4></div>
-                      <button type="button" className={styles.textButton} onClick={() => { setConnectProviderId(null); setCustomError(""); }} disabled={busyAction !== null}>Отмена</button>
+                      <Button variant="text" onClick={() => { setConnectProviderId(null); setCustomError(""); }} disabled={busyAction !== null}>Отмена</Button>
                     </div>
                     <p className={styles.modelsIntro}>Используй OpenAI-compatible Chat Completions. LifeOS не может проверить тариф модели или риск списаний.</p>
                     <details className={styles.keyHelp}>
@@ -1041,14 +1049,14 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                         {customKeySteps.map((step) => <li key={step}>{step}</li>)}
                       </ol>
                     </details>
-                    <label className={styles.field}><span>Название аккаунта</span><input autoComplete="organization" value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный endpoint" maxLength={80} required /></label>
-                    <label className={styles.field}><span>Endpoint</span><input autoComplete="url" type="url" value={customForm.endpoint} onChange={(event) => setCustomForm((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://api.example.com/v1" required /><small>Только HTTPS.</small></label>
-                    <label className={styles.field}><span>Модель</span><input autoComplete="off" value={customForm.model} onChange={(event) => setCustomForm((current) => ({ ...current, model: event.target.value }))} placeholder="Идентификатор модели" maxLength={160} required /></label>
-                    <label className={styles.field}><span>API-ключ</span><input autoComplete="new-password" type="password" value={customForm.apiKey} onChange={(event) => setCustomForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required /></label>
-                    <label className={styles.confirmation}><input type="checkbox" checked={customFreeConfirmed} onChange={(event) => setCustomFreeConfirmed(event.target.checked)} /><span>Подтверждаю нулевую стоимость endpoint/модели.</span></label>
+                    <TextField label="Название аккаунта" autoComplete="organization" value={customForm.name} onChange={(event) => setCustomForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный endpoint" maxLength={80} required />
+                    <TextField label="Endpoint" hint="Только HTTPS." autoComplete="url" type="url" value={customForm.endpoint} onChange={(event) => setCustomForm((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://api.example.com/v1" required />
+                    <TextField label="Модель" autoComplete="off" value={customForm.model} onChange={(event) => setCustomForm((current) => ({ ...current, model: event.target.value }))} placeholder="Идентификатор модели" maxLength={160} required />
+                    <TextField label="API-ключ" autoComplete="new-password" type="password" value={customForm.apiKey} onChange={(event) => setCustomForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required />
+                    <Checkbox className={styles.confirmation} checked={customFreeConfirmed} onChange={(event) => setCustomFreeConfirmed(event.target.checked)} label="Подтверждаю нулевую стоимость endpoint/модели." />
                     <p className={styles.securityNote}>Ключ и endpoint будут проверены коротким тестовым запросом до сохранения.</p>
                     {customError && <p className={styles.error} role="alert">{customError}</p>}
-                    <button className={styles.primaryAction} type="submit" disabled={busyAction !== null || !customFreeConfirmed}>{busyAction === "connect:custom" ? "Проверяю endpoint…" : "Проверить и подключить"}</button>
+                    <Button variant="primary" fullWidth type="submit" disabled={busyAction !== null || !customFreeConfirmed}>{busyAction === "connect:custom" ? "Проверяю endpoint…" : "Проверить и подключить"}</Button>
                   </form>
                 )}
               </section>
@@ -1058,10 +1066,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
           {loadState === "ready" && screen === "models" && activeProvider && (
             <motion.div className={styles.screenContent} variants={motionVariants.screen} initial="initial" animate="animate">
               <div className={styles.introRow}><p className={styles.intro}>Модели провайдера {activeProvider.name}. После выбора откроется общий порядок использования для всех провайдеров.</p></div>
-              <label className={`${styles.field} ${styles.modelSearch}`}>
-                <span className="visually-hidden">Поиск модели провайдера {activeProvider.name}</span>
-                <input type="search" value={modelQuery[activeProvider.id] ?? ""} onChange={(event) => setModelQuery((current) => ({ ...current, [activeProvider.id]: event.target.value }))} placeholder="Найти модель по названию" />
-              </label>
+              <TextField type="search" aria-label={`Поиск модели провайдера ${activeProvider.name}`} value={modelQuery[activeProvider.id] ?? ""} onChange={(event) => setModelQuery((current) => ({ ...current, [activeProvider.id]: event.target.value }))} placeholder="Найти модель по названию" />
               {activeProvider.models.length === 0 ? (
                 <p className={styles.empty}>Для этого провайдера пока нет доступных моделей. Обнови список моделей на странице провайдера.</p>
               ) : (() => {
@@ -1102,12 +1107,12 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                           <small>{model.id}</small>
                         </span>
                         <span className={styles.queueControls}>
-                          <button type="button" className={styles.iconAction} aria-label={`Поднять модель ${model.name} выше`} title="Поднять выше" onClick={() => moveQueueItem(index, index - 1)} disabled={busyAction !== null || index === 0}>
+                          <IconButton size="sm" label={`Поднять модель ${model.name} выше`} title="Поднять выше" onClick={() => moveQueueItem(index, index - 1)} disabled={busyAction !== null || index === 0}>
                             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5" /></svg>
-                          </button>
-                          <button type="button" className={styles.iconAction} aria-label={`Опустить модель ${model.name} ниже`} title="Опустить ниже" onClick={() => moveQueueItem(index, index + 1)} disabled={busyAction !== null || index === queue.length - 1}>
+                          </IconButton>
+                          <IconButton size="sm" label={`Опустить модель ${model.name} ниже`} title="Опустить ниже" onClick={() => moveQueueItem(index, index + 1)} disabled={busyAction !== null || index === queue.length - 1}>
                             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
-                          </button>
+                          </IconButton>
                           <span className={styles.dragHandle} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" /></svg></span>
                         </span>
                       </li>
@@ -1138,28 +1143,28 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
 
         {loadState === "ready" && screen === "intro" && (
           <footer className={styles.screenFooter}>
-            <button className={styles.primaryAction} type="button" onClick={() => setScreen("key")} disabled={busyAction !== null}>Начать</button>
-            <button className={styles.textButton} type="button" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : guidedRun ? "Настрою позже" : "Закрыть"}</button>
+            <Button variant="primary" size="lg" fullWidth onClick={() => setScreen("key")} disabled={busyAction !== null}>Начать</Button>
+            <Button variant="text" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : guidedRun ? "Настрою позже" : "Закрыть"}</Button>
           </footer>
         )}
 
         {loadState === "ready" && screen === "models" && (
           <footer className={styles.screenFooter}>
             <p className={styles.guidance}>Доступные модели уже выбраны. Можно изменить выбор или нажать «Готово».</p>
-            <button className={styles.primaryAction} type="button" onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }} disabled={busyAction !== null}>Готово</button>
+            <Button variant="primary" size="lg" fullWidth onClick={() => { setNotice(""); setLoadError(""); setScreen("queue"); }} disabled={busyAction !== null}>Готово</Button>
           </footer>
         )}
 
         {loadState === "ready" && screen === "queue" && (
           <footer className={styles.screenFooter}>
             <p className={styles.guidance}>Начальный порядок задан автоматически. LifeOS пробует модели сверху вниз. Можно изменить порядок или нажать «Готово».</p>
-            <button className={styles.primaryAction} type="button" onClick={() => void completeOnboarding(true, true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Готово"}</button>
+            <Button variant="primary" size="lg" fullWidth onClick={() => void completeOnboarding(true, true)} disabled={busyAction !== null}>{busyAction === "complete-onboarding" ? "Сохраняю…" : "Готово"}</Button>
           </footer>
         )}
 
         {loadState === "ready" && screen === "welcome" && (
           <footer className={styles.screenFooter}>
-            <button className={styles.primaryAction} type="button" onClick={onClose}>Продолжить в LifeOS</button>
+            <Button variant="primary" size="lg" fullWidth onClick={onClose}>Продолжить в LifeOS</Button>
           </footer>
         )}
       </div>
