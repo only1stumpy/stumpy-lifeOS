@@ -134,7 +134,7 @@ test("429 Gemini и Groq объясняются как лимит API, а не �
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "quota_exceeded");
       assert.match(error.message, /лимит.*исчерпан/i);
-      assert.match(error.message, /это не обязательно означает, что закончились оплаченные кредиты/i);
+      assert.match(error.message, /добавь другой ключ/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE|test-gemini-key/i);
       return true;
     });
@@ -149,7 +149,7 @@ test("429 Gemini и Groq объясняются как лимит API, а не �
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "quota_exceeded");
       assert.match(error.message, /лимит.*исчерпан/i);
-      assert.match(error.message, /это не обязательно означает, что закончились оплаченные кредиты/i);
+      assert.match(error.message, /добавь другой ключ/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE|test-groq-key/i);
       return true;
     });
@@ -165,7 +165,7 @@ test("Gemini 402 и структурированный payment_required указ
     await assert.rejects(analyzeMessage(analysisInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "credits_exhausted");
-      assert.match(error.message, /оплаченные кредиты исчерпаны/i);
+      assert.match(error.message, /кредиты провайдера закончились/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE|test-gemini-key/i);
       return true;
     });
@@ -178,7 +178,7 @@ test("Gemini 402 и структурированный payment_required указ
     await assert.rejects(answerLifeOSQuestion(referenceInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "credits_exhausted");
-      assert.match(error.message, /оплаченные кредиты исчерпаны/i);
+      assert.match(error.message, /кредиты провайдера закончились/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE|test-groq-key/i);
       return true;
     });
@@ -192,7 +192,7 @@ test("сетевой сбой и HTTP 5xx показываются как вре
     await assert.rejects(analyzeMessage(analysisInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "provider_unavailable");
-      assert.match(error.message, /API сейчас не отвечает|временно недоступен/i);
+      assert.match(error.message, /ИИ сейчас не отвечает/i);
       assert.doesNotMatch(error.message, /PRIVATE_NETWORK_EXCEPTION|test-gemini-key/i);
       return true;
     });
@@ -205,7 +205,7 @@ test("сетевой сбой и HTTP 5xx показываются как вре
     await assert.rejects(answerLifeOSQuestion(referenceInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "provider_unavailable");
-      assert.match(error.message, /API сейчас не отвечает|временно недоступен/i);
+      assert.match(error.message, /ИИ сейчас не отвечает/i);
       assert.doesNotMatch(error.message, /UPSTREAM_PRIVATE_OUTAGE|test-groq-key/i);
       return true;
     });
@@ -220,7 +220,7 @@ test("ошибки ключа и разрешений объясняются к�
     await assert.rejects(analyzeMessage(analysisInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "provider_configuration");
-      assert.match(error.message, /API-ключ, права проекта и название модели/i);
+      assert.match(error.message, /проверь ключ.*название модели/i);
       assert.doesNotMatch(error.message, /PRIVATE_INVALID_KEY_DETAILS|test-gemini-key/i);
       return true;
     });
@@ -233,7 +233,7 @@ test("ошибки ключа и разрешений объясняются к�
     await assert.rejects(answerLifeOSQuestion(referenceInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "provider_configuration");
-      assert.match(error.message, /права проекта/i);
+      assert.match(error.message, /проверь ключ/i);
       assert.doesNotMatch(error.message, /PRIVATE_PROJECT_PERMISSION_DETAILS|test-groq-key/i);
       return true;
     });
@@ -250,8 +250,8 @@ test("смешанный отказ Gemini и Groq показывает прич
     await assert.rejects(analyzeMessage(analysisInput()), (error: unknown) => {
       assert.ok(error instanceof AIAnalysisError);
       assert.equal(error.code, "provider_mixed");
-      assert.match(error.message, /Gemini: достигнут лимит запросов/i);
-      assert.match(error.message, /Groq: API временно недоступен/i);
+      assert.match(error.message, /по разным причинам/i);
+      assert.deepEqual(error.attempts.map((attempt) => [attempt.provider, attempt.kind]), [["gemini", "quota_exceeded"], ["groq", "unavailable"]]);
       assert.doesNotMatch(error.message, /PRIVATE_GEMINI_QUOTA|PRIVATE_GROQ_OUTAGE|test-(?:gemini|groq)-key/i);
       return true;
     });
