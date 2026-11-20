@@ -279,7 +279,16 @@ async function main() {
   if (await openAs(users.news, /Что нового/)) { await shot("33-whats-new", false); } else skip("33-whats-new", "шторка «Что нового» не появилась");
 
   // Consent screen and onboarding: separate users, fresh page load each.
-  if (await openAs(users.noConsent, /Перед началом/)) { await wait(500); await shot("30-consent"); } else skip("30-consent", "экран согласия не появился");
+  if (await openAs(users.noConsent, /Перед началом/)) {
+    await wait(500); await shot("30-consent");
+    // Delete the data from the consent screen: the screen that follows is the "account deleted" stub.
+    if (await clickText("^Удалить все данные")) {
+      await wait(300);
+      await evaluate(`(() => { const input = document.querySelector('input[autocomplete="off"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(input, "УДАЛИТЬ"); input.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await wait(200);
+      if (await clickText("^Удалить навсегда")) { await wait(1500); await shot("35-account-deleted", false); } else skip("35-account-deleted", "нет кнопки «Удалить навсегда»");
+    } else skip("35-account-deleted", "нет кнопки «Удалить все данные»");
+  } else skip("30-consent", "экран согласия не появился");
   if (await openAs(users.fresh, /Далее/)) {
     await wait(500);
     await shot("31-onboarding-1");
