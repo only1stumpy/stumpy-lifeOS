@@ -1,5 +1,6 @@
 "use client";
 
+import { useBodyScrollLock } from "@/components/scroll-lock";
 import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
 import { formatMoneyAmount } from "@/domain/math";
 import { GOALS } from "@/domain/nutrition";
@@ -411,6 +412,8 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
       window.removeEventListener("focus", updateRemaining);
     };
   }, [restDeadlineMs]);
+
+  useBodyScrollLock(sheet !== null);
 
   useEffect(() => {
     if (!sheet) return;

@@ -168,3 +168,35 @@ test("каждый раздел открывается, не падает и н�
   assert.doesNotMatch(text, /Не удалось загрузить|Something went wrong/i);
   assert.deepEqual(problems, [], "ошибки страницы и неуспешные API-ответы");
 });
+
+test("F26: под открытой шторкой страница не прокручивается, после закрытия позиция возвращается", async () => {
+  const clickByText = (selector: string, text: string) => evaluate<boolean>(`(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find((node) => node.textContent.includes(${JSON.stringify(text)})); el?.click(); return Boolean(el); })()`);
+  const wheel = (y: number) => send("Input.dispatchMouseEvent", { type: "mouseWheel", x: 195, y: 300, deltaX: 0, deltaY: y });
+  await evaluate(`${dockButton("Финансы")}.click()`);
+  await until("раздел «Финансы» открыт", async () => /Добавить операцию/.test(await evaluate<string>("document.body.innerText")), 8_000);
+  // «Что нового» открывается при первом запуске и держит блокировку: закрываем его до проверки.
+  if (await evaluate<boolean>("Boolean(document.querySelector('dialog.editor[open]'))")) {
+    await evaluate("document.querySelector('dialog.editor [aria-label=\"Закрыть панель\"]').click()");
+    await until("стартовая панель закрыта", async () => (await evaluate<string>("document.body.style.position")) === "");
+  }
+  await evaluate("document.documentElement.style.minHeight = '3000px'; window.scrollTo(0, 120); true");
+  const before = await evaluate<number>("window.scrollY");
+  assert.ok(before > 0, "страница прокручена до открытия шторки");
+
+  assert.equal(await clickByText("button", "Добавить операцию"), true);
+  await until("быстрая шторка открыта", async () => evaluate<boolean>("Boolean(document.querySelector('[role=dialog]'))"));
+  assert.equal(await evaluate<string>("document.body.style.position"), "fixed");
+  await wheel(400);
+  await wait(200);
+  assert.equal(await evaluate<string>("document.body.style.top"), `-${before}px`, "фон не сдвинулся");
+
+  // Вторая шторка подряд (редактор): блокировка держится, пока открыта хоть одна.
+  assert.equal(await clickByText("[role=dialog] button", "Расход или доход"), true);
+  await until("редактор открыт", async () => evaluate<boolean>("Boolean(document.querySelector('dialog.editor[open]'))"));
+  assert.equal(await evaluate<string>("document.body.style.position"), "fixed");
+  assert.equal(await evaluate<string>("getComputedStyle(document.querySelector('dialog.editor')).overscrollBehaviorY"), "contain");
+  await evaluate("document.querySelector('dialog.editor [aria-label=\"Закрыть панель\"]').click()");
+  await until("редактор закрыт", async () => evaluate<boolean>("!document.querySelector('dialog.editor[open]')"));
+  await until("блокировка снята", async () => (await evaluate<string>("document.body.style.position")) === "");
+  assert.equal(await evaluate<number>("window.scrollY"), before, "позиция страницы восстановлена");
+});
