@@ -29,6 +29,15 @@ type Props = {
   /** Telegram insets, so the first line never sits under the Telegram header. */
   /** The last step: connecting an AI key. It ends the onboarding itself. */
   renderAiStep(): ReactNode;
+  /**
+   * Setup of sections switched on later in «Персонализация»: only their questions, no module/usage/AI steps,
+   * and the answers go through the ordinary profile and account commands instead of `onboarding.complete`.
+   */
+  sectionSetup?: {
+    modules: LifeModule[];
+    onSubmit(commands: AppCommand[]): Promise<boolean>;
+    onDone(): void;
+  };
 };
 
 function num(value: string): number {
@@ -47,8 +56,8 @@ function parseProfile(form: ProfileForm): NutritionProfile | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiStep }: Props) {
-  const [modules, setModules] = useState<LifeModule[]>(() => (snapshot.settings.enabledModules.length ? [...snapshot.settings.enabledModules] : [...ALL_MODULES]));
+export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiStep, sectionSetup }: Props) {
+  const [modules, setModules] = useState<LifeModule[]>(() => sectionSetup ? sectionSetup.modules : (snapshot.settings.enabledModules.length ? [...snapshot.settings.enabledModules] : [...ALL_MODULES]));
   const [usage, setUsage] = useState<UsageMode>("daily");
   const [profile, setProfile] = useState<ProfileForm>(() => {
     const saved = snapshot.settings.profile;
@@ -73,18 +82,18 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
   const rootRef = useRef<HTMLElement>(null);
 
   const steps = useMemo<Step[]>(() => {
-    const list: Step[] = ["modules", "usage"];
+    const list: Step[] = sectionSetup ? [] : ["modules", "usage"];
     if (modules.includes("nutrition")) list.push("profile");
     if (modules.includes("finance")) {
       list.push("currency");
       if (!skipAccount) list.push("balance");
     }
-    list.push("ai");
+    if (!sectionSetup) list.push("ai");
     return list;
-  }, [modules, skipAccount]);
+  }, [modules, skipAccount, sectionSetup]);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   // The step before the AI one is where the answers are saved.
-  const isLastDataStep = stepIndex >= steps.length - 2;
+  const isLastDataStep = stepIndex >= steps.length - (sectionSetup ? 1 : 2);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -155,8 +164,24 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
     return parsed.data;
   }
 
+  async function finishSection(skip: { profile?: boolean; account?: boolean }) {
+    if (!sectionSetup) return;
+    const commands: AppCommand[] = [];
+    if (modules.includes("nutrition") && !(skip.profile ?? skipProfile) && parsedProfile && norm) commands.push({ type: "profile.save", profile: parsedProfile, target: norm });
+    if (modules.includes("finance") && !(skip.account ?? skipAccount) && currency !== "") {
+      let openingBalanceMinor = 0;
+      try { openingBalanceMinor = amount.trim() === "" ? 0 : parseMinor(amount); } catch { setLocalError("Введи сумму числом, например 1500,50"); return; }
+      commands.push({ type: "account.save", name: "Основной", currency, openingBalanceMinor, isDefault: true });
+    }
+    for (const command of commands) {
+      if (!(await sectionSetup.onSubmit([command]))) return;
+    }
+    sectionSetup.onDone();
+  }
+
   async function finish(skip: { profile?: boolean; account?: boolean }) {
     setLocalError(null);
+    if (sectionSetup) { await finishSection(skip); return; }
     let command: OnboardingCommand | string;
     try { command = build(skip); } catch (e) { command = e instanceof Error ? e.message : "Проверь введённые данные."; }
     if (typeof command === "string") { setLocalError(command); return; }

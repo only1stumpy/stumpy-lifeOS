@@ -46,6 +46,21 @@ describe("черновики, настройки и схема команд", ()
     assert.equal(await statusOf(d.id), "pending");
   });
 
+  test("draft.confirm плана покупки добавляет план, а не расход, и не дублирует его", async () => {
+    const tg = newTelegramId();
+    const owner = await ownerOf(db, tg);
+    const [d] = await db.insert(s.captureDrafts).values({ ownerId: owner.id, kind: "plan", status: "pending", messageText: "запиши в планы кабель 80р" }).returning();
+    await db.insert(s.moneyDrafts).values({ ownerId: owner.id, captureDraftId: d.id, name: "кабель", entryType: "expense", amount: "80", currency: "USD" });
+    await run(tg, { type: "draft.confirm", id: d.id });
+    await run(tg, { type: "draft.confirm", id: d.id });
+    const plans = await db.select().from(s.financePlans).where(eq(s.financePlans.ownerId, owner.id));
+    assert.equal(plans.length, 1);
+    assert.equal(plans[0].name, "кабель");
+    assert.equal(Number(plans[0].amount), 80);
+    assert.equal((await db.select().from(s.financeEntries).where(eq(s.financeEntries.ownerId, owner.id))).length, 0);
+    assert.equal(await statusOf(d.id), "confirmed");
+  });
+
   test("draft.confirm еды создаёт запись один раз, после отмены даёт 409", async () => {
     const tg = newTelegramId();
     const owner = await ownerOf(db, tg);

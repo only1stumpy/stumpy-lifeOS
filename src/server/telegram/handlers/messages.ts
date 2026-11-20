@@ -4,18 +4,18 @@ import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { commandSchema } from "@/domain/commands";
 import { dateKey, weightDateToStamp, weightStampToDate } from "@/domain/math";
-import { hasFinancePlanMarker, parseFinancePlanMessage } from "@/domain/finance-plans";
+import { hasFinancePlanMarker } from "@/domain/finance-plans";
 import { foreignCurrencyQuestion, rubleMarkerContradictsBase } from "@/domain/currencies";
 import { parseDebtMessage } from "@/domain/debt-message";
 import { parseWeightMessage } from "@/domain/weight-message";
 import { disabledFeatureMessage, disabledModulesMessage, normalizeModules, resolveFeatures } from "@/domain/modules";
-import { executeCommand, ensureOwner, analyzeCapture, createDebtCaptureDraft, loadSnapshot, loadPendingDrafts } from "@/server/lifeos";
+import { executeCommand, ensureOwner, analyzeCapture, correctPlanDraft, createDebtCaptureDraft, createPlanCaptureDrafts, loadSnapshot, loadPendingDrafts } from "@/server/lifeos";
 import { answerKnownReferenceQuestion, isReferenceQuestion, makeReferenceContext } from "@/server/telegram/reference";
 import { answerLifeOSQuestion } from "@/server/ai/analyze";
 import { AppError } from "@/server/http";
 import { AIAnalysisError } from "@/server/ai/types";
 import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
-import { clearEditingCapture, formatMoney, formatSigned, isOwner, round1, updateRowIds } from "@/server/telegram/shared";
+import { clearEditingCapture, formatSigned, isOwner, round1, updateRowIds } from "@/server/telegram/shared";
 import { downloadTelegramPhoto } from "@/server/telegram/handlers/photo";
 import { bulkDraftKeyboard, formatDraftList, sendDraftMessage, replyInParts } from "@/server/telegram/handlers/drafts";
 
@@ -85,6 +85,11 @@ export function registerMessages(bot: Bot<Context>): void {
         await ctx.reply(disabledModulesMessage(["finance"]));
         return;
       }
+      // Finance is on but nothing is set up yet (the first account decides the main currency).
+      if (!photo && !owner.baseCurrency && (hasFinancePlanMarker(text) || parseDebtMessage(text))) {
+        await ctx.reply("Раздел «Финансы» включён, но ещё не настроен: нет основной валюты и счёта. Открой Mini App → Финансы, добавь первый счёт, и тогда я смогу записывать планы и долги.");
+        return;
+      }
       if (!photo && !features.includes("finance.plans") && hasFinancePlanMarker(text)) {
         await ctx.reply(disabledFeatureMessage("finance.plans"));
         return;
@@ -99,18 +104,43 @@ export function registerMessages(bot: Bot<Context>): void {
         return;
       }
 
-      if (!photo && hasFinancePlanMarker(text)) {
-        const plan = parseFinancePlanMessage(text);
-        if (!plan) {
-          await ctx.reply("Не разобрал название или цену. Напиши, например: «Запиши в планы шампунь за 220р». План не влияет на расходы, пока не отметишь покупку.");
+      // «Исправить» on a plan draft: the next message replaces its name and price.
+      if (previousDraftId && !photo && text.trim() && !hasFinancePlanMarker(text)) {
+        const corrected = await correctPlanDraft(previousDraftId, text);
+        if (corrected.ok) {
+          await clearEditingCapture(previousDraftId);
+          const [draft] = await loadPendingDrafts([previousDraftId]);
+          if (!draft) throw new AppError(404, "Обновлённый черновик не найден.");
+          await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
           return;
         }
+      }
 
-        const command = commandSchema.parse({ type: "finance-plan.save", ...plan });
-        // The same Telegram update (a retry) must not add the plan twice.
+      if (!photo && hasFinancePlanMarker(text)) {
+        const status = await ctx.reply("Разбираю список покупок…");
+        statusMessageId = status.message_id;
         const updateRowId = updateRowIds.get(ctx.update);
-        await executeCommand(command, updateRowId ? { requestId: `update:${updateRowId}:plan` } : {});
-        await ctx.reply(`Запланировал «${plan.name}» — ${formatMoney(plan.amountMinor, owner.baseCurrency ?? "")}. Это пока не расход.`);
+        const result = await createPlanCaptureDrafts({
+          text,
+          telegramUpdateRowId: updateRowId,
+          messageAt: ctx.message?.date ? new Date(ctx.message.date * 1000) : undefined,
+        });
+        await ctx.api.deleteMessage(ctx.chat.id, statusMessageId).catch(() => undefined);
+        statusMessageId = undefined;
+        if (!result.draftIds.length) {
+          await ctx.reply(result.clarification ?? "Не разобрал название или цену.");
+          return;
+        }
+        const drafts = await loadPendingDrafts(result.draftIds);
+        if (updateRowId && drafts.length > MAX_SEPARATE_DRAFT_MESSAGES) {
+          await replyInParts(ctx, formatDraftList(drafts, owner.baseCurrency ?? ""), bulkDraftKeyboard(updateRowId));
+        } else {
+          for (const draft of drafts) await sendDraftMessage(ctx, draft, owner.timezone, owner.baseCurrency ?? "");
+          if (updateRowId && drafts.length > 1) {
+            await ctx.reply(`Планов: ${drafts.length}. Можно записать каждый отдельно или все разом.`, { reply_markup: bulkDraftKeyboard(updateRowId) });
+          }
+        }
+        if (result.clarification) await ctx.reply(result.clarification);
         return;
       }
 

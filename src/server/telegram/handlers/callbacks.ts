@@ -120,6 +120,17 @@ export function registerCallbacks(bot: Bot<Context>): void {
           .from(schema.financeEntries)
           .where(and(eq(schema.financeEntries.ownerId, owner.id), eq(schema.financeEntries.captureDraftId, id)))
           .limit(1);
+        const [planRow] = await getDb()
+          .select({ name: schema.moneyDrafts.name, amount: schema.moneyDrafts.amount })
+          .from(schema.captureDrafts)
+          .innerJoin(schema.moneyDrafts, eq(schema.moneyDrafts.captureDraftId, schema.captureDrafts.id))
+          .where(and(eq(schema.captureDrafts.id, id), eq(schema.captureDrafts.ownerId, owner.id), eq(schema.captureDrafts.kind, "plan")))
+          .limit(1);
+        if (planRow) {
+          await ctx.answerCallbackQuery({ text: "План записан." });
+          await markMessage(ctx, "Запланировал «" + planRow.name + "» — " + formatMoney(Math.round(Number(planRow.amount) * 100), owner.baseCurrency ?? "") + ". Это пока не расход.");
+          return;
+        }
         const [debtDraft] = await getDb()
           .select()
           .from(schema.financeDebtDrafts)

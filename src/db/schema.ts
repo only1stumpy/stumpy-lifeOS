@@ -274,7 +274,7 @@ export const captureDrafts = pgTable(
   (table) => [
     unique("capture_drafts_id_owner_unique").on(table.id, table.ownerId),
     index("capture_drafts_owner_status_created_idx").on(table.ownerId, table.status, table.createdAt),
-    check("capture_drafts_kind_valid", sql`${table.kind} in ('nutrition', 'finance', 'combined', 'debt')`),
+    check("capture_drafts_kind_valid", sql`${table.kind} in ('nutrition', 'finance', 'combined', 'debt', 'plan')`),
     check("capture_drafts_status_valid", sql`${table.status} in ('pending', 'confirmed', 'cancelled', 'expired')`),
   ],
 );

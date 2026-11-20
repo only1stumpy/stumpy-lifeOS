@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseFinancePlanMessage } from "../src/domain/finance-plans";
+import { parseFinancePlanList, parseFinancePlanMessage } from "../src/domain/finance-plans";
 import { commandSchema } from "../src/domain/commands";
 
 test("план покупки разбирается по явному маркеру без срока", () => {
@@ -46,4 +46,24 @@ test("команда создания плана принимает только
     name: "Куртка",
     amountMinor: 150_000,
   });
+});
+
+test("запасной разбор раскладывает список покупок на отдельные позиции", () => {
+  const text = "запиши в планы ethernet кабель 80р / двойная розетка 50р / удлинитель пятерной или больше 150р";
+  assert.deepEqual(parseFinancePlanList(text).items, [
+    { name: "ethernet кабель", amountMinor: 8_000 },
+    { name: "двойная розетка", amountMinor: 5_000 },
+    { name: "удлинитель пятерной или больше", amountMinor: 15_000 },
+  ]);
+
+  const lines = parseFinancePlanList("запиши в планы\n- шампунь 220\n- куртка 1 500р.\nкакая-то хрень");
+  assert.deepEqual(lines.items, [
+    { name: "шампунь", amountMinor: 22_000 },
+    { name: "куртка", amountMinor: 150_000 },
+  ]);
+  assert.deepEqual(lines.failed, ["какая-то хрень"]);
+});
+
+test("одна покупка в списке остаётся одной позицией, дробь в названии не режет её", () => {
+  assert.deepEqual(parseFinancePlanList("план шампунь 1/2 литра 220").items, [{ name: "шампунь 1/2 литра", amountMinor: 22_000 }]);
 });
