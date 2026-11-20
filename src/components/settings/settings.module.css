@@ -114,7 +114,8 @@
 }
 
 /* Specificity above the app-wide ".stage button { color: inherit }", which otherwise turns the label dark. */
-.page .save {
+.page .save,
+.saveBar .save {
   min-height: 52px;
   border: 0;
   border-radius: 17px;
@@ -125,7 +126,8 @@
   cursor: pointer;
 }
 
-.page .save:disabled {
+.page .save:disabled,
+.saveBar .save:disabled {
   color: #fff;
   opacity: 0.6;
   cursor: default;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { ALL_FEATURES, ALL_MODULES, LIFE_FEATURES, LIFE_MODULES, type LifeFeature, type LifeModule } from "@/domain/modules";
@@ -117,12 +118,14 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         {detectedZone() && detectedZone() !== timeZone ? <button type="button" className={styles.save} onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</button> : null}
       </section>
 
+      {/* The bar is a portal: ancestors animated by framer-motion carry a transform, which would make them the containing block of position: fixed. */}
       <div className={styles.saveSpacer} data-open={open} aria-hidden="true" />
-      {/* Slides in above the dock on the first change; the confirmation after saving is the app-wide toast. */}
+      {typeof document !== "undefined" ? createPortal(
       <div className={styles.saveBar} data-open={open} inert={!open}>
         {error ? <p className={`${styles.status} ${styles.error}`} role="alert">{error}</p> : null}
         <button type="button" className={styles.save} disabled={pending || !dirty} aria-busy={pending} onClick={() => void save()}>{pending ? "Сохраняю…" : "Сохранить"}</button>
       </div>
+        , document.body) : null}
     </div>
   );
 }
