@@ -474,6 +474,12 @@ export async function analyzeCapture(input: Pick<AnalyzeMessageInput, "text" | "
       .where(eq(s.ownerSettings.id, owner.id));
     return { ...analysis, draftIds: [] as string[] };
   }
+  // A draft in a currency without an account cannot be saved: say so now, not after the «Записать» button.
+  const noAccount = analysis.entries.find((entry) => entry.money && !accounts.some((v) => v.currency === entry.money!.currency));
+  if (noAccount?.money) {
+    const code = noAccount.money.currency;
+    throw new AppError(400, `Нет счёта в валюте ${code}. Добавь такой счёт в LifeOS или напиши сумму без валюты — она запишется в ${baseCurrency}.`);
+  }
   const draftIds: string[] = [];
   await getDb().transaction(async (tx) => {
     if (input.previousDraftId) await tx.update(s.captureDrafts).set({ status: "cancelled", messageText: null }).where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.id, input.previousDraftId), eq(s.captureDrafts.status, "pending")));
