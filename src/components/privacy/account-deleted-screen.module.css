@@ -1,0 +1,22 @@
+.page {
+  display: flex;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  flex-direction: column;
+  padding: calc(var(--ui-space-5) + var(--lifeos-inset-top)) var(--ui-space-4) calc(var(--ui-space-6) + var(--lifeos-inset-bottom));
+  color: var(--ui-color-ink);
+  font-family: var(--ui-font-family), Inter, system-ui, sans-serif;
+}
+
+/* Upper third with air: the block sits at about a third of the free height, not glued to the top. */
+.inner {
+  display: grid;
+  width: 100%;
+  max-width: 560px;
+  gap: var(--ui-space-4);
+  margin: 0 auto;
+  padding-top: 18dvh;
+}
+
+.title { margin: 0; font-size: 28px; font-weight: var(--ui-font-weight-strong); line-height: 1.15; letter-spacing: -0.02em; }
+.text { margin: 0 0 var(--ui-space-4); color: var(--ui-color-ink-soft); font-size: var(--ui-font-size-body); line-height: 1.5; }

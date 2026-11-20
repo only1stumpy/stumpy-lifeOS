@@ -1,8 +1,8 @@
 .page {
   min-height: 100dvh;
   padding: calc(20px + var(--lifeos-inset-top)) 16px calc(24px + var(--lifeos-inset-bottom) + var(--lifeos-keyboard));
-  color: #35272c;
-  font-family: "Medeo Sans", Inter, system-ui, sans-serif;
+  color: var(--ui-color-ink);
+  font-family: var(--ui-font-family), Inter, system-ui, sans-serif;
 }
 
 .inner {
@@ -15,108 +15,35 @@
 }
 
 .header { display: grid; gap: 10px; }
-.progress { margin: 0; color: #742b45; font-size: 13px; font-weight: 550; }
-.bar { height: 3px; overflow: hidden; border-radius: 2px; background: #a5899538; }
-.bar span { display: block; height: 100%; background: #742b45; transition: width 200ms ease; }
+.progress { margin: 0; color: var(--ui-color-accent); font-size: 13px; font-weight: 550; }
+.bar { height: 3px; overflow: hidden; border-radius: 2px; background: var(--ui-color-field-border); }
+.bar span { display: block; height: 100%; background: var(--ui-color-accent); transition: width 200ms ease; }
 
 .step { display: grid; gap: 18px; }
 .step h1 { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; }
 .step h1:focus { outline: none; }
-.lead, .note, .hint { margin: 0; color: #6f5f65; font-size: 14px; line-height: 1.5; }
+.note, .hint { margin: 0; color: var(--ui-color-ink-soft); font-size: 14px; line-height: 1.5; }
+.hint { color: var(--ui-color-danger); }
 
 .cards { display: grid; min-width: 0; gap: 12px; margin: 0; padding: 0; border: 0; }
 
-.card {
-  display: grid;
-  gap: 4px;
-  padding: 16px 18px;
-  border: 1px solid #a5899538;
-  border-radius: 17px;
-  background: #ffffff60;
-  cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease;
-}
-.card input { position: absolute; opacity: 0; pointer-events: none; }
-.card:has(input:focus-visible) { outline: 2px solid #742b45; outline-offset: 2px; }
-.selected { border-color: rgba(116, 43, 69, 0.72); background: rgba(116, 43, 69, 0.07); }
-.cardTitle { font-size: 16px; font-weight: 600; }
-.cardText { color: #6f5f65; font-size: 13px; line-height: 1.45; }
-
-.fields { display: grid; gap: 14px; }
-.field { display: grid; min-width: 0; gap: 6px; font-size: 13px; font-weight: 550; }
-.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: #912f37; }
-.fieldError { color: #912f37; font-size: 13px; font-weight: 500; line-height: 1.3; }
-.aiStep[hidden] { display: none; }
-.spinner { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border: 2px solid rgba(255, 250, 249, 0.4); border-top-color: #fffaf9; border-radius: 50%; animation: ob-spin 0.8s linear infinite; }
-@keyframes ob-spin { to { transform: rotate(360deg); } }
-.field input, .field select {
-  width: 100%;
-  min-width: 0;
-  min-height: 52px;
-  border: 1px solid #a5899538;
-  border-radius: 14px;
-  padding: 12px 16px;
-  background: #ffffff60;
-  color: inherit;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 400;
-  accent-color: #742b45;
-}
-.field input:focus-visible, .field select:focus-visible { outline: 2px solid #742b45; outline-offset: 2px; }
-
-.target { display: grid; gap: 12px; margin: 0; padding: 0; border: 0; }
-.target legend { padding: 0 0 10px; font-size: 13px; font-weight: 550; }
-.targetGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-
-.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; padding: 4px; border: 1px solid #a5899538; border-radius: 17px; background: #ffffff60; }
-.segmented label { position: relative; display: flex; min-height: 44px; align-items: center; justify-content: center; border-radius: 13px; font-size: 14px; font-weight: 550; cursor: pointer; }
-.segmented input { position: absolute; opacity: 0; pointer-events: none; }
-.segmented label:has(input:focus-visible) { outline: 2px solid #742b45; outline-offset: 1px; }
-.segmentOn { background: #742b45; color: #fffaf9; }
-
 .actions { display: grid; gap: 12px; margin-top: auto; padding-bottom: 8px; }
-.error { margin: 0; color: #912f37; font-size: 14px; line-height: 1.45; }
-.hint { color: #912f37; }
-
-.primary, .secondary {
-  min-height: 52px;
-  border: 1px solid rgba(116, 43, 69, 0.23);
-  border-radius: 17px;
-  padding: 12px 20px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 550;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.primary {
-  width: 100%;
-  border-color: rgba(116, 43, 69, 0.72);
-  background: #742b45;
-  box-shadow: 0 2px 6px rgba(53, 39, 44, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  color: #fffaf9;
-}
-.secondary { flex: 1; background: rgba(255, 255, 255, 0.46); color: #742b45; }
+.error { margin: 0; color: var(--ui-color-danger); font-size: 14px; line-height: 1.45; }
 .secondaryRow { display: flex; gap: 12px; }
-.primary:disabled, .secondary:disabled { opacity: 0.5; cursor: default; }
-.primary:disabled { color: #fffaf9; }
-.primary:focus-visible, .secondary:focus-visible { outline: 2px solid #742b45; outline-offset: 2px; }
 
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {
-  .bar span, .card { transition: none; }
-  .spinner { animation-duration: 2.4s; }
+  .bar span { transition: none; }
 }
 
 /* Profile step: everything fits one screen, so fields sit in two columns and the norm is a single line. */
 .compact { gap: 14px; }
 .fieldsTwo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.fieldsTwo .field input, .fieldsTwo .field select { min-height: 48px; padding: 10px 14px; }
 .wide { grid-column: 1 / -1; }
-.norm { margin: 0; color: #6f5f65; font-size: 14px; line-height: 1.5; }
-.norm strong { color: #35272c; font-weight: 600; }
+.norm { margin: 0; color: var(--ui-color-ink-soft); font-size: 14px; line-height: 1.5; }
+.norm strong { color: var(--ui-color-ink); font-weight: 600; }
 
 /* The AI step renders the connection wizard inside the same page. */
 .aiStep { min-width: 0; }
+.aiStep[hidden] { display: none; }

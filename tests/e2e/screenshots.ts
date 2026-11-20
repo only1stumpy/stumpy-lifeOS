@@ -101,6 +101,7 @@ const clickText = (source: string, scope = "document") => evaluate<boolean>(`(()
   el.click();
   return true;
 })()`);
+const clickCard = (title: string) => evaluate<boolean>(`(() => { const el = [...document.querySelectorAll("label")].find((node) => node.innerText.trim().startsWith(${JSON.stringify(title)})); if (!el) return false; el.click(); return true; })()`);
 const dock = (name: string) => evaluate<boolean>(`(() => { const el = document.querySelector('nav[aria-label="Разделы LifeOS"] button[aria-label="${name}"]'); if (!el) return false; el.click(); return true; })()`);
 async function openTab(name: string) {
   if (!(await dock(name))) return false;
@@ -278,11 +279,26 @@ async function main() {
   if (await openAs(users.news, /Что нового/)) { await shot("33-whats-new", false); } else skip("33-whats-new", "шторка «Что нового» не появилась");
 
   // Consent screen and onboarding: separate users, fresh page load each.
-  if (await openAs(users.noConsent, /Перед началом/)) { await wait(500); await shot("30-consent"); } else skip("30-consent", "экран согласия не появился");
+  if (await openAs(users.noConsent, /Перед началом/)) {
+    await wait(500); await shot("30-consent");
+    // Delete the data from the consent screen: the screen that follows is the "account deleted" stub.
+    if (await clickText("^Удалить все данные")) {
+      await wait(300);
+      await evaluate(`(() => { const input = document.querySelector('input[autocomplete="off"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(input, "УДАЛИТЬ"); input.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await wait(200);
+      if (await clickText("^Удалить навсегда")) { await wait(1500); await shot("35-account-deleted", false); } else skip("35-account-deleted", "нет кнопки «Удалить навсегда»");
+    } else skip("35-account-deleted", "нет кнопки «Удалить все данные»");
+  } else skip("30-consent", "экран согласия не появился");
   if (await openAs(users.fresh, /Далее/)) {
     await wait(500);
     await shot("31-onboarding-1");
-    if (await clickText("^Далее$")) { await wait(700); await shot("32-onboarding-2"); } else skip("32-onboarding-2", "нет кнопки «Далее»");
+    // Nothing is selected by default: pick sections, then walk the data steps.
+    if (await clickCard("Питание")) { await wait(300); await shot("31b-onboarding-1-selected"); }
+    if (await clickCard("Финансы")) await wait(200);
+    if (await clickText("^Далее$")) {
+      await wait(700); await shot("32-onboarding-2");
+      if (await clickText("^Далее$")) { await wait(700); await shot("34-onboarding-profile"); }
+    } else skip("32-onboarding-2", "нет кнопки «Далее»");
   } else skip("31-onboarding-1", "онбординг не появился");
 
   console.log(`\nГотово: ${taken.length} снимков в ${outDir}; пропущено: ${skipped.length}`);

@@ -1,7 +1,8 @@
 // UI kit of the Mini App. Import from "@/components/ui"; tokens.css is loaded once in src/app/layout.tsx.
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./button";
 export { Checkbox, type CheckboxProps } from "./checkbox";
-export { Chip, ChipButton, type ChipButtonProps, type ChipProps, type ChipVariant } from "./chip";
+export { ChoiceCard, type ChoiceCardProps } from "./choice-card";
+export { Chip,ChipButton, type ChipButtonProps, type ChipProps, type ChipVariant } from "./chip";
 export { Field, useFieldIds, type FieldChrome, type FieldProps } from "./field";
 export { IconButton, type IconButtonProps } from "./icon-button";
 export { Link, type LinkProps } from "./link";
