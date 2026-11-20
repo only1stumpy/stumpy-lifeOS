@@ -53,7 +53,7 @@ jobs:
           fi
           gh api "repos/${REPO}/pulls/${PR}" > pr.json
           python3 - <<'PY'
-          import json, os, re, html, urllib.parse, urllib.request
+          import json, os, re, html, urllib.error, urllib.parse, urllib.request
 
           pr = json.load(open("pr.json"))
           repo = os.environ["REPO"]
@@ -62,14 +62,23 @@ jobs:
               print("PR из форка, пропускаю.")
               raise SystemExit(0)
 
-          def section(body, title):
+          def clean(text):
+              # Разметка Markdown в Telegram не нужна: убираем её и служебную строку подписи.
+              text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+              text = text.replace("**", "").replace("`", "")
+              lines = [l for l in text.splitlines() if "Generated with" not in l]
+              return "\n".join(lines).strip()
+
+          def section(body, title, limit):
               m = re.search(r"(?ims)^##\s*" + title + r"[^\n]*\n(.*?)(?=^##\s|\Z)", body or "")
-              text = (m.group(1) if m else "").strip()
-              return text[:900]
+              text = clean(m.group(1) if m else "")
+              if len(text) > limit:
+                  text = text[:limit].rsplit("\n", 1)[0].rstrip() + "\n…"
+              return text
 
           body = pr.get("body") or ""
-          fixed = section(body, "Что исправлено") or section(body, "Что изменено")
-          check = section(body, "Что проверить")
+          fixed = section(body, "Что исправлено", 450) or section(body, "Что изменено", 450)
+          check = section(body, "Что проверить", 900)
           esc = lambda s: html.escape(s, quote=False)
 
           lines = [f"<b>PR #{pr['number']}</b> · {esc(pr['title'])}"]
@@ -85,20 +94,30 @@ jobs:
           bypass = os.environ.get("BYPASS", "")
           if bypass:
               sep = "&" if "?" in url else "?"
-              url += sep + urllib.parse.urlencode({"x-vercel-protection-bypass": bypass, "x-vercel-set-bypass-cookie": "true"})
+              url += sep + urllib.parse.urlencode({"x-vercel-protection-bypass": bypass, "x-vercel-set-bypass-cookie": "samesitenone"})
 
-          payload = {
-              "chat_id": os.environ["CHAT_ID"],
-              "text": text,
-              "parse_mode": "HTML",
-              "disable_web_page_preview": True,
-              "reply_markup": {"inline_keyboard": [[{"text": "Открыть Preview", "web_app": {"url": url}}], [{"text": "PR на GitHub", "url": pr["html_url"]}]]},
-          }
-          req = urllib.request.Request(
-              f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
-              data=json.dumps(payload).encode(),
-              headers={"content-type": "application/json"},
-          )
-          with urllib.request.urlopen(req) as r:
-              print("Telegram:", r.status)
+          chats = [c.strip() for c in os.environ["CHAT_ID"].split(",") if c.strip()]
+          failed = False
+          for chat in chats:
+              payload = {
+                  "chat_id": chat,
+                  "text": text,
+                  "parse_mode": "HTML",
+                  "disable_web_page_preview": True,
+                  "reply_markup": {"inline_keyboard": [[{"text": "Открыть Preview", "web_app": {"url": url}}], [{"text": "PR на GitHub", "url": pr["html_url"]}]]},
+              }
+              req = urllib.request.Request(
+                  f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
+                  data=json.dumps(payload).encode(),
+                  headers={"content-type": "application/json"},
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      print("Telegram:", r.status)
+              except urllib.error.HTTPError as e:
+                  # Тело ответа Telegram не содержит токен; без него в логе виден только код.
+                  print("Telegram error:", e.code, e.read().decode("utf-8", "replace")[:300])
+                  failed = True
+          if failed:
+              raise SystemExit(1)
           PY
