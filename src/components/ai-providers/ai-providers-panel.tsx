@@ -740,6 +740,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                 <IconButton size="sm" label={`Обновить список моделей для ${account.name}`} title="Обновить модели" onClick={() => void refreshModels(provider, account)} disabled={busyAction !== null || !provider.connectable}>
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3" /></svg>
                 </IconButton>
+                {/* eslint-disable-next-line no-restricted-syntax -- role=switch: переключатель аккаунта, у кита нет Switch */}
                 <button type="button" role="switch" aria-checked={account.enabled} aria-label={`${account.enabled ? "Выключить" : "Включить"} аккаунт ${account.name}`} className={`${styles.switch} ${account.enabled ? styles.switchOn : ""}`} onClick={() => void toggleAccount(provider.id, account)} disabled={busyAction !== null || !provider.connectable}><span /></button>
                 <IconButton size="sm" label={`Удалить аккаунт ${account.name}`} title="Удалить аккаунт" onClick={() => setConfirmDelete(deleting ? null : { providerId: provider.id, account })} disabled={busyAction !== null}>
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 3v6m4-6v6" /></svg>
