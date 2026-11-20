@@ -62,14 +62,23 @@ jobs:
               print("PR из форка, пропускаю.")
               raise SystemExit(0)
 
-          def section(body, title):
+          def clean(text):
+              # Разметка Markdown в Telegram не нужна: убираем её и служебную строку подписи.
+              text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+              text = text.replace("**", "").replace("`", "")
+              lines = [l for l in text.splitlines() if "Generated with" not in l]
+              return "\n".join(lines).strip()
+
+          def section(body, title, limit):
               m = re.search(r"(?ims)^##\s*" + title + r"[^\n]*\n(.*?)(?=^##\s|\Z)", body or "")
-              text = (m.group(1) if m else "").strip()
-              return text[:900]
+              text = clean(m.group(1) if m else "")
+              if len(text) > limit:
+                  text = text[:limit].rsplit("\n", 1)[0].rstrip() + "\n…"
+              return text
 
           body = pr.get("body") or ""
-          fixed = section(body, "Что исправлено") or section(body, "Что изменено")
-          check = section(body, "Что проверить")
+          fixed = section(body, "Что исправлено", 450) or section(body, "Что изменено", 450)
+          check = section(body, "Что проверить", 900)
           esc = lambda s: html.escape(s, quote=False)
 
           lines = [f"<b>PR #{pr['number']}</b> · {esc(pr['title'])}"]
