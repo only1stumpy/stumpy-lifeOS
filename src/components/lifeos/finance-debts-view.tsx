@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/domain/currencies";
+import { Button } from "@/components/ui";
 import styles from "./finance-debts-view.module.css";
 
 export type FinanceDebtViewItem = {
@@ -84,18 +85,18 @@ function DebtGroup({
                   {debt.repayments.map((repayment) => (
                     <li key={repayment.id}>
                       <span>{dateLabel(repayment.occurredAt)} · {formatMoney(repayment.amountMinor, currency)}</span>
-                      <button type="button" className={styles.linkButton} aria-label={`Удалить возврат ${formatMoney(repayment.amountMinor, currency)}`} onClick={() => onDeleteRepayment(repayment.id)}>Удалить</button>
+                      <Button variant="text" size="sm" aria-label={`Удалить возврат ${formatMoney(repayment.amountMinor, currency)}`} onClick={() => onDeleteRepayment(repayment.id)}>Удалить</Button>
                     </li>
                   ))}
                 </ul>
               )}
               <div className={styles.rowActions}>
                 {debt.remainingAmountMinor > 0 && (
-                  <button type="button" className={styles.repayButton} onClick={() => onRepay(debt)}>
+                  <Button className={styles.repayButton} onClick={() => onRepay(debt)}>
                     {debt.direction === "i_owe" ? "Записать возврат" : "Записать получение"}
-                  </button>
+                  </Button>
                 )}
-                <button type="button" className={styles.linkButton} aria-label={`Удалить долг: ${debt.personName}`} onClick={() => onDelete(debt)}>Удалить долг</button>
+                <Button variant="text" size="sm" aria-label={`Удалить долг: ${debt.personName}`} onClick={() => onDelete(debt)}>Удалить долг</Button>
               </div>
             </li>
           ))}
@@ -121,10 +122,10 @@ export default function FinanceDebtsView({ debts, currency, onAdd, onRepay, onDe
           <span className={styles.eyebrow}>Личные обязательства</span>
           <h2 id="finance-debts-heading">Долги</h2>
         </div>
-        <button type="button" className={styles.addButton} onClick={onAdd}>
+        <Button variant="primary" size="lg" className={styles.addButton} onClick={onAdd}>
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           Добавить долг
-        </button>
+        </Button>
       </header>
 
       <div className={styles.totals} aria-label="Итоги по долгам">

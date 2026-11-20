@@ -43,30 +43,7 @@
   overflow-wrap: anywhere;
 }
 
-.debtsView button {
-  display: inline-flex;
-  min-height: 52px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid rgba(116, 43, 69, 0.2);
-  border-radius: 16px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.3);
-  color: var(--debt-wine);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 550;
-  line-height: 1.25;
-  transition: transform 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out;
-}
-
-.debtsView .addButton {
-  border-color: rgba(255, 255, 255, 0.7);
-  background: var(--debt-wine);
-  color: #fffaf9;
-  box-shadow: 0 1px 2px rgba(53, 39, 44, 0.08);
+.addButton {
   white-space: nowrap;
 }
 
@@ -74,25 +51,6 @@
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-}
-
-.debtsView button:hover {
-  border-color: rgba(116, 43, 69, 0.34);
-  background-color: rgba(255, 255, 255, 0.52);
-}
-
-.debtsView .addButton:hover {
-  background: var(--debt-wine);
-  box-shadow: 0 2px 4px rgba(53, 39, 44, 0.1);
-}
-
-.debtsView button:active {
-  transform: scale(0.98);
-}
-
-.debtsView button:focus-visible {
-  outline: 3px solid rgba(116, 43, 69, 0.62);
-  outline-offset: 3px;
 }
 
 .totals {
@@ -251,9 +209,6 @@
 
 .repayButton {
   justify-self: start;
-  min-height: 48px !important;
-  padding: 12px 16px !important;
-  font-size: 13px !important;
 }
 
 .groupEmpty {
@@ -281,26 +236,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .debtsView button {
-    transition: none;
-  }
-
-  .debtsView button:active {
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .debtsView button {
-    background-color: rgba(255, 255, 255, 0.88);
-  }
-
-  .debtsView .addButton {
-    background: #742b45;
-  }
-}
-
 @media (prefers-contrast: more) {
   .eyebrow,
   .groupHeader p,
@@ -317,11 +252,6 @@
   .group + .group,
   .groupEmpty {
     border-color: rgba(69, 42, 54, 0.4);
-  }
-
-  .debtsView button:not(.addButton) {
-    border-color: rgba(69, 42, 54, 0.5);
-    background: rgba(250, 247, 246, 0.96);
   }
 }
 
@@ -347,16 +277,4 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-}
-
-.linkButton {
-  min-height: 44px;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: var(--debt-muted);
-  font: inherit;
-  font-size: 13px;
-  text-decoration: underline;
-  cursor: pointer;
 }

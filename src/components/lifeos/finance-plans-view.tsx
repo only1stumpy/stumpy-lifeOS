@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/domain/currencies";
+import { Button, IconButton } from "@/components/ui";
 import styles from "./finance-plans-view.module.css";
 
 export type FinancePlanViewItem = {
@@ -42,10 +43,10 @@ export default function FinancePlansView({ plans, currency, onAdd, onEdit, onDel
           <span className={styles.eyebrow}>Будущие покупки</span>
           <h2 id="finance-plans-heading">Планы покупок</h2>
         </div>
-        <button type="button" className={styles.addButton} onClick={onAdd}>
+        <Button variant="primary" size="lg" className={styles.addButton} onClick={onAdd}>
           <PlusIcon />
           Добавить в план
-        </button>
+        </Button>
       </header>
 
       {plans.length ? (
@@ -62,30 +63,20 @@ export default function FinancePlansView({ plans, currency, onAdd, onEdit, onDel
                   <span className={styles.planAmount}>{formatMoney(plan.amountMinor, currency)}</span>
                 </div>
                 <div className={styles.actions}>
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     className={styles.purchaseButton}
                     aria-label={`Записать расход: ${plan.name}`}
                     onClick={() => onPurchase(plan)}
                   >
                     Записать расход
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label={`Изменить план: ${plan.name}`}
-                    onClick={() => onEdit(plan)}
-                  >
+                  </Button>
+                  <IconButton size="sm" label={`Изменить план: ${plan.name}`} onClick={() => onEdit(plan)}>
                     <EditIcon />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label={`Удалить план: ${plan.name}`}
-                    onClick={() => onDelete(plan.id)}
-                  >
+                  </IconButton>
+                  <IconButton size="sm" label={`Удалить план: ${plan.name}`} onClick={() => onDelete(plan.id)}>
                     <DeleteIcon />
-                  </button>
+                  </IconButton>
                 </div>
               </li>
             ))}

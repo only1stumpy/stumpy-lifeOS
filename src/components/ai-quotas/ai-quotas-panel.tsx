@@ -4,6 +4,7 @@ import { plural as pluralWord } from "@/domain/plural";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AiQuotaMetric, AiQuotaSnapshot } from "@/domain/ai-quotas";
+import { Button, IconButton, Link } from "@/components/ui";
 import { GlassRefraction } from "@/components/glass/glass-refraction";
 import { AiQuotasSkeleton } from "@/components/loading/loading-skeletons";
 import { motionDuration, motionEase, motionSpring, useMotionVariants } from "@/components/motion/motion-system";
@@ -194,13 +195,13 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
         <GlassRefraction surfaceRef={surfaceRef} filterId={filterId} profile="soft" />
         <header className={styles.header}>
           <div><p className={styles.eyebrow}>Служебный раздел</p><h2 id="ai-quotas-title">Лимиты ИИ</h2></div>
-          <button ref={closeRef} className={styles.close} type="button" aria-label="Закрыть панель лимитов" onClick={onClose}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+          <IconButton ref={closeRef} className={styles.close} label="Закрыть панель лимитов" onClick={onClose}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg></IconButton>
         </header>
 
         <div className={styles.scrollArea} aria-live="polite" aria-busy={loadState === "loading"}>
           {loadState === "loading" && !data && <><span className="visually-hidden" role="status">Загружаю лимиты ИИ.</span><AiQuotasSkeleton /></>}
           <AnimatePresence mode="wait" initial={false}>
-            {loadState === "error" && <motion.div key="error" variants={motionVariants.state} initial="initial" animate="animate" exit="exit" className={styles.state} role="alert"><h3>Не удалось загрузить лимиты</h3><p>Проверь подключение и попробуй ещё раз.</p><button type="button" className={styles.action} onClick={refresh}>Повторить</button></motion.div>}
+            {loadState === "error" && <motion.div key="error" variants={motionVariants.state} initial="initial" animate="animate" exit="exit" className={styles.state} role="alert"><h3>Не удалось загрузить лимиты</h3><p>Проверь подключение и попробуй ещё раз.</p><Button onClick={refresh}>Повторить</Button></motion.div>}
           </AnimatePresence>
           {data && <>
             <section className={styles.providerUsageSection}>
@@ -212,13 +213,13 @@ export function AiQuotasPanel({ initData, onClose }: AiQuotasPanelProps) {
               <p className={styles.message}>{snapshot.message}</p>
               {snapshot.metrics.length > 0 && <motion.div className={styles.metrics} variants={motionVariants.staggerGroup} initial="initial" animate="animate"><AnimatePresence initial={false}>{snapshot.metrics.map((metric) => <MetricRow key={metric.id} metric={metric} />)}</AnimatePresence></motion.div>}
               {snapshot.status === "ready" && snapshot.metrics.length === 0 && <p className={styles.empty}>Google пока не опубликовал метрики для выбранной модели.</p>}
-              <div className={styles.footer}>{observedAt && <span>Срез данных · {observedAt}</span>}<a href={snapshot.dashboardUrl} target="_blank" rel="noreferrer">Google AI Studio</a></div>
+              <div className={styles.footer}>{observedAt && <span>Срез данных · {observedAt}</span>}<Link className={styles.footerLink} href={snapshot.dashboardUrl} external>Google AI Studio</Link></div>
               <p className={styles.note}>Квоты Google могут обновляться с задержкой до нескольких минут.</p>
             </section>}
             <p className={styles.note}>LifeOS считает собственные обращения, но не видит чужое использование этого же API-ключа. Если провайдер не публикует лимит, счётчик LifeOS — ориентир, а не квота.</p>
           </>}
         </div>
-        {loadState === "ready" && <button type="button" className={styles.refresh} onClick={refresh}>Обновить данные</button>}
+        {loadState === "ready" && <Button variant="primary" size="lg" fullWidth className={styles.refresh} onClick={refresh}>Обновить данные</Button>}
       </section>
     </motion.dialog>
   );
