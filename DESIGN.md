@@ -56,7 +56,7 @@
 
 ## UI-кит
 
-Контролы Mini App живут в `src/components/ui/` и подключаются как `@/components/ui`: `Button`, `IconButton`, `Checkbox`, `Radio`, `Select`, `TextField`, `Textarea`, `Field`, `Link`, `Chip`/`ChipButton`. Стили — только CSS Modules; варианты задаются атрибутами `data-variant` и `data-size`, а не библиотекой классов. Компоненты серверные (без хуков состояния), поэтому годятся и для отчётов.
+Контролы Mini App живут в `src/components/ui/` и подключаются как `@/components/ui`: `Button`, `IconButton`, `Checkbox`, `Radio`, `ChoiceCard` (карточка-выбор с галочкой в углу: `mode="multiple"` — нативный checkbox, `mode="single"` — radio), `Select`, `TextField`, `Textarea`, `Field`, `Link`, `Chip`/`ChipButton`. Стили — только CSS Modules; варианты задаются атрибутами `data-variant` и `data-size`, а не библиотекой классов. Компоненты серверные (без хуков состояния), поэтому годятся и для отчётов.
 
 - Токены: `src/components/ui/tokens.css` (CSS-переменные `--ui-*`, подключены в `layout.tsx`) и `tokens.ts` (те же значения для HTML-строк: виджеты бота, отчёты). Меняйте оба файла сразу: `tests/ui-tokens.test.ts` сравнивает их. Safe area и движение остаются в `globals.css`.
 - Все компоненты и состояния — на странице `/ui` (`src/components/ui/gallery.tsx`); она открыта в разработке и на Preview, в production отвечает 404.

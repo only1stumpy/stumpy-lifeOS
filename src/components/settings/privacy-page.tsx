@@ -31,10 +31,10 @@ export function DataRightsSections({ pending, onSendExport, onDelete }: { pendin
         ) : (
           <>
             <p className={styles.hint} role="alert">Это действие необратимо: будут удалены питание, финансы, долги, тренировки, настройки и ключи ИИ. Сохрани копию данных заранее. Для подтверждения введи слово {DELETE_CONFIRMATION_WORD}.</p>
-            <TextField label="Подтверждение" value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" autoCapitalize="characters" placeholder={DELETE_CONFIRMATION_WORD} />
+            <TextField label="Подтверждение" disabled={pending} value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" autoCapitalize="characters" placeholder={DELETE_CONFIRMATION_WORD} />
             <div className={styles.actions}>
               <Button variant="secondary" disabled={pending} onClick={() => { setConfirming(false); setTyped(""); }}>Отмена</Button>
-              <Button variant="danger-solid" disabled={!canDelete} onClick={() => void onDelete()}>Удалить навсегда</Button>
+              <Button variant="danger-solid" loading={pending} disabled={!canDelete && !pending} onClick={() => void onDelete()}>{pending ? "Удаляю…" : "Удалить навсегда"}</Button>
             </div>
           </>
         )}

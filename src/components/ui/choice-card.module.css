@@ -1,0 +1,107 @@
+.card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-4) calc(var(--ui-size-check) + var(--ui-space-6) + var(--ui-space-2)) var(--ui-space-4) var(--ui-space-5);
+  border: 1px solid var(--ui-color-field-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-field-fill);
+  color: var(--ui-color-ink);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--motion-duration-micro, 140ms) ease, background-color var(--motion-duration-micro, 140ms) ease;
+}
+
+/* The native input stays in the tree for semantics and keyboard; it is invisible and the card is the target. */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.title {
+  font-size: var(--ui-font-size-body);
+  font-weight: var(--ui-font-weight-strong);
+  line-height: 1.3;
+}
+
+.description {
+  color: var(--ui-color-ink-soft);
+  font-size: var(--ui-font-size-caption);
+  line-height: 1.45;
+}
+
+/* Corner indicator: empty ring when off, filled accent circle with a check when on. */
+.mark {
+  position: absolute;
+  top: var(--ui-space-4);
+  right: var(--ui-space-4);
+  display: grid;
+  width: var(--ui-size-check);
+  height: var(--ui-size-check);
+  place-items: center;
+  box-sizing: border-box;
+  border: 1.5px solid var(--ui-color-control-border);
+  border-radius: 50%;
+  background: var(--ui-color-field-fill);
+  color: transparent;
+  transition: background-color var(--motion-duration-micro, 140ms) ease, border-color var(--motion-duration-micro, 140ms) ease, color var(--motion-duration-micro, 140ms) ease;
+}
+
+.card:has(.input:checked) {
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent-tint);
+}
+
+.card:has(.input:checked) .mark {
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent);
+  color: var(--ui-color-on-accent);
+}
+
+.card:has(.input:focus-visible) {
+  outline: var(--ui-focus-width) solid var(--ui-focus-color);
+  outline-offset: var(--ui-focus-offset);
+  box-shadow: var(--ui-focus-halo);
+}
+
+.card[data-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .mark {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .card {
+    border-color: currentColor;
+  }
+
+  .mark {
+    border-color: currentColor;
+  }
+}
+
+@media (forced-colors: active) {
+  .card:has(.input:checked) {
+    border-color: Highlight;
+  }
+
+  .card:has(.input:checked) .mark {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+}

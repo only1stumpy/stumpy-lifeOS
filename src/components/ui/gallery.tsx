@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, Checkbox, Chip, ChipButton, IconButton, Link, Radio, Select, TextField, Textarea, tokens, type ButtonSize, type ButtonVariant } from "./index";
+import { Button, Checkbox, ChoiceCard, Chip, ChipButton, IconButton, Link, Radio, Select, TextField, Textarea, tokens, type ButtonSize, type ButtonVariant } from "./index";
 import styles from "./gallery.module.css";
 
 const variants: ButtonVariant[] = ["primary", "secondary", "danger", "danger-solid", "text"];
@@ -79,6 +79,23 @@ export function UiGallery() {
             <Radio name="gallery-unit" label="Килограммы" defaultChecked />
             <Radio name="gallery-unit" label="Фунты" description="Пересчитывается при вводе." />
             <Radio name="gallery-unit" label="Недоступно" disabled />
+          </fieldset>
+        </Section>
+
+        <Section title="ChoiceCard" note="Карточка-выбор: нативный checkbox (multiple) или radio (single), галочка в углу. Тап по всей карточке.">
+          <div className={styles.stack}>
+            <ChoiceCard mode="multiple" title="Питание" description="Калории, белки, жиры, углеводы." />
+            <ChoiceCard mode="multiple" title="Финансы" description="Счета, расходы, долги." defaultChecked />
+            <ChoiceCard mode="multiple" title="Зал" description="Недоступно." disabled />
+            <ChoiceCard mode="multiple" title="Зал, выбрано" description="Недоступно, включено." disabled defaultChecked />
+          </div>
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.legend}>Как часто заходишь</legend>
+            <div className={styles.stack}>
+              <ChoiceCard mode="single" name="gallery-usage" title="Каждый день" description="Напоминания и ежедневная сводка." defaultChecked />
+              <ChoiceCard mode="single" name="gallery-usage" title="Иногда" description="Только важное." />
+              <ChoiceCard mode="single" name="gallery-usage" title="Недоступно" description="Нельзя выбрать." disabled />
+            </div>
           </fieldset>
         </Section>
 

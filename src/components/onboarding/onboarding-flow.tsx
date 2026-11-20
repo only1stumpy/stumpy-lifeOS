@@ -9,6 +9,7 @@ import { ALL_MODULES, LIFE_MODULES, type LifeModule } from "@/domain/modules";
 import { ACTIVITY_LEVELS, GOALS, profileSchema, suggestTargets, type NutritionProfile } from "@/domain/nutrition";
 import { USAGE_MODES, type UsageMode } from "@/domain/notifications";
 import { CurrencyPicker } from "@/components/finance/currency-picker";
+import { Button, ChoiceCard, Select, TextField } from "@/components/ui";
 import styles from "./onboarding-flow.module.css";
 
 /** Zone of the device, sent once at the first meeting; invalid or missing values are left for the server default. */
@@ -57,7 +58,8 @@ function parseProfile(form: ProfileForm): NutritionProfile | null {
 }
 
 export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiStep, sectionSetup }: Props) {
-  const [modules, setModules] = useState<LifeModule[]>(() => sectionSetup ? sectionSetup.modules : (snapshot.settings.enabledModules.length ? [...snapshot.settings.enabledModules] : [...ALL_MODULES]));
+  // A new user starts with nothing selected: the server default enables every section, which looked like a forced choice.
+  const [modules, setModules] = useState<LifeModule[]>(() => sectionSetup ? sectionSetup.modules : []);
   const [usage, setUsage] = useState<UsageMode>("daily");
   const [profile, setProfile] = useState<ProfileForm>(() => {
     const saved = snapshot.settings.profile;
@@ -127,7 +129,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
 
   function toggleModule(module: LifeModule) {
     setModules((current) => {
-      if (current.includes(module)) return current.length > 1 ? current.filter((item) => item !== module) : current;
+      if (current.includes(module)) return current.filter((item) => item !== module);
       return ALL_MODULES.filter((item) => item === module || current.includes(item));
     });
   }
@@ -230,19 +232,13 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
         {step === "modules" && (
           <section className={styles.step} aria-labelledby="ob-title">
             <h1 id="ob-title">Чем ты будешь пользоваться?</h1>
+            <p className={styles.note}>Выбери разделы, которые хочешь вести. Остальные можно включить позже в настройках.</p>
             <div className={styles.cards}>
-              {ALL_MODULES.map((module) => {
-                const on = modules.includes(module);
-                return (
-                  <label key={module} className={`${styles.card} ${on ? styles.selected : ""}`}>
-                    <input type="checkbox" checked={on} onChange={() => toggleModule(module)} />
-                    <span className={styles.cardTitle}>{LIFE_MODULES[module].label}</span>
-                    <span className={styles.cardText}>{LIFE_MODULES[module].description}</span>
-                  </label>
-                );
-              })}
+              {ALL_MODULES.map((module) => (
+                <ChoiceCard key={module} mode="multiple" title={LIFE_MODULES[module].label} description={LIFE_MODULES[module].description} checked={modules.includes(module)} onChange={() => toggleModule(module)} />
+              ))}
             </div>
-            <p className={styles.note}>Выключенные разделы не показываются и не передаются ИИ. Включить их можно позже в настройках.</p>
+            <p className={styles.note}>Выключенные разделы не показываются и не передаются ИИ.</p>
           </section>
         )}
 
@@ -252,11 +248,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
             <fieldset className={styles.cards}>
               <legend className={styles.srOnly}>Частота использования</legend>
               {(Object.keys(USAGE_MODES) as UsageMode[]).map((mode) => (
-                <label key={mode} className={`${styles.card} ${usage === mode ? styles.selected : ""}`}>
-                  <input type="radio" name="usage" checked={usage === mode} onChange={() => setUsage(mode)} />
-                  <span className={styles.cardTitle}>{USAGE_MODES[mode].label}</span>
-                  <span className={styles.cardText}>{USAGE_MODES[mode].hint}</span>
-                </label>
+                <ChoiceCard key={mode} mode="single" name="usage" title={USAGE_MODES[mode].label} description={USAGE_MODES[mode].hint} checked={usage === mode} onChange={() => setUsage(mode)} />
               ))}
             </fieldset>
           </section>
@@ -266,40 +258,22 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
           <section className={`${styles.step} ${styles.compact}`} aria-labelledby="ob-title">
             <h1 id="ob-title">Расскажи о себе</h1>
             <div className={styles.fieldsTwo}>
-              <label className={styles.field}>Пол
-                <select value={profile.sex} onChange={(e) => changeProfile({ sex: e.target.value })} aria-invalid={missing.sex}>
-                  <option value="" disabled>Выбери</option>
-                  <option value="male">Мужской</option>
-                  <option value="female">Женский</option>
-                </select>
-                {missing.sex && <small className={styles.fieldError}>Выбери пол</small>}
-              </label>
-              <label className={styles.field}>Возраст
-                <input inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} aria-invalid={missing.age} />
-                {missing.age && <small className={styles.fieldError}>{profile.age === "" ? "Укажи возраст" : "От 18 до 90"}</small>}
-              </label>
-              <label className={styles.field}>Рост, см
-                <input inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} aria-invalid={missing.heightCm} />
-                {missing.heightCm && <small className={styles.fieldError}>{profile.heightCm === "" ? "Укажи рост" : "От 100 до 250"}</small>}
-              </label>
-              <label className={styles.field}>Вес, кг
-                <input inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} aria-invalid={missing.weightKg} />
-                {missing.weightKg && <small className={styles.fieldError}>{profile.weightKg === "" ? "Укажи вес" : "От 30 до 350"}</small>}
-              </label>
-              <label className={`${styles.field} ${styles.wide}`}>Активность
-                <select value={profile.activityLevel} onChange={(e) => changeProfile({ activityLevel: e.target.value })} aria-invalid={missing.activityLevel}>
-                  <option value="" disabled>Выбери</option>
-                  {Object.entries(ACTIVITY_LEVELS).map(([key, level]) => <option key={key} value={key}>{level.label}</option>)}
-                </select>
-                {missing.activityLevel && <small className={styles.fieldError}>Выбери активность</small>}
-              </label>
-              <label className={`${styles.field} ${styles.wide}`}>Цель
-                <select value={profile.goalType} onChange={(e) => changeProfile({ goalType: e.target.value })} aria-invalid={missing.goalType}>
-                  <option value="" disabled>Выбери</option>
-                  {Object.entries(GOALS).map(([key, goal]) => <option key={key} value={key}>{goal.label}</option>)}
-                </select>
-                {missing.goalType && <small className={styles.fieldError}>Выбери цель</small>}
-              </label>
+              <Select label="Пол" value={profile.sex} onChange={(e) => changeProfile({ sex: e.target.value })} error={missing.sex ? "Выбери пол" : undefined}>
+                <option value="" disabled>Выбери</option>
+                <option value="male">Мужской</option>
+                <option value="female">Женский</option>
+              </Select>
+              <TextField label="Возраст" inputMode="numeric" value={profile.age} onChange={(e) => changeProfile({ age: e.target.value })} error={missing.age ? (profile.age === "" ? "Укажи возраст" : "От 18 до 90") : undefined} />
+              <TextField label="Рост, см" inputMode="decimal" value={profile.heightCm} onChange={(e) => changeProfile({ heightCm: e.target.value })} error={missing.heightCm ? (profile.heightCm === "" ? "Укажи рост" : "От 100 до 250") : undefined} />
+              <TextField label="Вес, кг" inputMode="decimal" value={profile.weightKg} onChange={(e) => changeProfile({ weightKg: e.target.value })} error={missing.weightKg ? (profile.weightKg === "" ? "Укажи вес" : "От 30 до 350") : undefined} />
+              <Select className={styles.wide} label="Активность" value={profile.activityLevel} onChange={(e) => changeProfile({ activityLevel: e.target.value })} error={missing.activityLevel ? "Выбери активность" : undefined}>
+                <option value="" disabled>Выбери</option>
+                {Object.entries(ACTIVITY_LEVELS).map(([key, level]) => <option key={key} value={key}>{level.label}</option>)}
+              </Select>
+              <Select className={styles.wide} label="Цель" value={profile.goalType} onChange={(e) => changeProfile({ goalType: e.target.value })} error={missing.goalType ? "Выбери цель" : undefined}>
+                <option value="" disabled>Выбери</option>
+                {Object.entries(GOALS).map(([key, goal]) => <option key={key} value={key}>{goal.label}</option>)}
+              </Select>
             </div>
             <p className={styles.norm} aria-live="polite">
               {norm
@@ -319,10 +293,7 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
         {step === "balance" && (
           <section className={styles.step} aria-labelledby="ob-title">
             <h1 id="ob-title">Сколько сейчас на счёте?</h1>
-            <label className={styles.field}>Сумма, {currencyUnit(currency)}
-              <input inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={attempted && stepBlocked} />
-              {attempted && stepBlocked && <small className={styles.fieldError}>Введи сумму числом, например 1500,50</small>}
-            </label>
+            <TextField label={`Сумма, ${currencyUnit(currency)}`} inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} error={attempted && stepBlocked ? "Введи сумму числом, например 1500,50" : undefined} />
             <p className={styles.note}>Счёт назовём «Основной», переименовать можно в Финансах.</p>
           </section>
         )}
@@ -332,14 +303,16 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
 
         {step !== "ai" && (
           <div className={styles.actions}>
-            {step === "modules" && modules.length < 1 && <p className={styles.hint}>Оставь включённым хотя бы один раздел.</p>}
             {step === "currency" && attempted && currency === "" && <p className={styles.hint} role="alert">Выбери валюту из списка или введи свой код.</p>}
             {shownError && <p className={styles.error} role="alert">{shownError}</p>}
-            <button type="button" className={styles.primary} onClick={next} disabled={pending} aria-busy={pending}>{pending ? <><span className={styles.spinner} aria-hidden="true" />Сохраняю…</> : "Далее"}</button>
-            <div className={styles.secondaryRow}>
-              {stepIndex > 0 && <button type="button" className={styles.secondary} onClick={back} disabled={pending}>Назад</button>}
-              {canSkip && <button type="button" className={styles.secondary} onClick={skip} disabled={pending}>Пропустить</button>}
-            </div>
+            <Button variant="primary" size="lg" fullWidth onClick={next} loading={pending} disabled={step === "modules" && stepBlocked}>{pending ? "Сохраняю…" : "Далее"}</Button>
+            {step === "modules" && stepBlocked && <p className={styles.hint}>Выбери хотя бы один раздел, чтобы продолжить.</p>}
+            {(stepIndex > 0 || canSkip) && (
+              <div className={styles.secondaryRow}>
+                {stepIndex > 0 && <Button fullWidth onClick={back} disabled={pending}>Назад</Button>}
+                {canSkip && <Button fullWidth onClick={skip} disabled={pending}>Пропустить</Button>}
+              </div>
+            )}
           </div>
         )}
       </div>

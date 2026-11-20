@@ -17,6 +17,7 @@ import type { LifeModule } from "@/domain/modules";
 import { modulesNeedingSetup } from "@/domain/section-setup";
 import { PersonalizationPage } from "@/components/settings/personalization-page";
 import { PrivacyPage } from "@/components/settings/privacy-page";
+import { Button } from "@/components/ui";
 import { ConsentScreen } from "@/components/privacy/consent-screen";
 import { consentState, DELETE_CONFIRMATION_WORD, HEALTH_CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/domain/privacy";
 import { SettingsMenu, SettingsSubpage, type SettingsPage } from "@/components/settings/settings-menu";
@@ -688,7 +689,9 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     return (
       <MotionProvider>
         <main className="setup-notice" role="status" aria-live="polite">
-          <p>Все твои данные удалены. Если захочешь вернуться, открой LifeOS заново: профиль создастся с нуля.</p>
+          <p>Все твои данные удалены. Если захочешь вернуться, нажми «Начать заново»: профиль создастся с нуля.</p>
+          {/* A full reload resets every screen state and loads a fresh snapshot, which leads to the consent screen. */}
+          <Button variant="primary" size="lg" fullWidth onClick={() => window.location.reload()}>Начать заново</Button>
         </main>
       </MotionProvider>
     );

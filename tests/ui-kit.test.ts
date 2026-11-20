@@ -5,10 +5,10 @@ import { createElement as h, isValidElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 type Kit = typeof import("../src/components/ui");
-let Button: Kit["Button"], Checkbox: Kit["Checkbox"], IconButton: Kit["IconButton"], TextField: Kit["TextField"], Select: Kit["Select"];
+let ChoiceCard: Kit["ChoiceCard"], Button: Kit["Button"], Checkbox: Kit["Checkbox"], IconButton: Kit["IconButton"], TextField: Kit["TextField"], Select: Kit["Select"];
 // The package is CommonJS for tests, so the kit (ESM-style imports, CSS Modules) is loaded in a hook, not at the top level.
 before(async () => {
-  ({ Button, Checkbox, IconButton, TextField, Select } = await import("../src/components/ui"));
+  ({ ChoiceCard, Button, Checkbox, IconButton, TextField, Select } = await import("../src/components/ui"));
 });
 
 type ButtonLike = ReactElement<{ onClick?: () => void; disabled?: boolean; "aria-busy"?: boolean }>;
@@ -94,4 +94,24 @@ test("галерея /ui отвечает 404 в production и открыта в
   } finally {
     if (before === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = before;
   }
+});
+
+test("ChoiceCard: multiple — нативный checkbox, single — нативный radio, вся карточка это label", () => {
+  const multiple = renderToStaticMarkup(h(ChoiceCard, { mode: "multiple", title: "Питание", description: "КБЖУ", defaultChecked: true }));
+  assert.match(multiple, /type="checkbox"/);
+  assert.match(multiple, /checked=""/);
+  const single = renderToStaticMarkup(h(ChoiceCard, { mode: "single", name: "usage", title: "Каждый день" }));
+  assert.match(single, /type="radio"/);
+  assert.match(single, /name="usage"/);
+  assert.doesNotMatch(single, /checked/);
+  // The label points at the input, so a tap anywhere on the card toggles it.
+  assert.equal(idOf(single, "label") === undefined, true);
+  assert.equal(single.match(/for="([^"]+)"/)?.[1], idOf(single, "input"));
+});
+
+test("ChoiceCard: disabled блокирует нативный input и помечает карточку", () => {
+  const markup = renderToStaticMarkup(h(ChoiceCard, { mode: "multiple", title: "Зал", disabled: true }));
+  assert.match(markup, /disabled=""/);
+  assert.match(markup, /data-disabled="true"/);
+  assert.match(markup, /aria-hidden="true"/);
 });
