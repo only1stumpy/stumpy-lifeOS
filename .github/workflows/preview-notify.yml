@@ -2,11 +2,12 @@ name: Preview notify
 
 # Присылает владельцу в Telegram (preview-бот) ссылку на Vercel Preview с кнопкой Mini App,
 # списком «Что исправлено» и «Что проверить» из описания PR. Настройка: docs/deployment.md, раздел 5a.
-# Workflow на событие deployment_status запускается только из файла на ветке по умолчанию,
+# Workflow на событие status запускается только из файла на ветке по умолчанию,
 # поэтому до слияния в main проверять его можно только вручную (workflow_dispatch).
 
 on:
-  deployment_status:
+  # Vercel сообщает о готовности деплоя статусом коммита «Vercel» (событий deployment_status у нас нет).
+  status:
   workflow_dispatch:
     inputs:
       pr:
@@ -23,15 +24,15 @@ permissions:
 jobs:
   notify:
     name: Telegram
-    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview')
+    if: github.event_name == 'workflow_dispatch' || (github.event.context == 'Vercel' && github.event.state == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Собрать и отправить сообщение
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          SHA: ${{ github.event.deployment.sha }}
-          PREVIEW_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url || inputs.url }}
+          SHA: ${{ github.event.sha }}
+          PREVIEW_URL: ${{ inputs.url }}
           PR_INPUT: ${{ inputs.pr }}
           BOT_TOKEN: ${{ secrets.PREVIEW_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.PREVIEW_CHAT_ID }}
@@ -52,6 +53,32 @@ jobs:
             exit 0
           fi
           gh api "repos/${REPO}/pulls/${PR}" > pr.json
+          if [ -z "${PREVIEW_URL}" ]; then
+            # Адрес Preview ветки лежит в служебном комментарии Vercel-бота (закодированный JSON с previewUrl).
+            gh api "repos/${REPO}/issues/${PR}/comments" --paginate --jq '[.[] | select(.user.login == "vercel[bot]")] | last | .body // empty' > vercel-comment.txt || true
+            PREVIEW_URL=$(python3 - <<'PYURL'
+          import base64, json, re
+          text = open("vercel-comment.txt").read()
+          match = re.search(r"=:([A-Za-z0-9+/_=-]+)", text)
+          if match:
+              raw = match.group(1)
+              raw += "=" * (-len(raw) % 4)
+              try:
+                  data = json.loads(base64.urlsafe_b64decode(raw))
+                  projects = data.get("projects") or [{}]
+                  host = projects[0].get("previewUrl") or ""
+                  if host:
+                      print("https://" + host)
+              except Exception:
+                  pass
+          PYURL
+            )
+            export PREVIEW_URL
+          fi
+          if [ -z "${PREVIEW_URL}" ]; then
+            echo "Адрес Preview не найден в комментарии Vercel, пропускаю."
+            exit 0
+          fi
           python3 - <<'PY'
           import json, os, re, html, urllib.error, urllib.parse, urllib.request
 
