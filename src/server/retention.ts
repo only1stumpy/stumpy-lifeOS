@@ -1,7 +1,8 @@
-import { and, isNotNull, isNull, lt, or, eq } from "drizzle-orm";
+import { and, isNotNull, isNull, lt, notLike, or, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { CLARIFICATION_TTL_MS } from "@/server/ai/clarification";
+import { RELEASE_NOTICE_KEY_PREFIX } from "@/domain/release";
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -51,8 +52,12 @@ export async function purgeOldUsageEvents(now: Date = new Date()): Promise<void>
 }
 
 export async function purgeOldNotificationDeliveries(now: Date = new Date()): Promise<void> {
+  // Release keys stay: without them a version announced long ago would be sent again.
   await getDb().delete(schema.notificationDeliveries)
-    .where(lt(schema.notificationDeliveries.createdAt, new Date(now.getTime() - NOTIFICATION_DELIVERY_RETENTION_DAYS * DAY_MS)));
+    .where(and(
+      lt(schema.notificationDeliveries.createdAt, new Date(now.getTime() - NOTIFICATION_DELIVERY_RETENTION_DAYS * DAY_MS)),
+      notLike(schema.notificationDeliveries.key, `${RELEASE_NOTICE_KEY_PREFIX}%`),
+    ));
 }
 
 /** Every step is independent: one failing must not leave the others undone. */
