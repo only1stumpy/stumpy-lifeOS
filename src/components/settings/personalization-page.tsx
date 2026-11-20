@@ -98,22 +98,22 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
           <input type="checkbox" checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} />
           <span><strong>Напоминание взвеситься</strong><small>По четвергам, если за 7 дней меньше трёх замеров.</small></span>
         </label>}
-        <label className={styles.timeField}>
-          <strong>Время сводок и напоминаний</strong>
-          <input type="time" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
-          <small className={styles.hint}>Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
-        </label>
+        <div className={styles.timeField}>
+          <label htmlFor="summary-time"><strong>Время сводок и напоминаний</strong></label>
+          <input id="summary-time" type="time" aria-describedby="summary-time-hint" value={summaryTime} onChange={(event) => { touch(); setSummaryTime(event.target.value); }} />
+          <small id="summary-time-hint" className={styles.hint}>Сводки приходят в это время по твоему часовому поясу. Напоминания о платежах и долгах приходят всегда, пока включены их функции.</small>
+        </div>
       </section>
 
       <section className={styles.section} aria-labelledby="timezone-heading">
         <h2 id="timezone-heading">Часовой пояс</h2>
-        <label className={styles.timeField}>
-          <strong>Твой пояс</strong>
-          <select value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
+        <div className={styles.timeField}>
+          <label htmlFor="time-zone"><strong>Твой пояс</strong></label>
+          <select id="time-zone" aria-describedby="time-zone-hint" value={timeZone} onChange={(event) => { touch(); setTimeZone(event.target.value); }}>
             {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
           </select>
-          <small className={styles.hint}>По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени.</small>
-        </label>
+          <small id="time-zone-hint" className={styles.hint}>По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени.</small>
+        </div>
         {detectedZone() && detectedZone() !== timeZone ? <button type="button" className={styles.save} onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</button> : null}
       </section>
 
