@@ -42,7 +42,7 @@
   box-sizing: border-box;
 }
 
-.stage button {
+:where(.stage button) {
   color: inherit;
   font: inherit;
   -webkit-tap-highlight-color: transparent;
