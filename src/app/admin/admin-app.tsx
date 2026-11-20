@@ -19,7 +19,7 @@ const FAILURE_NAMES: Record<string, string> = {
 };
 
 const shown = (value: number | string | null | undefined) => (value === null || value === undefined ? "—" : String(value));
-const share = (item: { count: number | string; share: number | null }) => `${item.count}${item.share === null ? "" : ` · ${item.share}%`}`;
+const share = (item: { count: number; share: number | null }) => `${item.count} · ${item.share === null ? "—" : `${item.share}%`}`;
 
 export default function AdminApp() {
   const [initData, setInitData] = useState<string | null>(null);
