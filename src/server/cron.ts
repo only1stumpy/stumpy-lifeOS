@@ -16,7 +16,10 @@ import {
   sendDueDebtReminder,
   sendWeeklySummary,
   sendWeightReminder,
+  sendReleaseNotice,
+  isOwnerNotificationSent,
 } from "@/server/telegram/bot";
+import { APP_VERSION, RELEASE_HISTORY, releaseNoticeKey, shouldAnnounceRelease } from "@/domain/release";
 import { inSummaryWindow, minuteOfDay } from "@/domain/notifications";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
 
@@ -103,6 +106,12 @@ async function processOwner(
     const localTime = getLocalTime(now, owner.timezone);
     const modules = normalizeModules(owner.enabledModules);
     const features = resolveFeatures(modules, owner.disabledFeatures);
+
+    // A new version: one message to everyone who used an older one (not to new users and not twice).
+    const release = RELEASE_HISTORY.find((item) => item.version === APP_VERSION && item.notes.length);
+    if (release && shouldAnnounceRelease(owner) && !(await isOwnerNotificationSent(releaseNoticeKey(release.version)))
+      && await sendReleaseNotice(release)) sent.push("release");
+
     if (features.includes("finance.subscriptions")) {
       const duePayments = await getDb()
         .select()

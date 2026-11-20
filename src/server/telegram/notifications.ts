@@ -8,6 +8,7 @@ import { debtReminderHeadline } from "@/domain/debts";
 import { dateKey, sumMacros, convertToBaseMinor } from "@/domain/math";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
+import { buildReleaseNotice, releaseNoticeKey, type Release } from "@/domain/release";
 import { ensureOwner, loadSnapshot, storedProfile } from "@/server/lifeos";
 import { AppError } from "@/server/http";
 import { currentTelegramUserId } from "@/server/owner-context";
@@ -67,6 +68,13 @@ export async function sendDeduplicatedOwnerNotification(
       .where(eq(schema.notificationDeliveries.id, delivery.id));
     return true;
   });
+}
+
+/** One message per user and per version; the delivery key keeps it from being sent again. */
+export async function sendReleaseNotice(release: Release): Promise<boolean> {
+  const appUrl = process.env.APP_URL?.trim();
+  const keyboard = appUrl && /^https:\/\//.test(appUrl) ? new InlineKeyboard().webApp("Открыть LifeOS", appUrl) : undefined;
+  return sendDeduplicatedOwnerNotification(releaseNoticeKey(release.version), buildReleaseNotice(release), keyboard);
 }
 
 export async function sendDuePaymentReminder(paymentId: string, name: string, amountMinor: number, currency: string, dueOn: string): Promise<boolean> {

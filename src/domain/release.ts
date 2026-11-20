@@ -62,3 +62,32 @@ export function versionStageLabel(version: string | undefined): string {
   if (pre) return ` · ${pre.join(".")}`;
   return core[0] === 0 ? " · бета" : "";
 }
+
+/**
+ * Whether the bot should message this user about the current release: only people who accepted the privacy policy
+ * and have already used an older version. A brand-new user (no remembered version) and a user who already
+ * saw the current version are not interrupted.
+ */
+export function shouldAnnounceRelease(owner: { lastSeenVersion: string | null; privacyAcceptedAt: Date | null }, current = APP_VERSION): boolean {
+  if (!owner.privacyAcceptedAt || !owner.lastSeenVersion) return false;
+  return compareVersions(owner.lastSeenVersion, current) < 0;
+}
+
+/** Plain text of the bot message about a new version: a few lines of the changelog, no markup. */
+export function buildReleaseNotice(release: Release): string {
+  const notes = release.notes.slice(0, 8).map((note) => `• ${note}`);
+  const more = release.notes.length > notes.length ? [`…и ещё ${release.notes.length - notes.length}`] : [];
+  return [
+    `Вышла новая версия LifeOS ${release.version}.`,
+    "",
+    "Что нового:",
+    ...notes,
+    ...more,
+    "",
+    "Подробнее покажу при открытии приложения.",
+  ].join("\n").slice(0, 3500);
+}
+
+/** Delivery key of the release message. The «release:» prefix keeps it out of the cleanup of old delivery keys. */
+export const RELEASE_NOTICE_KEY_PREFIX = "release:";
+export const releaseNoticeKey = (version: string) => `${RELEASE_NOTICE_KEY_PREFIX}${version}`;
