@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import styles from "./button.module.css";
 import { cx } from "./cx";
 import type { ButtonVariant } from "./button";
@@ -10,6 +10,8 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "dis
   size?: "sm" | "md";
   disabled?: boolean;
   loading?: boolean;
+  /** React 19 passes ref as a prop; the sheet close button needs it for initial focus. */
+  ref?: Ref<HTMLButtonElement>;
 };
 
 export function IconButton({ label, variant = "secondary", size = "md", loading = false, disabled = false, type = "button", className, onClick, children, ...rest }: IconButtonProps) {
