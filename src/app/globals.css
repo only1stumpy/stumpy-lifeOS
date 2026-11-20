@@ -39,8 +39,16 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  background: #f6f2ec;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 body {
   margin: 0;
+  min-height: 100dvh;
 }
 
 button,
@@ -188,6 +196,22 @@ button:disabled {
   padding: 12px 16px;
   background: #ffffff60;
   color: inherit;
+}
+
+.editor input[type="datetime-local"],
+.editor input[type="date"],
+.editor input[type="time"] {
+  /* iOS gives these a native minimum width wider than the column. */
+  display: block;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+.editor input[type="datetime-local"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
 }
 
 .editor textarea {
