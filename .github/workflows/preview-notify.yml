@@ -85,7 +85,7 @@ jobs:
           bypass = os.environ.get("BYPASS", "")
           if bypass:
               sep = "&" if "?" in url else "?"
-              url += sep + urllib.parse.urlencode({"x-vercel-protection-bypass": bypass, "x-vercel-set-bypass-cookie": "true"})
+              url += sep + urllib.parse.urlencode({"x-vercel-protection-bypass": bypass, "x-vercel-set-bypass-cookie": "samesitenone"})
 
           chats = [c.strip() for c in os.environ["CHAT_ID"].split(",") if c.strip()]
           failed = False
