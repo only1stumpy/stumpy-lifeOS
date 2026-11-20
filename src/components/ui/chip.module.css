@@ -1,0 +1,95 @@
+.root {
+  display: inline-flex;
+  box-sizing: border-box;
+  min-height: 32px;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--ui-color-field-border);
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-color-field-fill);
+  color: var(--ui-color-ink);
+  font: inherit;
+  font-size: var(--ui-font-size-caption);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.root[data-variant="accent"] {
+  border-color: var(--ui-color-accent-border);
+  background: var(--ui-color-accent-tint);
+  color: var(--ui-color-accent);
+}
+
+.root[data-variant="success"] {
+  border-color: #3d6b4f40;
+  background: #3d6b4f14;
+  color: var(--ui-color-success);
+}
+
+.root[data-variant="danger"] {
+  border-color: var(--ui-color-danger-border);
+  background: var(--ui-color-danger-tint);
+  color: var(--ui-color-danger);
+}
+
+/* Toggle chip (a button): at least the touch size, selected = accent fill. */
+button.root {
+  min-height: var(--ui-size-touch);
+  padding: 8px 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--motion-duration-micro, 140ms) var(--motion-ease-out, ease-out), transform var(--motion-duration-release, 110ms) var(--motion-ease-out, ease-out);
+}
+
+button.root[data-size="lg"] {
+  min-height: var(--ui-size-button-lg);
+  padding: 14px 18px;
+}
+
+button.root[aria-pressed="true"] {
+  border-color: var(--ui-color-accent);
+  background: var(--ui-color-accent);
+  color: var(--ui-color-on-accent);
+}
+
+button.root:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+button.root:focus-visible {
+  outline: var(--ui-focus-width) solid var(--ui-focus-color);
+  outline-offset: var(--ui-focus-offset);
+  box-shadow: var(--ui-focus-halo);
+}
+
+button.root:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.root:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .root {
+    border-color: currentColor;
+  }
+}
+
+@media (forced-colors: active) {
+  .root {
+    border-color: ButtonText;
+  }
+
+  button.root[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+}

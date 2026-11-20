@@ -1,0 +1,22 @@
+.root {
+  color: var(--ui-color-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.root:active {
+  color: var(--ui-color-accent-pressed);
+}
+
+.root:focus-visible {
+  border-radius: 4px;
+  outline: var(--ui-focus-width) solid var(--ui-focus-color);
+  outline-offset: 2px;
+  box-shadow: var(--ui-focus-halo);
+}
+
+.root[data-variant="plain"] {
+  color: inherit;
+}
