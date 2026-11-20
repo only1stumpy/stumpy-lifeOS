@@ -10,7 +10,7 @@ import {
   type LifeOSQuestionInput,
   type LifeOSQuestionResult,
 } from "./types";
-import { currencyCodeSchema } from "@/domain/currencies";
+import { anchorRubleToBase, currencyCodeSchema } from "@/domain/currencies";
 import { normalizeClarificationHistory, resolveMoneyClarification } from "./clarification";
 import { aiErrorUserMessage } from "./error-copy";
 import { completeOpenAICompatible, AiProviderTransportError } from "./openai-compatible";
@@ -252,7 +252,11 @@ export async function analyzeMessage(
       : candidate.provider === "groq"
         ? await callGroq(candidate, context, validatedInput.image, timeoutMs)
         : await callOpenAICompatible(candidate, SYSTEM_PROMPT, context, validatedInput.image, "json_object", timeoutMs);
-    return normalizeMoneyCategories(parseAnalysisPayload(text), validatedInput);
+    const parsed = parseAnalysisPayload(text);
+    const entries = parsed.entries.map((entry) => entry.money
+      ? { ...entry, money: { ...entry.money, currency: anchorRubleToBase(validatedInput.text, entry.money.currency, validatedInput.baseCurrency ?? null) } }
+      : entry);
+    return normalizeMoneyCategories({ ...parsed, entries }, validatedInput);
   });
   return { ...payload, provider: config.provider, model: config.model };
 }

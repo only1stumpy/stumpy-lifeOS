@@ -69,11 +69,24 @@ export function formatMoneyPlain(amountMinor: number, code: CurrencyCode): strin
 /** Currencies that a bare «руб.», «р.» or «₽» can mean without asking. */
 const RUBLE_CURRENCIES: readonly CurrencyCode[] = ["RUB", "PRB"];
 
-const RUBLE_MARKER = /(?:\d\s*(?:р\.?|руб[\p{L}]*\.?)|₽)(?![\p{L}])/iu;
+export const RUBLE_MARKER = /(?:\d\s*(?:р\.?|руб[\p{L}]*\.?)|₽)(?![\p{L}])/iu;
 
 /** True when the text names rubles explicitly while the owner's base currency is something else: ask, do not assume. */
 export function rubleMarkerContradictsBase(text: string, baseCurrency: CurrencyCode | null): boolean {
   return baseCurrency !== null && !RUBLE_CURRENCIES.includes(baseCurrency) && RUBLE_MARKER.test(text);
+}
+
+/** Words that name a specific ruble, so the model's pick must not be overridden. */
+const EXPLICIT_RUBLE = /российск|приднестровск|(?<![\p{L}])(?:RUB|PRB|ПМР)(?![\p{L}])/iu;
+
+/**
+ * A bare «руб.»/«р.»/₽ means the owner's own ruble when the base currency is RUB or PRB; the model often
+ * answers RUB for either. An explicit «российских», «RUB» or «PRB» in the text keeps the model's code.
+ */
+export function anchorRubleToBase(text: string, modelCurrency: CurrencyCode, baseCurrency: CurrencyCode | null): CurrencyCode {
+  if (baseCurrency === null || modelCurrency === baseCurrency) return modelCurrency;
+  if (!RUBLE_CURRENCIES.includes(baseCurrency) || !RUBLE_CURRENCIES.includes(modelCurrency)) return modelCurrency;
+  return RUBLE_MARKER.test(text) && !EXPLICIT_RUBLE.test(text) ? baseCurrency : modelCurrency;
 }
 
 /** Chat question for a message whose explicit currency differs from the base one. */
