@@ -126,7 +126,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
 }
 
 const LIGHT_OPTIONS: { value: LightPreference; label: string; description: string }[] = [
-  { value: "auto", label: "Авто", description: "Упрощает оформление на слабых устройствах и в Telegram на Android." },
+  { value: "auto", label: "Авто", description: "Включается само на слабых устройствах (по классу устройства в Telegram для Android и по плавности кадров) и при настройках ОС «уменьшить анимацию / прозрачность». Само назад не выключается." },
   { value: "on", label: "Вкл", description: "Без преломления и размытия: плавнее на медленных телефонах." },
   { value: "off", label: "Выкл", description: "Полное стеклянное оформление." },
 ];

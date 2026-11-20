@@ -47,7 +47,7 @@
 | Фон | `#f6f2ec` → `#f1e9eb` → `#f7f1ec`, мягкие поля шалфея, розы, сливы и тёплого кремового |
 | Базовая прозрачная белая заливка поверхностей и отчётов | Около 8,5% |
 | CSS fallback стекла | `blur(9px) saturate(1.3)`; при reduced transparency размытие отключается |
-| Лёгкое оформление | Без SVG-преломления и без `backdrop-filter` (непрозрачные подложки, как при reduced transparency). «Авто» включается на Telegram для Android, при `deviceMemory` ≤ 4, `hardwareConcurrency` ≤ 4 и reduced motion; переключатель «Авто / Вкл / Выкл» в «Персонализации» хранится в `localStorage` устройства (`src/components/glass/light-mode.ts`) |
+| Лёгкое оформление | Без SVG-преломления и без `backdrop-filter` (непрозрачные подложки, как при reduced transparency). «Авто»: настройки ОС (reduced motion / transparency) → класс устройства из User-Agent Telegram Android (LOW включает, HIGH нет) → замер кадров для AVERAGE и неизвестных (результат запоминается, обратно само не выключается); переключатель «Авто / Вкл / Выкл» в «Персонализации» хранится в `localStorage` устройства (`src/components/glass/light-mode.ts`) |
 | SVG-путь преломления основных поверхностей | Измеренная карта, `blur(.3px) saturate(1.12)` |
 | Радиус основной поверхности | Около 31 px в эталоне; 28 px сейчас в CSS приложения |
 | Радиус прочих панелей | Около 27 px |
