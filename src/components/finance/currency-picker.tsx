@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { COMMON_CURRENCIES, normalizeCurrencyCode } from "@/domain/currencies";
+import { ChoiceCard, TextField } from "@/components/ui";
 import styles from "./currency-picker.module.css";
 
 type Props = {
@@ -38,37 +39,24 @@ export function CurrencyPicker({ value, onChange, legend = "Валюта" }: Pro
     <fieldset className={styles.picker}>
       <legend className={styles.legend}>{legend}</legend>
       <div className={styles.list}>
-        {COMMON_CURRENCIES.map((item) => {
-          const on = !customOpen && value === item.code;
-          return (
-            <label key={item.code} className={`${styles.chip} ${on ? styles.selected : ""}`}>
-              <input type="radio" name={name} checked={on} onChange={() => pick(item.code)} />
-              <span className={styles.code}>{item.code}</span>
-              <span className={styles.name}>{item.name}</span>
-            </label>
-          );
-        })}
-        <label className={`${styles.chip} ${styles.other} ${customOpen ? styles.selected : ""}`}>
-          <input type="radio" name={name} checked={customOpen} onChange={openCustom} />
-          <span className={styles.code}>Другая валюта</span>
-        </label>
+        {COMMON_CURRENCIES.map((item) => (
+          <ChoiceCard key={item.code} mode="single" name={name} checked={!customOpen && value === item.code} onChange={() => pick(item.code)} title={item.code} description={item.name} />
+        ))}
+        <ChoiceCard className={styles.other} mode="single" name={name} checked={customOpen} onChange={openCustom} title="Другая валюта" />
       </div>
       {customOpen && (
-        <label className={styles.custom}>
-          Код валюты
-          <input
-            value={customText}
-            onChange={(event) => editCustom(event.target.value)}
-            maxLength={5}
-            autoCapitalize="characters"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="PRB"
-            aria-describedby={`${name}-help`}
-          />
-          <small id={`${name}-help`}>Например, PRB — рубль ПМР. От 3 до 5 латинских букв.</small>
-        </label>
+        <TextField
+          label="Код валюты"
+          value={customText}
+          onChange={(event) => editCustom(event.target.value)}
+          maxLength={5}
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="PRB"
+          hint="Например, PRB — рубль ПМР. От 3 до 5 латинских букв."
+        />
       )}
     </fieldset>
   );

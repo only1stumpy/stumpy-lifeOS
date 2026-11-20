@@ -3,6 +3,7 @@
 import { plural } from "@/domain/plural";
 import { useId, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ChipButton, IconButton, Select } from "@/components/ui";
 import { formatMoney } from "@/domain/currencies";
 import type { AppReports } from "@/domain/app";
 import type { ModuleKey } from "@/domain/types";
@@ -196,9 +197,9 @@ function NutritionReports({ reports }: { reports: AppReports }) {
       </div>
       <div className={styles.calendar}>
         <div className={styles.calendarHeader}>
-          <button type="button" aria-label="Предыдущий месяц" disabled={!canGoBack} onClick={() => changeMonth(monthBefore)}>‹</button>
+          <IconButton size="sm" variant="text" label="Предыдущий месяц" disabled={!canGoBack} onClick={() => changeMonth(monthBefore)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></IconButton>
           <h3>{monthLabel(displayedMonth)}</h3>
-          <button type="button" aria-label="Следующий месяц" disabled={!canGoForward} onClick={() => changeMonth(monthAfter)}>›</button>
+          <IconButton size="sm" variant="text" label="Следующий месяц" disabled={!canGoForward} onClick={() => changeMonth(monthAfter)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></IconButton>
         </div>
         <div className={styles.calendarWeekdays} aria-hidden="true">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div>
         <AnimatePresence mode="wait" initial={false}>
@@ -238,14 +239,14 @@ function NutritionReports({ reports }: { reports: AppReports }) {
       </div>
       <div className={styles.controlRow} role="group" aria-label="Период графика">
         <div className={styles.segmented}>
-          <button type="button" aria-pressed={period === "week"} onClick={() => setPeriod("week")}>Неделя</button>
-          <button type="button" aria-pressed={period === "month"} onClick={() => setPeriod("month")}>Месяц</button>
+          <ChipButton className={styles.segmentButton} selected={period === "week"} onClick={() => setPeriod("week")}>Неделя</ChipButton>
+          <ChipButton className={styles.segmentButton} selected={period === "month"} onClick={() => setPeriod("month")}>Месяц</ChipButton>
         </div>
         <span className={styles.periodHint}>{dateRangeLabel(periodDates[0], periodDates.at(-1))}</span>
       </div>
       <div className={styles.metricRow} role="group" aria-label="Показатель КБЖУ">
         {(Object.keys(metricLabels) as NutritionMetric[]).map((key) => (
-          <button key={key} type="button" className={styles.metricButton} aria-pressed={metric === key} onClick={() => setMetric(key)}>{metricLabels[key].label}</button>
+          <ChipButton key={key} size="lg" className={styles.metricButton} selected={metric === key} onClick={() => setMetric(key)}>{metricLabels[key].label}</ChipButton>
         ))}
       </div>
       <p className={styles.chartTitle}>{metricInfo.label}, {metricInfo.unit}</p>
@@ -339,7 +340,7 @@ function GymReports({ reports }: { reports: AppReports }) {
       <section className={styles.reportSurface} aria-labelledby="lifeos-gym-progress-title">
         <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Прогресс</p><h2 id="lifeos-gym-progress-title">Рабочий вес</h2></div></div>
         {exercises.length ? <>
-          <label className={styles.exerciseSelect}>Упражнение<select value={selectedExercise?.id ?? ""} onChange={(event) => setRequestedExerciseId(event.currentTarget.value)}>{exercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select></label>
+          <Select className={styles.exerciseSelect} label="Упражнение" value={selectedExercise?.id ?? ""} onChange={(event) => setRequestedExerciseId(event.currentTarget.value)}>{exercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</Select>
           <p className={styles.chartTitle}>{selectedExercise?.name} · лучший завершённый подход</p>
           <LineChart title={`Рабочий вес: ${selectedExercise?.name ?? "упражнение"}`} points={points} formatValue={(value) => numberFormat.format(value)} accent="var(--report-accent)" />
           <ChartTable label={`${selectedExercise?.name ?? "Упражнение"}: рабочий вес и повторы`} points={points.map((point) => ({ ...point, detail: point.detail }))} formatValue={formatWeight} />

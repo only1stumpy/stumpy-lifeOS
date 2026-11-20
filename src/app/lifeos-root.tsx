@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
 import { commandSchema } from "@/domain/commands";
 import type { AppCommand } from "@/domain/commands";
+import { Button } from "@/components/ui";
 import { EditorDialog } from "@/components/editor/editor";
 import type { EditorState, FormValues } from "@/components/editor/editor";
 import LifeOSApp from "@/components/lifeos/lifeos-app";
@@ -63,14 +64,6 @@ const finishButtonStyle: CSSProperties = {
   bottom: "calc(94px + var(--lifeos-inset-bottom))",
   left: "50%",
   transform: "translateX(-50%)",
-  minHeight: 44,
-  padding: "10px 16px",
-  border: "1px solid rgba(255,255,255,.86)",
-  borderRadius: 16,
-  background: "rgba(116,43,69,.94)",
-  color: "#fffaf9",
-  boxShadow: "0 8px 24px rgba(70,45,63,.18)",
-  whiteSpace: "nowrap",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -679,7 +672,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       <MotionProvider>
         <main className="setup-notice" role={status === "error" ? "alert" : "status"} aria-live="polite">
           <p>{message}</p>
-          {status === "error" && initData && <button type="button" onClick={() => void retryLoad()}>Повторить загрузку</button>}
+          {status === "error" && initData && <Button size="sm" onClick={() => void retryLoad()}>Повторить загрузку</Button>}
         </main>
       </MotionProvider>
     );
@@ -773,9 +766,11 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
         {notice && <div className="toast" role="status" aria-live="polite">{notice}</div>}
         <AnimatePresence>
           {snapshot.activeSession && (
-            <motion.button key="finish-session" type="button" className="finish-session-button" style={finishButtonStyle} disabled={pending} onClick={() => { const active = snapshot.activeSession!; const day = snapshot.gym.program.find((item) => item.id === active.dayId); const sets = (day?.exercises ?? []).flatMap((exercise) => exercise.sets); openEditor({ kind: "finish-session", sessionId: active.id, done: sets.filter((set) => set.completed).length, total: sets.length }); }} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
-              {pending ? "Сохраняю…" : "Завершить тренировку"}
-            </motion.button>
+            <motion.div key="finish-session" className="finish-session-button" style={finishButtonStyle} initial={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} animate={{ opacity: 1, transform: "translate(-50%, 0px) scale(1)" }} exit={{ opacity: 0, transform: "translate(-50%, 12px) scale(.98)" }} transition={{ type: "tween", duration: motionDuration.enter, ease: motionEase.out }}>
+              <Button variant="primary" style={{ whiteSpace: "nowrap" }} disabled={pending} onClick={() => { const active = snapshot.activeSession!; const day = snapshot.gym.program.find((item) => item.id === active.dayId); const sets = (day?.exercises ?? []).flatMap((exercise) => exercise.sets); openEditor({ kind: "finish-session", sessionId: active.id, done: sets.filter((set) => set.completed).length, total: sets.length }); }}>
+                {pending ? "Сохраняю…" : "Завершить тренировку"}
+              </Button>
+            </motion.div>
           )}
         </AnimatePresence>
       </>

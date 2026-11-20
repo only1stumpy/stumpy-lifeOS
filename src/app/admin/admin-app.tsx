@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button, Link } from "@/components/ui";
 import type { AdminOverview } from "@/server/admin/overview";
 import type { AdminStats } from "@/server/admin/stats";
 import "./admin.css";
@@ -120,15 +121,15 @@ export default function AdminApp() {
         {["received", "processing", "failed", "processed"].map((status) => <div className="row" key={status}><span>{status}</span><span>{overview.queue.byStatus[status] ?? 0}</span></div>)}
         <div className="row"><span>Самый старый необработанный</span><span>{overview.queue.oldestPendingMinutes === null ? "—" : `${overview.queue.oldestPendingMinutes} мин`}</span></div>
         <div className="row"><span>Исчерпали попытки</span><span className={overview.queue.exhausted ? "bad" : ""}>{overview.queue.exhausted}</span></div>
-        <button disabled={busy} onClick={() => act("retry_failed")}>Повторить failed</button>
-        <button disabled={busy} onClick={() => act("test_alert")}>Тестовый алерт</button>
+        <Button variant="primary" size="sm" disabled={busy} onClick={() => act("retry_failed")}>Повторить failed</Button>
+        <Button variant="primary" size="sm" disabled={busy} onClick={() => act("test_alert")}>Тестовый алерт</Button>
       </div>
 
       <h2>Бэкап</h2>
       <div className="panel">
         {overview.backup.latest ? (
-          <div className="row"><span>{new Date(overview.backup.latest.at).toLocaleString("ru-RU")}</span><a href={overview.backup.latest.url} target="_blank" rel="noreferrer">{overview.backup.latest.conclusion ?? overview.backup.latest.status}</a></div>
-        ) : <div className="row"><span>Статус недоступен</span><a href={overview.backup.workflowUrl} target="_blank" rel="noreferrer">workflow</a></div>}
+          <div className="row"><span>{new Date(overview.backup.latest.at).toLocaleString("ru-RU")}</span><Link href={overview.backup.latest.url} external>{overview.backup.latest.conclusion ?? overview.backup.latest.status}</Link></div>
+        ) : <div className="row"><span>Статус недоступен</span><Link href={overview.backup.workflowUrl} external>workflow</Link></div>}
       </div>
 
       <h2>ИИ за 24 часа</h2>

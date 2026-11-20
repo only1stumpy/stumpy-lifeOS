@@ -8,6 +8,4 @@
 .admin .big { font-family: "Medeo Mono", monospace; font-size: 20px; }
 .admin .bad { color: #b3261e; }
 .admin .good { color: #1b6e3c; }
-.admin button { font: inherit; border: 0; border-radius: 14px; background: #7a1f3d; color: #fff; padding: 10px 14px; margin: 8px 8px 0 0; }
-.admin button:disabled { opacity: 0.5; }
-.admin a { color: #7a1f3d; }
+.admin .panel > button { margin: 8px 8px 0 0; }

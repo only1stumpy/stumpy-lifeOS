@@ -89,22 +89,7 @@
   line-height: 1.06;
 }
 
-.close {
-  display: grid;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 1px solid rgba(116, 43, 69, 0.18);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.42);
-  color: #742b45;
-  cursor: pointer;
-}
-
 .close svg {
-  width: 21px;
-  height: 21px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -383,15 +368,11 @@
   margin-top: 20px;
 }
 
-.footer a {
+.footerLink {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: #742b45;
   font-size: 13px;
-  text-decoration: underline;
-  text-decoration-color: rgba(116, 43, 69, 0.35);
-  text-underline-offset: 3px;
 }
 
 .note {
@@ -418,34 +399,8 @@
   line-height: 1.5;
 }
 
-.action,
-.refresh {
-  min-height: 50px;
-  padding: 12px 20px;
-  border: 1px solid rgba(116, 43, 69, 0.28);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.48);
-  color: #742b45;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 520;
-  cursor: pointer;
-}
-
 .refresh {
   flex: 0 0 auto;
-  width: 100%;
-  border-color: rgba(116, 43, 69, 0.72);
-  background: rgba(116, 43, 69, 0.95);
-  color: #fffaf9;
-}
-
-.close:focus-visible,
-.action:focus-visible,
-.refresh:focus-visible,
-.footer a:focus-visible {
-  outline: 3px solid rgba(116, 43, 69, 0.62);
-  outline-offset: 3px;
 }
 
 @media (max-width: 380px) {

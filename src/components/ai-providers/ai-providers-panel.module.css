@@ -1340,16 +1340,6 @@
 
 .keyHelp[open] summary { margin-bottom: 4px; }
 
-/* `.stage button { color: inherit }` in lifeos-app.module.css outranks the kit's single-class button color; restore it for the variants that rely on it. */
-.sheet button[data-variant="secondary"],
-.sheet button[data-variant="text"] {
-  color: var(--ui-color-accent);
-}
-
-.sheet button[data-variant="danger"] {
-  color: var(--ui-color-danger);
-}
-
 /* Line icons inside kit IconButtons (the kit only sizes the svg). */
 .accountActions button svg,
 .queueControls button svg {
