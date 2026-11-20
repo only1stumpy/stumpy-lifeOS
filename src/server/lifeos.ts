@@ -13,7 +13,8 @@ import { AppError, assertConsent } from "./http";
 import { draftExpiresAt } from "./retention";
 import { CONSENT_EXEMPT_COMMANDS } from "@/domain/privacy";
 import { analyzeMessage } from "./ai/analyze";
-import type { AnalyzeMessageInput } from "./ai/types";
+import { AIAnalysisError, type AnalyzeMessageInput } from "./ai/types";
+import { parseFinancePlanList, stripFinancePlanMarker, type FinancePlanInput } from "@/domain/finance-plans";
 import { activeClarificationHistory, nextClarificationHistory } from "./ai/clarification";
 import { resolveTelegramUserId } from "./owner-context";
 import { enforceRateLimit, RATE_LIMITS } from "./rate-limit";
@@ -103,9 +104,12 @@ function buildDrafts(
     const repaidMinor = debt?.debtId ? repayments
       .filter((repayment) => repayment.debtId === debt.debtId)
       .reduce((sum, repayment) => sum + toMinor(repayment.amount), 0) : 0;
+    // A purchase plan draft reuses the money draft row (name, amount in the base currency) and becomes a plan on confirmation.
+    const plan = v.kind === "plan" && entry ? { name: entry.name, amountMinor: toMinor(entry.amount) } : null;
     return { id: v.id, description: v.messageText ?? "", occurredAt: (food?.occurredAt ?? entry?.occurredAt ?? debt?.occurredAt ?? v.createdAt).toISOString(),
       food: food ? { label: food.name, portionLabel: food.portionLabel, ...macroNumbers(food), estimated: food.estimated } : null,
-      money: entry ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: entry.currency, kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
+      plan,
+      money: entry && !plan ? { label: entry.name, amountMinor: toMinor(entry.amount), currency: entry.currency, kind: entry.entryType as "expense" | "income", category: categories.find((c) => c.id === entry.categoryId)?.name ?? entry.proposedCategory } : null,
       debt: debt ? {
         operation: debt.operation as "create" | "repayment",
         personName: debt.personName,
@@ -349,6 +353,79 @@ export async function createDebtCaptureDraft(input: {
     });
     return { draftIds: [capture.id] };
   });
+}
+
+/**
+ * «Запиши в планы …» with one or several purchases: every position becomes its own pending draft.
+ * The user's AI splits the text (Zod-validated inside `analyzeMessage`); without AI the list is split line by line.
+ */
+export async function createPlanCaptureDrafts(input: { text: string; telegramUpdateRowId?: string; messageAt?: Date }): Promise<{ draftIds: string[]; clarification?: string }> {
+  const owner = await ensureOwner();
+  const db = getDb();
+  if (input.telegramUpdateRowId) {
+    const stored = await db.select({ id: s.captureDrafts.id }).from(s.captureDrafts)
+      .where(and(eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.telegramUpdateRowId, input.telegramUpdateRowId)));
+    if (stored.length) return { draftIds: stored.map((row) => row.id) };
+  }
+  const baseCurrency = owner.baseCurrency ?? "";
+  const body = stripFinancePlanMarker(input.text);
+  let items: FinancePlanInput[] = [];
+  const foreign: string[] = [];
+  let failed: string[] = [];
+  try {
+    const analysis = await analyzeMessage({
+      text: body,
+      enabledModules: ["finance"],
+      baseCurrency: baseCurrency || "USD",
+      now: (input.messageAt ?? new Date()).toISOString(),
+      timeZone: owner.timezone,
+      templates: [],
+      categories: [],
+    }, { profiles: await loadConfiguredAiProviderConfigs(owner.id), ownerId: owner.id });
+    for (const entry of analysis.entries) {
+      if (!entry.money || entry.money.kind !== "expense") continue;
+      if (baseCurrency && entry.money.currency !== baseCurrency) foreign.push(entry.money.label);
+      else items.push({ name: entry.money.label.slice(0, 300), amountMinor: entry.money.amountMinor });
+    }
+  } catch (error) {
+    if (!(error instanceof AIAnalysisError)) throw error;
+  }
+  if (!items.length && !foreign.length) {
+    ({ items, failed } = parseFinancePlanList(input.text));
+  }
+  items = items.slice(0, 40);
+  if (!items.length) {
+    return {
+      draftIds: [],
+      clarification: foreign.length
+        ? `Планы ведутся в основной валюте (${baseCurrency}). Напиши цены в ней: ${foreign.join(", ")}.`
+        : "Не разобрал название или цену. Напиши, например: «Запиши в планы шампунь за 220р». Несколько покупок — каждую с новой строки. План не влияет на расходы, пока не отметишь покупку.",
+    };
+  }
+  const draftIds: string[] = [];
+  await db.transaction(async (tx) => {
+    for (const item of items) {
+      const [capture] = await tx.insert(s.captureDrafts).values({ ownerId: owner.id, telegramUpdateRowId: input.telegramUpdateRowId, kind: "plan", messageText: input.text, expiresAt: draftExpiresAt() }).returning();
+      draftIds.push(capture.id);
+      await tx.insert(s.moneyDrafts).values({ ownerId: owner.id, captureDraftId: capture.id, name: item.name, entryType: "expense", amount: decimal(item.amountMinor), currency: baseCurrency || "USD" });
+    }
+  });
+  const skipped = [...failed, ...foreign.map((name) => `${name} (не в ${baseCurrency})`)];
+  return { draftIds, clarification: skipped.length ? `Не разобрал: ${skipped.join("; ")}. Добавь их отдельным сообщением.` : undefined };
+}
+
+/** «Исправить» on a plan draft: the next message replaces its name and price. Returns false if the draft is not a pending plan. */
+export async function correctPlanDraft(draftId: string, text: string): Promise<{ ok: boolean; item?: FinancePlanInput }> {
+  const owner = await ensureOwner();
+  const db = getDb();
+  const [capture] = await db.select().from(s.captureDrafts)
+    .where(and(eq(s.captureDrafts.id, draftId), eq(s.captureDrafts.ownerId, owner.id), eq(s.captureDrafts.status, "pending"), eq(s.captureDrafts.kind, "plan")));
+  if (!capture) return { ok: false };
+  const { items } = parseFinancePlanList(text);
+  if (items.length !== 1) throw new AppError(400, "Напиши одну покупку с ценой, например: «шампунь 220р».");
+  await db.update(s.moneyDrafts).set({ name: items[0].name, amount: decimal(items[0].amountMinor) })
+    .where(and(eq(s.moneyDrafts.captureDraftId, draftId), eq(s.moneyDrafts.ownerId, owner.id)));
+  return { ok: true, item: items[0] };
 }
 
 /** `messageAt` is when the user wrote the message; a retried update must not be analysed as if it were sent now. */

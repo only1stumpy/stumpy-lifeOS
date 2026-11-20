@@ -63,7 +63,10 @@ export const draftsHandlers = {
     const [debt] = await tx.select().from(s.financeDebtDrafts)
       .where(and(eq(s.financeDebtDrafts.captureDraftId, draft.id), eq(s.financeDebtDrafts.ownerId, owner.id)));
     if (food) await tx.insert(s.nutritionEntries).values({ ownerId: owner.id, captureDraftId: draft.id, name: food.name, portionLabel: food.portionLabel, ...macroStrings(macroNumbers(food)), occurredAt: food.occurredAt, estimated: food.estimated });
-    if (money) {
+    if (money && draft.kind === "plan") {
+      // A purchase plan is not an expense: it goes to the plans list.
+      await tx.insert(s.financePlans).values({ ownerId: owner.id, name: money.name, amount: money.amount });
+    } else if (money) {
       if (!money.proposedCategory && !money.categoryId) throw new AppError(400, missingMoneyCategoryMessage(money.entryType === "income" ? "income" : "expense"));
       const chosen = await account(tx, owner.id, money.accountId ?? undefined, money.currency);
       const group = money.categoryId ? null : await category(tx, owner.id, money.proposedCategory!, money.entryType as "expense" | "income");

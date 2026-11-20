@@ -7,6 +7,7 @@ import { formatMoney, round1 } from "@/server/telegram/shared";
 function formatDraft(
   draft: {
     occurredAt: string;
+    plan?: { name: string; amountMinor: number } | null;
     food: { label: string; portionLabel: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number; estimated: boolean } | null;
     money: { label: string; amountMinor: number; currency: string; kind: "expense" | "income"; category: string | null } | null;
     debt: { operation: "create" | "repayment"; personName: string; direction: "i_owe" | "owed_to_me"; amountMinor: number; openedAs: "transfer" | "opening_balance" | null; dueOn: string | null; note: string | null; remainingAmountMinor: number | null } | null;
@@ -21,6 +22,10 @@ function formatDraft(
     time = draft.occurredAt;
   }
   const lines = [`Проверь, пожалуйста · ${time}`];
+  if (draft.plan) {
+    lines.push(`План покупки: ${draft.plan.name} · ${formatMoney(draft.plan.amountMinor, baseCurrency)}`);
+    lines.push("Это пока не расход: попадёт в список планов.");
+  }
   if (draft.food) {
     lines.push(`Еда: ${draft.food.label} · ${draft.food.portionLabel}`);
     lines.push(`КБЖУ: ${Math.round(draft.food.calories)} ккал · Б ${round1(draft.food.proteinGrams)} · Ж ${round1(draft.food.fatGrams)} · У ${round1(draft.food.carbsGrams)} г`);
@@ -79,7 +84,14 @@ export async function sendDraftMessage(ctx: Context, draft: Parameters<typeof fo
   await getDb().update(schema.captureDrafts).set({ telegramMessageId: sent.message_id }).where(eq(schema.captureDrafts.id, draft.id)).catch(() => undefined);
 }
 
-export function formatDraftList(drafts: { money: { label: string; amountMinor: number; currency: string; category: string | null } | null }[]): string {
+export function formatDraftList(drafts: { plan?: { name: string; amountMinor: number } | null; money: { label: string; amountMinor: number; currency: string; category: string | null } | null }[], baseCurrency = ""): string {
+  if (drafts.length && drafts.every((draft) => draft.plan)) {
+    const lines = [`Проверь, пожалуйста · планов: ${drafts.length}`];
+    drafts.forEach((draft, index) => lines.push(`${index + 1}. ${draft.plan!.name} · ${formatMoney(draft.plan!.amountMinor, baseCurrency)}`));
+    lines.push("Итого: " + formatMoney(drafts.reduce((sum, draft) => sum + draft.plan!.amountMinor, 0), baseCurrency));
+    lines.push("Планы не влияют на расходы, пока не отметишь покупку.");
+    return lines.join("\n");
+  }
   const lines = [`Проверь, пожалуйста · позиций: ${drafts.length}`];
   const totals = new Map<string, number>();
   drafts.forEach((draft, index) => {

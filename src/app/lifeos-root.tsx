@@ -13,6 +13,8 @@ import { AiQuotasPanel } from "@/components/ai-quotas/ai-quotas-panel";
 import { AiProvidersPanel } from "@/components/ai-providers/ai-providers-panel";
 import { LifeOSBootSkeleton, NeutralBootLoader } from "@/components/loading/loading-skeletons";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import type { LifeModule } from "@/domain/modules";
+import { modulesNeedingSetup } from "@/domain/section-setup";
 import { PersonalizationPage } from "@/components/settings/personalization-page";
 import { PrivacyPage } from "@/components/settings/privacy-page";
 import { ConsentScreen } from "@/components/privacy/consent-screen";
@@ -216,6 +218,8 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [settingsPage, setSettingsPage] = useState<SettingsPage>("menu");
   const [accountDeleted, setAccountDeleted] = useState(false);
   const [onboardingActive, setOnboardingActive] = useState(false);
+  // Sections switched on later in «Персонализация» that still have no data get their own short setup.
+  const [sectionSetup, setSectionSetup] = useState<LifeModule[] | null>(null);
   // Only a device that already finished onboarding gets the dashboard skeleton; everyone else a neutral loader.
   const returningDevice = useSyncExternalStore(subscribeNothing, readReturning, () => false);
   const [restoreValues, setRestoreValues] = useState<FormValues | null>(null);
@@ -544,8 +548,16 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     for (const command of commands) {
       if (!(await sendCommand(command, true))) return false;
     }
+    const saved = commands.find((command) => command.type === "personalization.save");
+    if (saved && snapshot) {
+      const needed = modulesNeedingSetup(snapshot.settings.enabledModules, saved.modules, {
+        hasNutritionTarget: snapshot.nutrition.target !== null,
+        hasAccount: snapshot.finance.accounts.length > 0,
+      });
+      if (needed.length) setSectionSetup(needed);
+    }
     return true;
-  }, [sendCommand]);
+  }, [sendCommand, snapshot]);
   const registerAppBackHandler = useCallback((handler: (() => void) | null) => {
     appBackHandlerRef.current = handler;
     setHasAppBackState(Boolean(handler));
@@ -707,6 +719,21 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
               onClose={() => { window.scrollTo({ top: 0 }); rememberReturning(); setOnboardingActive(false); }}
             />
           ) : null}
+        />
+      </MotionProvider>
+    );
+  }
+
+  if (sectionSetup) {
+    return (
+      <MotionProvider>
+        <OnboardingFlow
+          snapshot={snapshot}
+          pending={pending}
+          error={error}
+          onSubmit={(command) => sendCommand(command, true)}
+          renderAiStep={() => null}
+          sectionSetup={{ modules: sectionSetup, onSubmit: savePersonalization, onDone: () => { window.scrollTo({ top: 0 }); setSectionSetup(null); } }}
         />
       </MotionProvider>
     );

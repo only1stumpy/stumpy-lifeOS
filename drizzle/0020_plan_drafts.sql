@@ -1,0 +1,2 @@
+ALTER TABLE "capture_drafts" DROP CONSTRAINT "capture_drafts_kind_valid";--> statement-breakpoint
+ALTER TABLE "capture_drafts" ADD CONSTRAINT "capture_drafts_kind_valid" CHECK ("capture_drafts"."kind" in ('nutrition', 'finance', 'combined', 'debt', 'plan'));

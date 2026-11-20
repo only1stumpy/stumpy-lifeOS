@@ -106,6 +106,7 @@ export type SummaryDraft = {
   food: { label: string; calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number } | null;
   money: { label: string; amountMinor: number; currency: string; kind: "expense" | "income"; category: string | null } | null;
   debt: { personName: string; amountMinor: number } | null;
+  plan?: { name: string; amountMinor: number } | null;
 };
 
 /** One message after a bulk save: what was recorded, and what was not. */
@@ -114,6 +115,7 @@ export function formatBulkSummary(drafts: SummaryDraft[], total: number, problem
   for (const draft of drafts) {
     if (draft.food) items.push(`• Еда: ${draft.food.label} — ${Math.round(draft.food.calories)} ккал · Б ${round1(draft.food.proteinGrams)} · Ж ${round1(draft.food.fatGrams)} · У ${round1(draft.food.carbsGrams)}`);
     if (draft.money) items.push(`• ${draft.money.kind === "income" ? "Доход" : "Расход"}: ${draft.money.label} — ${formatMoneyShared(draft.money.amountMinor, draft.money.currency)}${draft.money.category ? ` · ${draft.money.category}` : ""}`);
+    if (draft.plan) items.push(`• План: ${draft.plan.name} — ${formatMoneyShared(draft.plan.amountMinor, baseCurrency)}`);
     if (draft.debt) items.push(`• Долг: ${draft.debt.personName} — ${formatMoneyShared(draft.debt.amountMinor, baseCurrency)}`);
   }
   const shown = items.slice(0, SUMMARY_MAX_ITEMS);
