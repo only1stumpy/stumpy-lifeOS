@@ -1,7 +1,6 @@
 .root {
   display: grid;
   min-width: 0;
-  gap: var(--ui-space-1);
 }
 
 .row {
@@ -77,8 +76,10 @@
   opacity: 0.5;
 }
 
+/* The row keeps a 48px touch target; the description tucks into its slack so title and text read as one item. */
 .description {
-  margin: 0;
+  margin: -12px 0 0;
+  padding-bottom: var(--ui-space-2);
   padding-left: calc(var(--ui-size-check) + var(--ui-space-3));
   color: var(--ui-color-ink-soft);
   font-size: 0.9rem;

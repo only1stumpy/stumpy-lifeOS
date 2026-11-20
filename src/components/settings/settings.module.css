@@ -19,8 +19,7 @@
   cursor: pointer;
 }
 
-.menuItem:focus-visible,
-.save:focus-visible {
+.menuItem:focus-visible {
   outline: 2px solid #742b45;
   outline-offset: 2px;
 }
@@ -30,8 +29,7 @@
 }
 
 .menuItem span,
-.hint,
-.option small {
+.hint {
   color: #6d5a62;
   font-size: 0.92rem;
   line-height: 1.4;
@@ -57,60 +55,17 @@
   font-size: 1.05rem;
 }
 
-.option {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 10px 0;
-  cursor: pointer;
-}
-
-.option[data-nested="true"] {
+.nested {
   margin-left: 18px;
   padding-left: 12px;
   border-left: 2px solid #a5899538;
 }
 
-.option[data-dimmed="true"] {
+.nested[data-dimmed="true"] {
   opacity: 0.45;
-  cursor: default;
 }
 
-.option input {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin: 2px 0 0;
-  accent-color: #742b45;
-}
-
-.option span {
-  display: grid;
-  gap: 2px;
-}
-
-.timeField {
-  display: grid;
-  min-width: 0;
-  gap: 6px;
-  padding-top: 6px;
-}
-
-.timeField input,
-.timeField select {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 48px;
-  padding: 0 14px;
-  border: 1px solid #a5899538;
-  border-radius: 14px;
-  background: #faf8f5;
-  color: inherit;
-  font: inherit;
-  accent-color: #742b45;
-}
-
-.timeField input[type="time"] {
+.timeInput input {
   max-width: 200px;
 }
 
@@ -120,25 +75,6 @@
   padding-top: 4px;
 }
 
-/* Specificity above the app-wide ".stage button { color: inherit }", which otherwise turns the label dark. */
-.page .save,
-.saveBar .save {
-  min-height: 52px;
-  border: 0;
-  border-radius: 17px;
-  background: #742b45;
-  color: #fff;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.page .save:disabled,
-.saveBar .save:disabled {
-  color: #fff;
-  opacity: 0.6;
-  cursor: default;
-}
 
 .status {
   margin: 0;
@@ -151,23 +87,6 @@
 
 .ok {
   color: #3d6b4f;
-}
-
-.danger {
-  min-height: 48px;
-  border: 1px solid #a3261f66;
-  border-radius: 16px;
-  padding: 12px 18px;
-  background: transparent;
-  color: #a3261f;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.danger:disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 
 /* Save button of a settings form: slides in above the dock on the first change. */

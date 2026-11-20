@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Link, TextField } from "@/components/ui";
 import type { AppSnapshot } from "@/domain/app";
 import { DELETE_CONFIRMATION_WORD, PRIVACY_POLICY_URL, PRIVACY_POLICY_VERSION, SOURCE_CODE_URL, TERMS_URL } from "@/domain/privacy";
 import styles from "./settings.module.css";
@@ -17,7 +18,7 @@ export function DataRightsSections({ pending, onSendExport, onDelete }: { pendin
       <section className={styles.section} aria-labelledby="export-heading">
         <h2 id="export-heading">Копия данных</h2>
         <p className={styles.hint}>Бот пришлёт в чат файл JSON со всеми твоими записями: питание, финансы, зал и настройки. Ключи ИИ в файл не попадают. Отправка возможна не чаще пяти раз в час.</p>
-        <button type="button" className={styles.save} disabled={pending} onClick={() => void onSendExport()}>Отправить копию в чат</button>
+        <Button variant="primary" size="lg" fullWidth disabled={pending} onClick={() => void onSendExport()}>Отправить копию в чат</Button>
       </section>
 
       <section className={styles.section} aria-labelledby="delete-heading">
@@ -25,18 +26,15 @@ export function DataRightsSections({ pending, onSendExport, onDelete }: { pendin
         {!confirming ? (
           <>
             <p className={styles.hint}>Все твои записи, настройки и подключённые ключи ИИ будут удалены навсегда. Восстановить их будет нельзя.</p>
-            <button type="button" className={styles.danger} disabled={pending} onClick={() => setConfirming(true)}>Удалить все данные</button>
+            <Button variant="danger" disabled={pending} onClick={() => setConfirming(true)}>Удалить все данные</Button>
           </>
         ) : (
           <>
             <p className={styles.hint} role="alert">Это действие необратимо: будут удалены питание, финансы, долги, тренировки, настройки и ключи ИИ. Сохрани копию данных заранее. Для подтверждения введи слово {DELETE_CONFIRMATION_WORD}.</p>
-            <label className={styles.timeField}>
-              <strong>Подтверждение</strong>
-              <input value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" autoCapitalize="characters" placeholder={DELETE_CONFIRMATION_WORD} />
-            </label>
+            <TextField label="Подтверждение" value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" autoCapitalize="characters" placeholder={DELETE_CONFIRMATION_WORD} />
             <div className={styles.actions}>
-              <button type="button" className={styles.save} disabled={pending} onClick={() => { setConfirming(false); setTyped(""); }}>Отмена</button>
-              <button type="button" className={styles.danger} disabled={!canDelete} onClick={() => void onDelete()}>Удалить навсегда</button>
+              <Button variant="secondary" disabled={pending} onClick={() => { setConfirming(false); setTyped(""); }}>Отмена</Button>
+              <Button variant="danger-solid" disabled={!canDelete} onClick={() => void onDelete()}>Удалить навсегда</Button>
             </div>
           </>
         )}
@@ -60,21 +58,21 @@ export function PrivacyPage({ snapshot, pending, onSendExport, onDelete, onRevok
       <h1 className={styles.title}>Данные и приватность</h1>
       <p className={styles.hint}>
         Ты принял политику конфиденциальности версии {accepted ?? "—"}. Текущая версия: {PRIVACY_POLICY_VERSION}.{" "}
-        <a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer">Открыть политику</a>,{" "}
-        <a href={TERMS_URL} target="_blank" rel="noreferrer">условия использования</a>.
+        <Link href={PRIVACY_POLICY_URL} external>Открыть политику</Link>,{" "}
+        <Link href={TERMS_URL} external>условия использования</Link>.
       </p>
 
       <section className={styles.section} aria-labelledby="health-heading">
         <h2 id="health-heading">Согласие на данные о здоровье</h2>
         <p className={styles.hint}>Вес, питание (КБЖУ) и тренировки считаются данными о здоровье. Ты согласился на их обработку (версия {snapshot.settings.healthConsentVersion ?? "—"}). После отзыва LifeOS перестанет с ними работать, пока ты не согласишься снова. Записи останутся: их можно выгрузить или удалить.</p>
-        <button type="button" className={styles.danger} disabled={pending} onClick={() => void onRevokeHealth()}>Отозвать согласие</button>
+        <Button variant="danger" disabled={pending} onClick={() => void onRevokeHealth()}>Отозвать согласие</Button>
       </section>
 
       <DataRightsSections pending={pending} onSendExport={onSendExport} onDelete={onDelete} />
 
       <section className={styles.section} aria-labelledby="source-heading">
         <h2 id="source-heading">Исходный код</h2>
-        <p className={styles.hint}>LifeOS распространяется по лицензии AGPL-3.0. <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">Исходный код (AGPL-3.0)</a>.</p>
+        <p className={styles.hint}>LifeOS распространяется по лицензии AGPL-3.0. <Link href={SOURCE_CODE_URL} external>Исходный код (AGPL-3.0)</Link>.</p>
       </section>
     </div>
   );

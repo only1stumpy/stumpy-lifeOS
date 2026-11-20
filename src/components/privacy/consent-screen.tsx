@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Checkbox, Link } from "@/components/ui";
 import { DataRightsSections } from "@/components/settings/privacy-page";
 import { HEALTH_CONSENT_VERSION, PRIVACY_POLICY_URL, PRIVACY_POLICY_VERSION, TERMS_URL } from "@/domain/privacy";
 import styles from "./consent.module.css";
@@ -28,24 +29,20 @@ export function ConsentScreen({ pending, error, notice, onAccept, onSendExport, 
         <li>ИИ получает только то, что ты сам отправил боту или в форму, и работает по твоим собственным ключам.</li>
         <li>Данные видны только тебе. Копию или удаление можно получить в любой момент, даже без согласия.</li>
       </ul>
-      <label className={styles.check}>
-        <input type="checkbox" checked={adult} onChange={(event) => setAdult(event.target.checked)} />
-        <span>Мне исполнилось 18 лет.</span>
-      </label>
-      <label className={styles.check}>
-        <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} />
-        <span>
-          Я принимаю <a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer">политику конфиденциальности</a> (версия {PRIVACY_POLICY_VERSION}) и{" "}
-          <a href={TERMS_URL} target="_blank" rel="noreferrer">условия использования</a>.
-        </span>
-      </label>
-      <label className={styles.check}>
-        <input type="checkbox" checked={health} onChange={(event) => setHealth(event.target.checked)} />
-        <span>Я согласен на обработку данных о здоровье: вес, питание (КБЖУ) и тренировки (версия {HEALTH_CONSENT_VERSION}). Согласие можно отозвать в настройках.</span>
-      </label>
+      <Checkbox checked={adult} onChange={(event) => setAdult(event.target.checked)} label="Мне исполнилось 18 лет." />
+      <Checkbox
+        checked={terms}
+        onChange={(event) => setTerms(event.target.checked)}
+        label={<>Я принимаю <Link href={PRIVACY_POLICY_URL} external>политику конфиденциальности</Link> (версия {PRIVACY_POLICY_VERSION}) и <Link href={TERMS_URL} external>условия использования</Link>.</>}
+      />
+      <Checkbox
+        checked={health}
+        onChange={(event) => setHealth(event.target.checked)}
+        label={`Я согласен на обработку данных о здоровье: вес, питание (КБЖУ) и тренировки (версия ${HEALTH_CONSENT_VERSION}). Согласие можно отозвать в настройках.`}
+      />
       {error && <p className={styles.error} role="alert">{error}</p>}
       {notice && <p className={styles.lead} role="status">{notice}</p>}
-      <button type="button" className={styles.accept} disabled={pending || !ready} onClick={onAccept}>Принимаю</button>
+      <Button variant="primary" size="lg" fullWidth disabled={pending || !ready} onClick={onAccept}>Принимаю</Button>
       <div className={styles.rights}>
         <DataRightsSections pending={pending} onSendExport={onSendExport} onDelete={onDelete} />
       </div>

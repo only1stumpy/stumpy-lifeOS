@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Button, Checkbox, Chip, ChipButton, IconButton, Link, Radio, Select, TextField, Textarea, tokens, type ButtonSize, type ButtonVariant } from "./index";
 import styles from "./gallery.module.css";
 
-const variants: ButtonVariant[] = ["primary", "secondary", "danger", "text"];
+const variants: ButtonVariant[] = ["primary", "secondary", "danger", "danger-solid", "text"];
 const sizes: ButtonSize[] = ["sm", "md", "lg"];
 
 const PlusIcon = () => (

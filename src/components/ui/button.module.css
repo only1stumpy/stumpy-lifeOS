@@ -53,6 +53,13 @@
   color: var(--ui-color-danger);
 }
 
+/* Filled danger: the irreversible action itself (permanent deletion), next to a secondary "Cancel". */
+.root[data-variant="danger-solid"] {
+  border-color: var(--ui-color-danger);
+  background: var(--ui-color-danger);
+  color: var(--ui-color-on-accent);
+}
+
 .root[data-variant="text"] {
   min-height: var(--ui-size-touch);
   padding: 8px 12px;
@@ -73,6 +80,11 @@
 
 .root[data-variant="danger"]:active:not(:disabled) {
   background: var(--ui-color-danger-tint);
+}
+
+.root[data-variant="danger-solid"]:active:not(:disabled) {
+  background: var(--ui-color-danger);
+  filter: brightness(0.9);
 }
 
 .root:focus-visible {

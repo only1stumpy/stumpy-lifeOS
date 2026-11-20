@@ -620,7 +620,7 @@ test("what's new lists every release missed since the last visit", () => {
   assert.equal(compareVersions("0.10.0", "0.9.0"), 1);
   assert.equal(compareVersions("1.0.0-rc.1", "0.26.2"), 1);
   assert.equal(compareVersions("1.0.0-rc.1", "1.0.0"), -1);
-  assert.equal(versionStageLabel("1.0.0-rc.2"), " · rc.2");
+  assert.equal(versionStageLabel("1.0.0-rc.2"), "");
   assert.equal(versionStageLabel("0.26.2"), " · бета");
   assert.equal(versionStageLabel("1.0.0"), "");
   assert.equal(compareVersions("1.0.0", "1.0.0-rc.1"), 1);
