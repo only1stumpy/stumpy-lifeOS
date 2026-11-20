@@ -17,6 +17,8 @@ import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { CurrencyPicker } from "@/components/finance/currency-picker";
 import { useMotionVariants } from "@/components/motion/motion-system";
+import { Button, Checkbox, ChipButton, Field, IconButton, Select, Textarea, TextField } from "@/components/ui";
+import styles from "./editor.module.css";
 
 export type FormValues = Record<string, string[]>;
 
@@ -158,11 +160,11 @@ function amountInput(amountMinor: number): string {
 
 function MacroFields({ values }: { values?: { calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number } | null }) {
   return (
-    <div className="fields-row">
-      <label>Калории, ккал<input name="calories" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.calories ?? ""} /></label>
-      <label>Белки, г<input name="proteinGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.proteinGrams ?? ""} /></label>
-      <label>Жиры, г<input name="fatGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.fatGrams ?? ""} /></label>
-      <label>Углеводы, г<input name="carbsGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.carbsGrams ?? ""} /></label>
+    <div className={styles.fieldsRow}>
+      <TextField label="Калории, ккал" name="calories" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.calories ?? ""} />
+      <TextField label="Белки, г" name="proteinGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.proteinGrams ?? ""} />
+      <TextField label="Жиры, г" name="fatGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.fatGrams ?? ""} />
+      <TextField label="Углеводы, г" name="carbsGrams" type="number" inputMode="decimal" min="0" max="100000" step="0.1" required defaultValue={values?.carbsGrams ?? ""} />
     </div>
   );
 }
@@ -292,13 +294,13 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         {!entry && snapshot.templates.length > 0 && (
           <section aria-label="Мои блюда">
             <h3>Мои блюда</h3>
-            {snapshot.templates.length > 8 && <label>Поиск по блюдам<input type="search" value={templateQuery} onChange={(event) => setTemplateQuery(event.target.value)} autoComplete="off" /></label>}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: "11rem", overflowY: "auto" }}>
-              {snapshot.templates.filter((template) => template.name.toLowerCase().includes(templateQuery.trim().toLowerCase())).map((template) => <button key={template.id} type="button" aria-pressed={foodPrefill?.id === template.id} onClick={() => setFoodPrefill(template)}>{template.name}</button>)}
+            {snapshot.templates.length > 8 && <TextField label="Поиск по блюдам" type="search" value={templateQuery} onChange={(event) => setTemplateQuery(event.target.value)} autoComplete="off" />}
+            <div className={styles.templateList}>
+              {snapshot.templates.filter((template) => template.name.toLowerCase().includes(templateQuery.trim().toLowerCase())).map((template) => <ChipButton key={template.id} selected={foodPrefill?.id === template.id} onClick={() => setFoodPrefill(template)}>{template.name}</ChipButton>)}
             </div>
           </section>
         )}
-        <form key={entry?.id ?? `new-${foodPrefill?.id ?? ""}`} onSubmit={(event) => submitForm(event, (form) => ({
+        <form className={styles.form} key={entry?.id ?? `new-${foodPrefill?.id ?? ""}`} onSubmit={(event) => submitForm(event, (form) => ({
           type: "food.save",
           ...(entry ? { id: entry.id } : {}),
           label: requiredText(form, "label", "Название блюда"),
@@ -310,20 +312,18 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           fatGrams: requiredNumber(form, "fatGrams", "Жиры"),
           carbsGrams: requiredNumber(form, "carbsGrams", "Углеводы"),
         }))}>
-          <label>Блюдо<input name="label" maxLength={300} required defaultValue={entry?.label ?? foodPrefill?.name ?? ""} placeholder="Например, гречка с говядиной" /></label>
-          <label>Обычная порция<input name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? foodPrefill?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" /></label>
-          <div className="fields-row">
-            <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={entry ? localInputValue(entry.occurredAt, tz) : defaultDateTime(snapshot.localDate, tz)} /></label>
-          </div>
+          <TextField label="Блюдо" name="label" maxLength={300} required defaultValue={entry?.label ?? foodPrefill?.name ?? ""} placeholder="Например, гречка с говядиной" />
+          <TextField label="Обычная порция" name="portionLabel" maxLength={300} required defaultValue={entry?.portionLabel ?? foodPrefill?.portionLabel ?? ""} placeholder="Тарелка, два бутерброда, половина упаковки" />
+          <TextField label="Дата и время" name="occurredAt" type="datetime-local" required defaultValue={entry ? localInputValue(entry.occurredAt, tz) : defaultDateTime(snapshot.localDate, tz)} />
           <MacroFields values={entry ?? foodPrefill} />
-          <label className="checkbox-row"><input name="estimated" type="checkbox" defaultChecked={entry?.estimated ?? false} /><span>КБЖУ указаны приблизительно</span></label>
-          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</button></div>
+          <Checkbox name="estimated" label="КБЖУ указаны приблизительно" defaultChecked={entry?.estimated ?? false} />
+          <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</Button></div>
         </form>
         {entry && (
-          <form className="template-save" onSubmit={(event) => submitForm(event, (form) => ({ type: "template.save", foodEntryId: entry.id, name: requiredText(form, "templateName", "Название обычного блюда") }), true)}>
+          <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => ({ type: "template.save", foodEntryId: entry.id, name: requiredText(form, "templateName", "Название обычного блюда") }), true)}>
             <hr />
-            <label>Сохранить как обычное блюдо<input name="templateName" maxLength={300} defaultValue={entry.label} required /></label>
-            <button type="submit" disabled={pending}>Сохранить блюдо</button>
+            <TextField label="Сохранить как обычное блюдо" name="templateName" maxLength={300} defaultValue={entry.label} required />
+            <div className={styles.actions}><Button type="submit" disabled={pending}>Сохранить блюдо</Button></div>
           </form>
         )}
       </>
@@ -345,11 +345,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     return (
       <>
         {snapshot.finance.accounts.length === 0 ? (
-          <div><p>Сначала добавь счёт. Тогда можно будет сохранить операцию в нужной валюте.</p><button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button></div>
+          <div><p>Сначала добавь счёт. Тогда можно будет сохранить операцию в нужной валюте.</p><Button onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</Button></div>
         ) : !entryAccountExists ? (
           <p role="alert">Счёт этой операции не найден. Операцию нельзя безопасно изменить, пока счёт отсутствует.</p>
         ) : (
-          <form key={entry?.id ?? "new"} onSubmit={(event) => submitForm(event, (form) => ({
+          <form className={styles.form} key={entry?.id ?? "new"} onSubmit={(event) => submitForm(event, (form) => ({
             type: "money.save",
             ...(entry ? { id: entry.id } : {}),
             label: requiredText(form, "label", "Описание"),
@@ -359,24 +359,24 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             category: requiredText(form, "category", "Категория"),
             kind: requiredText(form, "kind", "Тип операции") as "expense" | "income",
           }))}>
-            <label>Описание<input name="label" maxLength={300} required defaultValue={entry?.label ?? ""} placeholder="Обед, зарплата, телефон" /></label>
-            <div className="fields-row">
-              <label>Сумма<input name="amount" type="text" inputMode="decimal" required defaultValue={entry ? moneyDecimal.format(entry.amountMinor / 100) : ""} placeholder="80,00" /></label>
-              <label>Тип<select name="kind" defaultValue={entry?.kind ?? "expense"}><option value="expense">Расход</option><option value="income">Доход</option></select></label>
+            <TextField label="Описание" name="label" maxLength={300} required defaultValue={entry?.label ?? ""} placeholder="Обед, зарплата, телефон" />
+            <div className={styles.fieldsRow}>
+              <TextField label="Сумма" name="amount" type="text" inputMode="decimal" required defaultValue={entry ? moneyDecimal.format(entry.amountMinor / 100) : ""} placeholder="80,00" />
+              <Select label="Тип" name="kind" defaultValue={entry?.kind ?? "expense"}><option value="expense">Расход</option><option value="income">Доход</option></Select>
             </div>
-            <label>Счёт<select name="accountId" defaultValue={initialAccountId} onChange={(event) => setPickedFinanceAccount({ form: formId, id: event.target.value })}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</select></label>
+            <Select label="Счёт" name="accountId" defaultValue={initialAccountId} onChange={(event) => setPickedFinanceAccount({ form: formId, id: event.target.value })}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</Select>
             {missingRate && pickedAccount && (
               <div>
                 <p role="alert">Сначала задай курс {pickedAccount.currency} к {baseCurrency}.</p>
-                <button type="button" onClick={() => onChange({ kind: "accounts" })}>Задать курс</button>
+                <Button onClick={() => onChange({ kind: "accounts" })}>Задать курс</Button>
               </div>
             )}
             {pickedAccount && baseCurrency && pickedAccount.currency !== baseCurrency && snapshot.settings.rates[pickedAccount.currency] && (
               <p>Курс: 1 {pickedAccount.currency} = {snapshot.settings.rates[pickedAccount.currency].replace(".", ",").replace(/,?0+$/, "")} {baseUnit}. Для операции раньше первого курса берётся ближайший заданный.</p>
             )}
-            <label>Категория<input name="category" maxLength={300} required defaultValue={entry?.category ?? ""} placeholder="Еда, транспорт, подписки" /></label>
-            <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={entry ? localInputValue(entry.occurredAt, tz) : defaultDateTime(snapshot.localDate, tz)} /></label>
-            <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</button></div>
+            <TextField label="Категория" name="category" maxLength={300} required defaultValue={entry?.category ?? ""} placeholder="Еда, транспорт, подписки" />
+            <TextField label="Дата и время" name="occurredAt" type="datetime-local" required defaultValue={entry ? localInputValue(entry.occurredAt, tz) : defaultDateTime(snapshot.localDate, tz)} />
+            <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>{entry ? "Сохранить" : "Записать"}</Button></div>
           </form>
         )}
       </>
@@ -385,16 +385,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
 
   function renderFinancePlanForm(plan?: FinancePlan) {
     return (
-      <form key={plan?.id ?? "new-finance-plan"} onSubmit={(event) => submitForm(event, (form) => ({
+      <form className={styles.form} key={plan?.id ?? "new-finance-plan"} onSubmit={(event) => submitForm(event, (form) => ({
         type: "finance-plan.save",
         ...(plan ? { id: plan.id } : {}),
         name: requiredText(form, "name", "Название покупки"),
         amountMinor: positiveMinor(requiredText(form, "amount", "Сумма"), "Сумма"),
       }))}>
-        <label>Покупка<input name="name" maxLength={300} required defaultValue={plan?.name ?? ""} placeholder="Например, шампунь" /></label>
-        <label>{baseAmountLabel("Сумма")}<input name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" /></label>
+        <TextField label="Покупка" name="name" maxLength={300} required defaultValue={plan?.name ?? ""} placeholder="Например, шампунь" />
+        <TextField label={baseAmountLabel("Сумма")} name="amount" type="text" inputMode="decimal" required defaultValue={plan ? moneyDecimal.format(plan.amountMinor / 100) : ""} placeholder="220" />
         <p>План не меняет баланс и расходы. Сумму можно поправить при фактической покупке.</p>
-        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>{plan ? "Сохранить план" : "Добавить в план"}</button></div>
+        <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>{plan ? "Сохранить план" : "Добавить в план"}</Button></div>
       </form>
     );
   }
@@ -406,16 +406,16 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       return (
         <div>
           <p role="alert">Для записи расхода нужен активный счёт в основной валюте ({baseCurrency}).</p>
-          <div className="actions">
-            <button type="button" disabled={pending} onClick={onClose}>Закрыть</button>
-            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button>
+          <div className={styles.actions}>
+            <Button disabled={pending} onClick={onClose}>Закрыть</Button>
+            <Button variant="primary" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</Button>
           </div>
         </div>
       );
     }
 
     return (
-      <form key={`purchase-${plan.id}`} onSubmit={(event) => submitForm(event, (form) => ({
+      <form className={styles.form} key={`purchase-${plan.id}`} onSubmit={(event) => submitForm(event, (form) => ({
         type: "finance-plan.purchase",
         id: plan.id,
         label: plan.name,
@@ -425,10 +425,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         category: "Плановая покупка",
       }))}>
         <p>Покупка: <strong>{plan.name}</strong></p>
-        <label>{baseAmountLabel("Фактическая сумма")}<input name="actualAmount" type="text" inputMode="decimal" required defaultValue={moneyDecimal.format(plan.amountMinor / 100)} placeholder="220" /></label>
-        <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
+        <TextField label={baseAmountLabel("Фактическая сумма")} name="actualAmount" type="text" inputMode="decimal" required defaultValue={moneyDecimal.format(plan.amountMinor / 100)} placeholder="220" />
+        <Select label="Счёт в основной валюте" name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</Select>
         <p>После подтверждения расход запишется сейчас, а план будет закрыт.</p>
-        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать расход и закрыть план</button></div>
+        <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>Записать расход и закрыть план</Button></div>
       </form>
     );
   }
@@ -438,7 +438,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     const hasTransferAccount = debtOpenedAs !== "transfer" || baseAccounts.length > 0;
 
     return (
-      <form key="debt-create" onSubmit={(event) => submitForm(event, (form) => ({
+      <form className={styles.form} key="debt-create" onSubmit={(event) => submitForm(event, (form) => ({
         type: "debt.create",
         personName: requiredText(form, "personName", "Имя человека"),
         direction: requiredText(form, "direction", "Кому должен") as "i_owe" | "owed_to_me",
@@ -451,36 +451,36 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         dueOn: recordValue(form, "dueOn") || null,
         note: recordValue(form, "note") || null,
       }))}>
-        <label>Имя человека<input name="personName" maxLength={300} required placeholder="Например, Андрей" /></label>
-        <div role="group" aria-label="Кто кому должен" className="actions">
-          <button type="button" aria-pressed={debtDirection === "i_owe"} className={debtDirection === "i_owe" ? "submit" : undefined} onClick={() => setDebtDirection("i_owe")}>Я должен</button>
-          <button type="button" aria-pressed={debtDirection === "owed_to_me"} className={debtDirection === "owed_to_me" ? "submit" : undefined} onClick={() => setDebtDirection("owed_to_me")}>Мне должны</button>
+        <TextField label="Имя человека" name="personName" maxLength={300} required placeholder="Например, Андрей" />
+        <div role="group" aria-label="Кто кому должен" className={styles.chips}>
+          <ChipButton size="lg" selected={debtDirection === "i_owe"} onClick={() => setDebtDirection("i_owe")}>Я должен</ChipButton>
+          <ChipButton size="lg" selected={debtDirection === "owed_to_me"} onClick={() => setDebtDirection("owed_to_me")}>Мне должны</ChipButton>
         </div>
         <input type="hidden" name="direction" value={debtDirection} />
-        <div className="fields-row">
-          <label>{baseAmountLabel("Сумма")}<input name="amount" type="text" inputMode="decimal" required placeholder="500" /></label>
+        <div className={styles.fieldsRow}>
+          <TextField label={baseAmountLabel("Сумма")} name="amount" type="text" inputMode="decimal" required placeholder="500" />
         </div>
-        <label>Откуда этот долг<select value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
+        <Select label="Откуда этот долг" value={debtOpenedAs} onChange={(event) => setDebtOpenedAs(event.target.value as "transfer" | "opening_balance")}>
           <option value="transfer">Деньги сейчас</option>
           <option value="opening_balance">Долг уже был до LifeOS</option>
-        </select></label>
+        </Select>
         <p>{debtOpenedAs === "transfer" ? "Деньги передаются или получаются сейчас: создастся операция по выбранному счёту, баланс изменится." : "Запишет только остаток долга: баланс счетов не изменится."}</p>
         {debtOpenedAs === "transfer" && (baseAccounts.length ? (
           <>
-            <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
-            <label>Дата и время передачи<input name="occurredAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
+            <Select label="Счёт в основной валюте" name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</Select>
+            <TextField label="Дата и время передачи" name="occurredAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} />
           </>
         ) : (
           <div>
             <p role="alert">Для новой передачи денег нужен счёт в основной валюте ({baseCurrency}).</p>
-            <button type="button" onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button>
+            <Button onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</Button>
           </div>
         ))}
-        <div className="fields-row">
-          <label>Срок возврата<input name="dueOn" type="date" /></label>
+        <div className={styles.fieldsRow}>
+          <TextField label="Срок возврата" name="dueOn" type="date" />
         </div>
-        <label>Заметка<textarea name="note" rows={3} maxLength={2000} placeholder="Необязательно" /></label>
-        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending || !hasTransferAccount}>Записать долг</button></div>
+        <Textarea label="Заметка" name="note" rows={3} maxLength={2000} placeholder="Необязательно" />
+        <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending || !hasTransferAccount}>Записать долг</Button></div>
       </form>
     );
   }
@@ -492,9 +492,9 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       return (
         <div>
           <p role="alert">Для записи возврата нужен счёт в основной валюте ({baseCurrency}).</p>
-          <div className="actions">
-            <button type="button" disabled={pending} onClick={onClose}>Закрыть</button>
-            <button className="submit" type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</button>
+          <div className={styles.actions}>
+            <Button disabled={pending} onClick={onClose}>Закрыть</Button>
+            <Button variant="primary" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Добавить счёт</Button>
           </div>
         </div>
       );
@@ -502,7 +502,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
 
     const repaymentVerb = debt.direction === "i_owe" ? "возврат" : "получение";
     return (
-      <form key={`debt-repayment-${debt.id}`} onSubmit={(event) => submitForm(event, (form) => {
+      <form className={styles.form} key={`debt-repayment-${debt.id}`} onSubmit={(event) => submitForm(event, (form) => {
         const amountMinor = positiveMinor(requiredText(form, "amount", "Сумма возврата"), "Сумма возврата");
         if (amountMinor > debt.remainingAmountMinor) throw new Error("Сумма не может быть больше остатка долга.");
         return {
@@ -515,10 +515,10 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       })}>
         <p>{debt.direction === "i_owe" ? "Возврат долга человеку" : "Получение возврата от человека"} · <strong>{debt.personName}</strong></p>
         <p>Остаток: <strong>{amountLabel(debt.remainingAmountMinor, baseCurrency)}</strong></p>
-        <label>{baseAmountLabel(`Сумма ${repaymentVerb}`)}<input name="amount" type="text" inputMode="decimal" max={debt.remainingAmountMinor / 100} required placeholder={moneyDecimal.format(debt.remainingAmountMinor / 100)} /></label>
-        <label>Счёт в основной валюте<select name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</select></label>
-        <label>Дата и время<input name="occurredAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
-        <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать {repaymentVerb}</button></div>
+        <TextField label={baseAmountLabel(`Сумма ${repaymentVerb}`)} name="amount" type="text" inputMode="decimal" max={debt.remainingAmountMinor / 100} required placeholder={moneyDecimal.format(debt.remainingAmountMinor / 100)} />
+        <Select label="Счёт в основной валюте" name="accountId" defaultValue={defaultBaseAccount?.id ?? ""} required>{baseAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.isDefault ? " · основной" : ""}</option>)}</Select>
+        <TextField label="Дата и время" name="occurredAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} />
+        <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>Записать {repaymentVerb}</Button></div>
       </form>
     );
   }
@@ -567,7 +567,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     }
 
     return (
-      <form onChange={recalculate} onSubmit={(event) => submitForm(event, (form) => {
+      <form className={styles.form} onChange={recalculate} onSubmit={(event) => submitForm(event, (form) => {
         const targetValues = {
           calories: requiredNumber(form, "calories", "Калории"),
           proteinGrams: requiredNumber(form, "proteinGrams", "Белки"),
@@ -582,28 +582,28 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         <p>{firstRun
           ? "Ответь на шесть вопросов — посчитаем дневную норму калорий и КБЖУ. Всё можно поменять позже."
           : "Норма пересчитывается при изменении профиля. Цифры можно поправить вручную."}</p>
-        <div className="fields-row">
-          <label>Пол<select name="sex" defaultValue={saved.sex ?? ""}><option value="" disabled>Выбери</option><option value="male">Мужской</option><option value="female">Женский</option></select></label>
-          <label>Возраст, лет<input name="age" type="number" inputMode="numeric" min="16" max="90" step="1" defaultValue={saved.age ?? ""} /></label>
-          <label>Рост, см<input name="heightCm" type="number" inputMode="decimal" min="100" max="250" step="0.1" defaultValue={saved.heightCm ?? ""} /></label>
-          <label>Вес, кг<input name="profileWeightKg" type="number" inputMode="decimal" min="30" max="350" step="0.1" defaultValue={saved.weightKg ?? ""} /></label>
+        <div className={styles.fieldsRow}>
+          <Select label="Пол" name="sex" defaultValue={saved.sex ?? ""}><option value="" disabled>Выбери</option><option value="male">Мужской</option><option value="female">Женский</option></Select>
+          <TextField label="Возраст, лет" name="age" type="number" inputMode="numeric" min="16" max="90" step="1" defaultValue={saved.age ?? ""} />
+          <TextField label="Рост, см" name="heightCm" type="number" inputMode="decimal" min="100" max="250" step="0.1" defaultValue={saved.heightCm ?? ""} />
+          <TextField label="Вес, кг" name="profileWeightKg" type="number" inputMode="decimal" min="30" max="350" step="0.1" defaultValue={saved.weightKg ?? ""} />
         </div>
-        <label>Активность<select name="activityLevel" defaultValue={saved.activityLevel ?? ""}><option value="" disabled>Выбери уровень</option>{Object.entries(ACTIVITY_LEVELS).map(([value, level]) => <option key={value} value={value}>{level.label}</option>)}</select></label>
-        <label>Цель<select name="goalType" defaultValue={savedProfile.success || !firstRun ? saved.goalType ?? "" : ""}><option value="" disabled>Выбери цель</option>{Object.entries(GOALS).map(([value, goal]) => <option key={value} value={value}>{goal.label}</option>)}</select></label>
+        <Select label="Активность" name="activityLevel" defaultValue={saved.activityLevel ?? ""}><option value="" disabled>Выбери уровень</option>{Object.entries(ACTIVITY_LEVELS).map(([value, level]) => <option key={value} value={value}>{level.label}</option>)}</Select>
+        <Select label="Цель" name="goalType" defaultValue={savedProfile.success || !firstRun ? saved.goalType ?? "" : ""}><option value="" disabled>Выбери цель</option>{Object.entries(GOALS).map(([value, goal]) => <option key={value} value={value}>{goal.label}</option>)}</Select>
         {averageTarget && week.averageKg !== null ? (
           <p>
             Средний вес за 7 дней — {week.averageKg.toLocaleString("ru-RU")} кг, замеров: {week.weighIns}. По профилю норма теперь {averageTarget.calories} ккал · Б {averageTarget.proteinGrams} · Ж {averageTarget.fatGrams} · У {averageTarget.carbsGrams} г.{" "}
-            <button type="button" onClick={() => { setSuggestedTarget(averageTarget); setTargetRevision((revision) => revision + 1); }}>Подставить</button>
+            <Button size="sm" onClick={() => { setSuggestedTarget(averageTarget); setTargetRevision((revision) => revision + 1); }}>Подставить</Button>
           </p>
         ) : null}
         <h3>Норма в день</h3>
         <MacroFields key={targetRevision} values={suggestedTarget ?? initialTarget} />
         <p>Оценка по формуле Миффлина — Сан Жеора с учётом активности и цели. Вес из профиля попадёт в историю веса.</p>
-        <div className="actions">
+        <div className={styles.actions}>
           {firstRun
-            ? <button type="button" disabled={pending} onClick={() => void onCommand({ type: "profile.skip" })}>Позже</button>
-            : <button type="button" disabled={pending} onClick={onClose}>Отмена</button>}
-          <button className="submit" type="submit" disabled={pending}>Сохранить</button>
+            ? <Button disabled={pending} onClick={() => void onCommand({ type: "profile.skip" })}>Позже</Button>
+            : <Button disabled={pending} onClick={onClose}>Отмена</Button>}
+          <Button variant="primary" type="submit" disabled={pending}>Сохранить</Button>
         </div>
       </form>
     );
@@ -618,7 +618,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             <ul>{release.notes.map((note) => <li key={note}>{note}</li>)}</ul>
           </section>
         ))}
-        <div className="actions"><button className="submit" type="button" disabled={pending} onClick={() => void onCommand({ type: "version.seen", version: APP_VERSION })}>Понятно</button></div>
+        <div className={styles.actions}><Button variant="primary" disabled={pending} onClick={() => void onCommand({ type: "version.seen", version: APP_VERSION })}>Понятно</Button></div>
       </>
     );
   }
@@ -628,26 +628,26 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     const existing = snapshot.nutrition.weightHistory.find((entry) => entry.date === weightDate);
     return (
       <>
-        <form onSubmit={(event) => submitForm(event, (form) => ({
+        <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => ({
           type: "weight.save",
           date: requiredText(form, "date", "Дата"),
           weightKg: requiredNumber(form, "weightKg", "Масса тела"),
         }))}>
-          <div className="fields-row">
-            <label>Дата<input name="date" type="date" required value={weightDate} max={snapshot.localDate} onChange={(event) => setWeightDate(event.target.value)} /></label>
-            <label>Масса тела, кг<input name="weightKg" type="number" inputMode="decimal" min="1" max="700" step="0.1" required value={weightValue} onChange={(event) => setWeightValue(event.target.value)} /></label>
+          <div className={styles.fieldsRow}>
+            <TextField label="Дата" name="date" type="date" required value={weightDate} max={snapshot.localDate} onChange={(event) => setWeightDate(event.target.value)} />
+            <TextField label="Масса тела, кг" name="weightKg" type="number" inputMode="decimal" min="1" max="700" step="0.1" required value={weightValue} onChange={(event) => setWeightValue(event.target.value)} />
           </div>
           {existing && <p>За эту дату уже есть {String(existing.weightKg).replace(".", ",")} кг — запись будет заменена.</p>}
-          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Записать вес</button></div>
+          <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>Записать вес</Button></div>
         </form>
         {history.length > 0 && <>
           <hr />
           <h3>История замеров</h3>
           <ul>{history.map((entry) => <li key={entry.date}>
             <strong>{entry.date.split("-").reverse().join(".")}</strong> · {String(entry.weightKg).replace(".", ",")} кг
-            <span style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-              <button type="button" disabled={pending} onClick={() => { setWeightDate(entry.date); setWeightValue(String(entry.weightKg)); }}>Изменить</button>
-              <button type="button" className="danger" disabled={pending} onClick={() => void runCommand({ type: "weight.delete", date: entry.date }, true)}>Удалить</button>
+            <span className={styles.rowActions}>
+              <Button disabled={pending} onClick={() => { setWeightDate(entry.date); setWeightValue(String(entry.weightKg)); }}>Изменить</Button>
+              <Button variant="danger" disabled={pending} onClick={() => void runCommand({ type: "weight.delete", date: entry.date }, true)}>Удалить</Button>
             </span>
           </li>)}</ul>
         </>}
@@ -661,11 +661,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       <>
         <section>
           <h3>Счета</h3>
-          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <button type="button" onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</button></li>)}</ul> : <p>Счетов пока нет. Создай основной счёт, чтобы начать вести операции.</p>}
+          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <span className={styles.rowActions}><Button onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</Button></span></li>)}</ul> : <p>Счетов пока нет. Создай основной счёт, чтобы начать вести операции.</p>}
         </section>
         <hr />
         <h3>{account ? "Изменить счёт" : "Добавить счёт"}</h3>
-        <form key={account?.id ?? "new"} onSubmit={async (event) => {
+        <form className={styles.form} key={account?.id ?? "new"} onSubmit={async (event) => {
           const saved = await submitForm(event, (form) => {
             const isDefault = form.get("isDefault") === "on";
             if (account?.isDefault && !isDefault) throw new Error("Сначала сделай основным другой счёт.");
@@ -684,18 +684,18 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           if (saved && account) onChange({ kind: "accounts" });
           if (saved && !account) setNewAccountCurrency("");
         }}>
-          <label>Название<input name="name" maxLength={300} required defaultValue={account?.name ?? ""} placeholder="Основная карта" /></label>
-          <div className="fields-row">
-            {account && <label>Валюта<input value={`${currencyName(account.currency)} (${account.currency})`} readOnly /></label>}
+          <TextField label="Название" name="name" maxLength={300} required defaultValue={account?.name ?? ""} placeholder="Основная карта" />
+          <div className={styles.fieldsRow}>
+            {account && <TextField label="Валюта" value={`${currencyName(account.currency)} (${account.currency})`} readOnly />}
             {account
-              ? <label>Сейчас на счёте, {currencyUnit(account.currency)}<input name="currentBalance" type="text" inputMode="decimal" defaultValue={amountInput(account.balanceMinor)} placeholder="0,00" /></label>
-              : <label>Сколько сейчас на счёте<input name="openingBalance" type="text" inputMode="decimal" placeholder="0,00" /></label>}
+              ? <TextField label={`Сейчас на счёте, ${currencyUnit(account.currency)}`} name="currentBalance" type="text" inputMode="decimal" defaultValue={amountInput(account.balanceMinor)} placeholder="0,00" />
+              : <TextField label="Сколько сейчас на счёте" name="openingBalance" type="text" inputMode="decimal" placeholder="0,00" />}
           </div>
           {account && <p>Остаток складывается из начального {amountLabel(account.openingBalanceMinor, account.currency)} и операций {signedAmountLabel(account.balanceMinor - account.openingBalanceMinor, account.currency)}. Если поправишь сумму, начальный остаток пересчитается сам.</p>}
           {!account && <CurrencyPicker value={newAccountCurrency} onChange={setNewAccountCurrency} legend="Валюта счёта" />}
           {!account && snapshot.finance.accounts.length === 0 && <p>Валюта первого счёта становится основной: в ней считаются итоги, планы и долги.</p>}
-          <label className="checkbox-row"><input name="isDefault" type="checkbox" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />Сделать основным счётом</label>
-          <div className="actions"><button type="button" disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Отмена</button><button className="submit" type="submit" disabled={pending}>{account ? "Сохранить счёт" : "Добавить счёт"}</button></div>
+          <Checkbox name="isDefault" label="Сделать основным счётом" defaultChecked={account?.isDefault ?? snapshot.finance.accounts.length === 0} />
+          <div className={styles.actions}><Button disabled={pending} onClick={() => onChange({ kind: "accounts" })}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>{account ? "Сохранить счёт" : "Добавить счёт"}</Button></div>
         </form>
         <hr />
         {rateCurrencies.length > 0 && (
@@ -703,15 +703,15 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             <h3>Курс для общего итога</h3>
             <p>Курс используется для операций в этой валюте с указанной даты. Для операций задним числом можно добавить курс, который действовал тогда.</p>
             {rateCurrencies.map((code) => (
-              <form key={`${code}-${snapshot.settings.rates[code] ?? "unset"}`} onSubmit={(event) => submitForm(event, (form) => ({
+              <form className={styles.form} key={`${code}-${snapshot.settings.rates[code] ?? "unset"}`} onSubmit={(event) => submitForm(event, (form) => ({
                 type: "rate.save",
                 currency: code,
                 rateToBase: requiredText(form, "rate", "Курс").replace(",", "."),
                 effectiveAt: localTimestamp(requiredText(form, "effectiveAt", "Дата начала действия"), tz),
               }), true)}>
-                <label>1 {code} = … {baseUnit}<input name="rate" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.rates[code] ?? ""} placeholder="Укажи курс" /></label>
-                <label>Действует с<input name="effectiveAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} /></label>
-                <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить курс {code}</button></div>
+                <TextField label={`1 ${code} = … ${baseUnit}`} name="rate" type="text" inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,6})?" required defaultValue={snapshot.settings.rates[code] ?? ""} placeholder="Укажи курс" />
+                <TextField label="Действует с" name="effectiveAt" type="datetime-local" required defaultValue={defaultDateTime(snapshot.localDate, tz)} />
+                <div className={styles.actions}><Button variant="primary" type="submit" disabled={pending}>Сохранить курс {code}</Button></div>
               </form>
             ))}
           </>
@@ -728,17 +728,19 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           {snapshot.recurring.length ? <ul>{snapshot.recurring.map((item) => (
             <li key={item.id}>
               <strong>{item.name}</strong> · {amountLabel(item.amountMinor, item.currency)} · {item.category} · {frequencyLabel(item.frequency)} · следующее списание {dateLabel(item.nextDueAt)}
-              <button type="button" onClick={() => onChange({ kind: "recurring", item })}>Изменить</button>
-              {item.nextDueAt.slice(0, 10) <= snapshot.localDate
-                ? <button type="button" disabled={pending} onClick={() => runCommand({ type: "recurring.confirm", id: item.id, dueOn: item.nextDueAt.slice(0, 10) }, true)}>Подтвердить списание</button>
-                : <small>Подтверждение будет доступно в дату списания.</small>}
+              <span className={styles.rowActions}>
+                <Button onClick={() => onChange({ kind: "recurring", item })}>Изменить</Button>
+                {item.nextDueAt.slice(0, 10) <= snapshot.localDate
+                  ? <Button disabled={pending} onClick={() => runCommand({ type: "recurring.confirm", id: item.id, dueOn: item.nextDueAt.slice(0, 10) }, true)}>Подтвердить списание</Button>
+                  : <small>Подтверждение будет доступно в дату списания.</small>}
+              </span>
             </li>
           ))}</ul> : <p>Платежей пока нет.</p>}
         </section>
         <hr />
         <h3>Добавить напоминание</h3>
         {snapshot.finance.accounts.length === 0 ? <p>Сначала добавь счёт в разделе счетов.</p> : (
-          <form key={item?.id ?? "new"} onSubmit={async (event) => {
+          <form className={styles.form} key={item?.id ?? "new"} onSubmit={async (event) => {
             const saved = await submitForm(event, (form) => ({
               type: "recurring.save",
               ...(item ? { id: item.id } : {}),
@@ -751,15 +753,13 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             }), true);
             if (saved && item) onChange({ kind: "recurring" });
           }}>
-            <label>Название<input name="name" maxLength={300} required defaultValue={item?.name ?? ""} placeholder="Телефон, Spotify" /></label>
-            <div className="fields-row">
-              <label>Сумма<input name="amount" type="text" inputMode="decimal" required defaultValue={item ? moneyDecimal.format(item.amountMinor / 100) : ""} placeholder="10,00" /></label>
-              <label>Период<select name="frequency" defaultValue={item?.frequency ?? "monthly"}><option value="weekly">Еженедельно</option><option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option></select></label>
-            </div>
-            <label>Счёт<select name="accountId" defaultValue={item?.accountId ?? snapshot.settings.defaultAccountId ?? snapshot.finance.accounts[0]?.id}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</select></label>
-            <label>Категория<input name="category" maxLength={300} required defaultValue={item?.category ?? "Подписки"} /></label>
-            <label>Следующее списание<input name="nextDueAt" type="date" required defaultValue={item?.nextDueAt.slice(0, 10) ?? ""} /></label>
-            <div className="actions"><button className="submit" type="submit" disabled={pending}>{item ? "Сохранить изменения" : "Сохранить напоминание"}</button></div>
+            <TextField label="Название" name="name" maxLength={300} required defaultValue={item?.name ?? ""} placeholder="Телефон, Spotify" />
+            <TextField label="Сумма" name="amount" type="text" inputMode="decimal" required defaultValue={item ? moneyDecimal.format(item.amountMinor / 100) : ""} placeholder="10,00" />
+            <Select label="Период" name="frequency" defaultValue={item?.frequency ?? "monthly"}><option value="weekly">Еженедельно</option><option value="monthly">Ежемесячно</option><option value="yearly">Ежегодно</option></Select>
+            <Select label="Счёт" name="accountId" defaultValue={item?.accountId ?? snapshot.settings.defaultAccountId ?? snapshot.finance.accounts[0]?.id}>{snapshot.finance.accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({currencyUnit(account.currency)})</option>)}</Select>
+            <TextField label="Категория" name="category" maxLength={300} required defaultValue={item?.category ?? "Подписки"} />
+            <TextField label="Следующее списание" name="nextDueAt" type="date" required defaultValue={item?.nextDueAt.slice(0, 10) ?? ""} />
+            <div className={styles.actions}><Button variant="primary" type="submit" disabled={pending}>{item ? "Сохранить изменения" : "Сохранить напоминание"}</Button></div>
           </form>
         )}
       </>
@@ -782,7 +782,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       if (editing) return (
         <>
           <h3>{editing.name}</h3>
-          <form onSubmit={(event) => submitForm(event, (form) => ({
+          <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => ({
             type: "exercise.update",
             dayId: selectedDay.id,
             dayExerciseId: editing.id,
@@ -790,56 +790,56 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             targetRepetitions: requiredNumber(form, "targetRepetitions", "Повторения"),
             restSeconds: recordValue(form, "restSeconds") ? requiredNumber(form, "restSeconds", "Отдых") : 0,
           }), true)}>
-            <div className="fields-row">
-              <label>Подходы<input name="targetSets" type="number" inputMode="numeric" min="1" max="30" step="1" defaultValue={editing.sets.length} required /></label>
-              <label>Повторения<input name="targetRepetitions" type="number" inputMode="numeric" min="1" max="1000" step="1" defaultValue={editing.targetRepetitions ?? 8} required /></label>
+            <div className={styles.fieldsRow}>
+              <TextField label="Подходы" name="targetSets" type="number" inputMode="numeric" min="1" max="30" step="1" defaultValue={editing.sets.length} required />
+              <TextField label="Повторения" name="targetRepetitions" type="number" inputMode="numeric" min="1" max="1000" step="1" defaultValue={editing.targetRepetitions ?? 8} required />
             </div>
-            <label>Отдых, секунд<input name="restSeconds" type="number" inputMode="numeric" min="0" max="3600" step="1" defaultValue={editing.restSeconds} /></label>
-            <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить</button></div>
+            <TextField label="Отдых, секунд" name="restSeconds" type="number" inputMode="numeric" min="0" max="3600" step="1" defaultValue={editing.restSeconds} />
+            <div className={styles.actions}><Button variant="primary" type="submit" disabled={pending}>Сохранить</Button></div>
           </form>
           <hr />
           {confirmRemoval === editing.id ? (
             <>
               <p>Убрать «{editing.name}» из дня? История выполненных тренировок сохранится.</p>
-              <div className="actions">
-                <button type="button" disabled={pending} onClick={() => setConfirmRemoval(null)}>Оставить</button>
-                <button type="button" className="danger" disabled={pending} onClick={() => void runCommand({ type: "exercise.remove", dayId: selectedDay.id, dayExerciseId: editing.id }, true).then((ok) => { if (ok) { setConfirmRemoval(null); setEditingExerciseId(null); } })}>Убрать</button>
+              <div className={styles.actions}>
+                <Button disabled={pending} onClick={() => setConfirmRemoval(null)}>Оставить</Button>
+                <Button variant="danger" disabled={pending} onClick={() => void runCommand({ type: "exercise.remove", dayId: selectedDay.id, dayExerciseId: editing.id }, true).then((ok) => { if (ok) { setConfirmRemoval(null); setEditingExerciseId(null); } })}>Убрать</Button>
               </div>
             </>
-          ) : <div className="actions"><button type="button" className="danger" disabled={pending} onClick={() => setConfirmRemoval(editing.id)}>Убрать из дня</button></div>}
+          ) : <div className={styles.actions}><Button variant="danger" disabled={pending} onClick={() => setConfirmRemoval(editing.id)}>Убрать из дня</Button></div>}
         </>
       );
       return (
         <>
           <h3>{selectedDay.name}</h3>
-          <form onSubmit={(event) => submitForm(event, (form) => ({
+          <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => ({
             type: "day.save",
             id: selectedDay.id,
             name: requiredText(form, "name", "Название дня"),
             weekday: recordValue(form, "weekday") ? requiredNumber(form, "weekday", "День недели") : null,
           }), true)}>
-            <label>Название дня<input name="name" maxLength={300} required defaultValue={selectedDay.name} /></label>
-            <label>День недели<select name="weekday" defaultValue={selectedDay.weekday === null ? "" : String(selectedDay.weekday)}><option value="">Не задан</option><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option><option value="0">Воскресенье</option></select></label>
-            <div className="actions"><button className="submit" type="submit" disabled={pending}>Сохранить день</button></div>
+            <TextField label="Название дня" name="name" maxLength={300} required defaultValue={selectedDay.name} />
+            <Select label="День недели" name="weekday" defaultValue={selectedDay.weekday === null ? "" : String(selectedDay.weekday)}><option value="">Не задан</option><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option><option value="0">Воскресенье</option></Select>
+            <div className={styles.actions}><Button variant="primary" type="submit" disabled={pending}>Сохранить день</Button></div>
           </form>
           {confirmRemoval === selectedDay.id ? (
             <>
               <p>Удалить день «{selectedDay.name}»? Он пропадёт из плана, история тренировок сохранится.</p>
-              <div className="actions">
-                <button type="button" disabled={pending} onClick={() => setConfirmRemoval(null)}>Оставить</button>
-                <button type="button" className="danger" disabled={pending} onClick={() => void runCommand({ type: "day.delete", id: selectedDay.id }, true).then((ok) => { if (ok) { setConfirmRemoval(null); setSelectedDayId(null); } })}>Удалить день</button>
+              <div className={styles.actions}>
+                <Button disabled={pending} onClick={() => setConfirmRemoval(null)}>Оставить</Button>
+                <Button variant="danger" disabled={pending} onClick={() => void runCommand({ type: "day.delete", id: selectedDay.id }, true).then((ok) => { if (ok) { setConfirmRemoval(null); setSelectedDayId(null); } })}>Удалить день</Button>
               </div>
             </>
-          ) : <div className="actions"><button type="button" className="danger" disabled={pending} onClick={() => setConfirmRemoval(selectedDay.id)}>Удалить день</button></div>}
+          ) : <div className={styles.actions}><Button variant="danger" disabled={pending} onClick={() => setConfirmRemoval(selectedDay.id)}>Удалить день</Button></div>}
           <hr />
           <h3>Упражнения</h3>
           {selectedDay.exercises.length ? <ol>{selectedDay.exercises.map((exercise, index) => <li key={exercise.id}>
             <strong>{exercise.name}</strong> · {exercise.sets.length} {plural(exercise.sets.length, "подход", "подхода", "подходов")}
-            <span role="group" aria-label={`Порядок и замена: ${exercise.name}`} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+            <span role="group" aria-label={`Порядок и замена: ${exercise.name}`} className={styles.rowActions}>
               <MoveButton direction="up" label={`Переместить «${exercise.name}» выше`} disabled={pending || index === 0} onClick={() => void runCommand({ type: "exercise.move", dayId: selectedDay.id, dayExerciseId: exercise.id, direction: "up" }, true)} />
               <MoveButton direction="down" label={`Переместить «${exercise.name}» ниже`} disabled={pending || index === selectedDay.exercises.length - 1} onClick={() => void runCommand({ type: "exercise.move", dayId: selectedDay.id, dayExerciseId: exercise.id, direction: "down" }, true)} />
-              <button type="button" disabled={pending} onClick={() => { setConfirmRemoval(null); setEditingExerciseId(exercise.id); }}>Изменить</button>
-              <button type="button" disabled={pending} onClick={() => setSelectedReplacementId(exercise.id)}>Заменить</button>
+              <Button disabled={pending} onClick={() => { setConfirmRemoval(null); setEditingExerciseId(exercise.id); }}>Изменить</Button>
+              <Button disabled={pending} onClick={() => setSelectedReplacementId(exercise.id)}>Заменить</Button>
             </span>
           </li>)}</ol> : <p>Упражнений пока нет.</p>}
           {renderExerciseForm(selectedDay.id)}
@@ -852,23 +852,23 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           <h3>Тренировочные дни</h3>
           {days.length ? <ol>{days.map((day, index) => <li key={day.id}>
             <strong>{day.name}</strong> · {day.exercises.length} {plural(day.exercises.length, "упражнение", "упражнения", "упражнений")}
-            <span role="group" aria-label={`Порядок дня: ${day.name}`} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+            <span role="group" aria-label={`Порядок дня: ${day.name}`} className={styles.rowActions}>
               <MoveButton direction="up" label={`Переместить день «${day.name}» выше`} disabled={pending || index === 0} onClick={() => void runCommand({ type: "day.move", dayId: day.id, direction: "up" }, true)} />
               <MoveButton direction="down" label={`Переместить день «${day.name}» ниже`} disabled={pending || index === days.length - 1} onClick={() => void runCommand({ type: "day.move", dayId: day.id, direction: "down" }, true)} />
-              <button type="button" onClick={() => { setSelectedReplacementId(null); setEditingExerciseId(null); setConfirmRemoval(null); setSelectedDayId(day.id); }}>Открыть</button>
+              <Button onClick={() => { setSelectedReplacementId(null); setEditingExerciseId(null); setConfirmRemoval(null); setSelectedDayId(day.id); }}>Открыть</Button>
             </span>
           </li>)}</ol> : <p>План пуст. Создай день, затем добавь выбранные упражнения.</p>}
         </section>
         <hr />
         <h3>Новый тренировочный день</h3>
-        <form onSubmit={(event) => submitForm(event, (form) => ({
+        <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => ({
           type: "day.save",
           name: requiredText(form, "name", "Название дня"),
           weekday: recordValue(form, "weekday") ? requiredNumber(form, "weekday", "День недели") : null,
         }), true)}>
-          <label>Название дня<input name="name" maxLength={300} required placeholder="Верх тела A" /></label>
-          <label>День недели<select name="weekday" defaultValue=""><option value="">Не задан</option><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option><option value="0">Воскресенье</option></select></label>
-          <div className="actions"><button className="submit" type="submit" disabled={pending}>Добавить день</button></div>
+          <TextField label="Название дня" name="name" maxLength={300} required placeholder="Верх тела A" />
+          <Select label="День недели" name="weekday" defaultValue=""><option value="">Не задан</option><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option><option value="0">Воскресенье</option></Select>
+          <div className={styles.actions}><Button variant="primary" type="submit" disabled={pending}>Добавить день</Button></div>
         </form>
       </>
     );
@@ -880,11 +880,11 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     return (
       <>
         {!replacing && <><hr /><h3>Добавить упражнение</h3></>}
-        <div role="group" aria-label="Источник упражнения" className="actions">
-          <button type="button" aria-pressed={exerciseMode === "catalog"} className={exerciseMode === "catalog" ? "submit" : undefined} onClick={() => setExerciseMode("catalog")}>Каталог</button>
-          <button type="button" aria-pressed={exerciseMode === "custom"} className={exerciseMode === "custom" ? "submit" : undefined} onClick={() => setExerciseMode("custom")}>Своё упражнение</button>
+        <div role="group" aria-label="Источник упражнения" className={styles.chips}>
+          <ChipButton size="lg" selected={exerciseMode === "catalog"} onClick={() => setExerciseMode("catalog")}>Каталог</ChipButton>
+          <ChipButton size="lg" selected={exerciseMode === "custom"} onClick={() => setExerciseMode("custom")}>Своё упражнение</ChipButton>
         </div>
-        <form onSubmit={(event) => submitForm(event, (form) => {
+        <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => {
           const name = exerciseMode === "custom" ? requiredText(form, "name", "Упражнение") : selectedCatalog?.name;
           if (!name) throw new Error("Выбери упражнение из каталога.");
           const details = {
@@ -907,22 +907,22 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
             <ExerciseGuide entries={exerciseCatalog} selectedId={selectedCatalogId} onSelect={setSelectedCatalogId} />
           ) : (
             <>
-              <label>Название упражнения<input name="name" maxLength={300} required placeholder="Например, тяга гантели одной рукой" /></label>
-              <div className="fields-row">
-                <label>Целевые мышцы<input name="muscleGroup" maxLength={200} placeholder="Например, широчайшие" /></label>
-                <label>Инвентарь<input name="equipment" maxLength={200} placeholder="Например, гантель и скамья" /></label>
+              <TextField label="Название упражнения" name="name" maxLength={300} required placeholder="Например, тяга гантели одной рукой" />
+              <div className={styles.fieldsRow}>
+                <TextField label="Целевые мышцы" name="muscleGroup" maxLength={200} placeholder="Например, широчайшие" />
+                <TextField label="Инвентарь" name="equipment" maxLength={200} placeholder="Например, гантель и скамья" />
               </div>
-              <label>Подсказка по технике<textarea name="instructions" maxLength={5000} rows={2} placeholder="Личная заметка к упражнению" /></label>
+              <Textarea label="Подсказка по технике" name="instructions" maxLength={5000} rows={2} placeholder="Личная заметка к упражнению" />
             </>
           )}
           {!replacing && <>
-            <div className="fields-row">
-              <label>Подходы<input name="targetSets" type="number" inputMode="decimal" min="1" max="30" step="1" defaultValue="3" required /></label>
-              <label>Повторения<input name="targetRepetitions" type="number" inputMode="decimal" min="1" max="1000" step="1" defaultValue="8" required /></label>
+            <div className={styles.fieldsRow}>
+              <TextField label="Подходы" name="targetSets" type="number" inputMode="decimal" min="1" max="30" step="1" defaultValue="3" required />
+              <TextField label="Повторения" name="targetRepetitions" type="number" inputMode="decimal" min="1" max="1000" step="1" defaultValue="8" required />
             </div>
-            <label>Отдых, секунд<input name="restSeconds" type="number" inputMode="decimal" min="0" max="3600" step="1" defaultValue="90" /></label>
+            <TextField label="Отдых, секунд" name="restSeconds" type="number" inputMode="decimal" min="0" max="3600" step="1" defaultValue="90" />
           </>}
-          <div className="actions"><button className="submit" type="submit" disabled={pending}>{replacing ? "Заменить упражнение" : "Добавить упражнение"}</button></div>
+          <div className={styles.actions}><Button variant="primary" type="submit" disabled={pending}>{replacing ? "Заменить упражнение" : "Добавить упражнение"}</Button></div>
         </form>
       </>
     );
@@ -938,7 +938,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     return (
       <>
         <p>Результат подхода {set.index}.{previous && !set.completed ? ` Подставлено из подхода ${previous.index}.` : ""}</p>
-        <form onSubmit={(event) => submitForm(event, (form) => {
+        <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => {
           const weightKg = optionalNumber(form, "weightKg", "Вес");
           const repetitions = optionalNumber(form, "repetitions", "Повторения");
           const durationSeconds = optionalNumber(form, "durationSeconds", "Время");
@@ -946,18 +946,18 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           if (![repetitions, durationSeconds, distanceMeters].some((value) => value !== null && value > 0)) throw new Error("Укажи положительное значение повторений, времени или дистанции.");
           return { type: "set.save", dayId, exerciseId, setIndex: set.index, weightKg, repetitions, durationSeconds, distanceMeters };
         })}>
-          <div className="fields-row">
+          <div className={styles.stepRows}>
             <StepField label="Вес, кг" name="weightKg" start={weightStart} step={2.5} min={0} max={2000} />
             <StepField label="Повторения" name="repetitions" start={repsStart} step={1} min={0} max={10000} />
           </div>
-          <details open={extraFilled}>
+          <details className={styles.details} open={extraFilled}>
             <summary>Время и дистанция</summary>
-            <div className="fields-row">
-              <label>Время, секунд<input name="durationSeconds" type="number" inputMode="numeric" min="1" max="86400" step="1" defaultValue={set.durationSeconds ?? ""} /></label>
-              <label>Дистанция, м<input name="distanceMeters" type="number" inputMode="decimal" min="0.01" max="1000000" step="0.01" defaultValue={set.distanceMeters ?? ""} /></label>
+            <div className={styles.fieldsRow}>
+              <TextField label="Время, секунд" name="durationSeconds" type="number" inputMode="numeric" min="1" max="86400" step="1" defaultValue={set.durationSeconds ?? ""} />
+              <TextField label="Дистанция, м" name="distanceMeters" type="number" inputMode="decimal" min="0.01" max="1000000" step="0.01" defaultValue={set.distanceMeters ?? ""} />
             </div>
           </details>
-          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Отмена</button><button className="submit" type="submit" disabled={pending}>Сохранить результат</button></div>
+          <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Отмена</Button><Button variant="primary" type="submit" disabled={pending}>Сохранить результат</Button></div>
         </form>
       </>
     );
@@ -987,7 +987,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       case "finish-session": return (
         <div>
           <p>{editor.total === 0 ? "В этой тренировке не было подходов." : editor.done >= editor.total ? `Все подходы выполнены: ${editor.total}.` : `Выполнено подходов: ${editor.done} из ${editor.total}. Остальные не попадут в журнал.`} Завершить тренировку?</p>
-          <div className="actions"><button type="button" disabled={pending} onClick={onClose}>Продолжить тренировку</button><button className="submit" type="button" disabled={pending} onClick={() => runCommand({ type: "session.finish", id: editor.sessionId })}>Завершить</button></div>
+          <div className={styles.actions}><Button disabled={pending} onClick={onClose}>Продолжить тренировку</Button><Button variant="primary" disabled={pending} onClick={() => runCommand({ type: "session.finish", id: editor.sessionId })}>Завершить</Button></div>
         </div>
       );
     }
@@ -1013,7 +1013,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         window.setTimeout(() => { invalidHandledRef.current = false; }, 0);
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
-        const label = (field.closest("label")?.firstChild?.textContent ?? field.getAttribute("aria-label") ?? "Поле").trim();
+        const label = ((field.labels?.[0] ?? field.closest("label"))?.firstChild?.textContent ?? field.getAttribute("aria-label") ?? "Поле").trim();
         const { validity } = field;
         setFormError(validity.valueMissing ? `Заполни поле «${label}».` : validity.rangeOverflow || validity.rangeUnderflow ? `Значение в поле «${label}» вне допустимого диапазона.` : validity.stepMismatch || validity.badInput ? `В поле «${label}» нужно число в верном формате.` : `Проверь поле «${label}».`);
         field.setAttribute("aria-invalid", "true");
@@ -1022,26 +1022,26 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
     >
       <header className="editor-header">
         {canGoBack && (
-          <button className="editor-icon-button" type="button" aria-label={backLabel} title={backLabel} disabled={pending} onClick={goBack}>
+          <IconButton label={backLabel} title={backLabel} disabled={pending} onClick={goBack}>
             <EditorIcon kind="back" />
-          </button>
+          </IconButton>
         )}
         <div className="editor-header__title"><small>LifeOS</small><h2 id="lifeos-editor-title">{title}</h2></div>
-        <button className="editor-icon-button" type="button" aria-label="Закрыть панель" title="Закрыть" disabled={pending} onClick={onClose}>
+        <IconButton label="Закрыть панель" title="Закрыть" disabled={pending} onClick={onClose}>
           <EditorIcon kind="close" />
-        </button>
+        </IconButton>
       </header>
       <AnimatePresence initial={false} mode="wait">{activeError && <motion.p key="editor-error" className="error" role="alert" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">{activeError}</motion.p>}</AnimatePresence>
-      {onConnectAi && activeError?.includes("ИИ пока не настроен") && <div className="actions"><button type="button" onClick={onConnectAi}>Подключить ИИ</button></div>}
+      {onConnectAi && activeError?.includes("ИИ пока не настроен") && <div className={styles.actions}><Button onClick={onConnectAi}>Подключить ИИ</Button></div>}
       <AnimatePresence initial={false} mode="wait">
         {saved ? <motion.p key="editor-saved" role="status" aria-live="polite" variants={motionVariants.state} initial="initial" animate="animate" exit="exit">Сохранено.</motion.p> : null}
       </AnimatePresence>
       {confirmClose && (
         <div role="alertdialog" aria-labelledby="lifeos-editor-discard">
           <p id="lifeos-editor-discard">Есть несохранённые изменения. Закрыть без сохранения?</p>
-          <div className="actions">
-            <button type="button" autoFocus onClick={() => setConfirmClose(false)}>Продолжить ввод</button>
-            <button type="button" className="danger" onClick={closeNow}>Закрыть без сохранения</button>
+          <div className={styles.actions}>
+            <Button autoFocus onClick={() => setConfirmClose(false)}>Продолжить ввод</Button>
+            <Button variant="danger" onClick={closeNow}>Закрыть без сохранения</Button>
           </div>
         </div>
       )}
@@ -1060,23 +1060,22 @@ function StepField({ label, name, start, step, min, max }: { label: string; name
     setValue(String(next).replace(".", ","));
   };
   return (
-    <div className="step-field">
-      <label htmlFor={`step-${name}`}>{label}</label>
-      <div className="stepper">
-        <button type="button" aria-label={`${label}: меньше`} onClick={() => bump(-step)}>−</button>
-        <input id={`step-${name}`} name={name} type="text" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} />
-        <button type="button" aria-label={`${label}: больше`} onClick={() => bump(step)}>+</button>
+    <Field fieldId={`step-${name}`} label={label}>
+      <div className={styles.stepper}>
+        <IconButton label={`${label}: меньше`} className={styles.stepButton} onClick={() => bump(-step)}>−</IconButton>
+        <TextField id={`step-${name}`} className={styles.stepInput} name={name} type="text" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} />
+        <IconButton label={`${label}: больше`} className={styles.stepButton} onClick={() => bump(step)}>+</IconButton>
       </div>
-    </div>
+    </Field>
   );
 }
 
 function ConfirmDelete({ label, note, pending, onCancel, onConfirm }: { label: string; note?: string; pending: boolean; onCancel(): void; onConfirm(): void }) {
-  return <div><p>Удалить «{label}»? Это действие нельзя отменить.</p>{note && <p>{note}</p>}<div className="actions"><button type="button" disabled={pending} onClick={onCancel}>Оставить</button><button className="submit" type="button" disabled={pending} onClick={onConfirm}>Удалить</button></div></div>;
+  return <div><p>Удалить «{label}»? Это действие нельзя отменить.</p>{note && <p>{note}</p>}<div className={styles.actions}><Button disabled={pending} onClick={onCancel}>Оставить</Button><Button variant="danger-solid" disabled={pending} onClick={onConfirm}>Удалить</Button></div></div>;
 }
 
 function MoveButton({ direction, label, disabled, onClick }: { direction: "up" | "down"; label: string; disabled: boolean; onClick(): void }) {
-  return <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{direction === "up" ? "↑" : "↓"}</button>;
+  return <IconButton label={label} title={label} disabled={disabled} onClick={onClick}>{direction === "up" ? "↑" : "↓"}</IconButton>;
 }
 
 function EditorIcon({ kind }: { kind: "back" | "close" }) {

@@ -178,128 +178,6 @@ button:disabled {
   line-height: 1.6;
 }
 
-.editor label {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 12px;
-  margin: 20px 0;
-  font-size: 0.95rem;
-  line-height: 1.35;
-}
-
-.editor input,
-.editor select,
-.editor textarea {
-  width: 100%;
-  min-width: 0;
-  min-height: 52px;
-  border: 1px solid #a5899538;
-  border-radius: 14px;
-  padding: 12px 16px;
-  background: #ffffff60;
-  color: inherit;
-}
-
-.editor input[type="datetime-local"],
-.editor input[type="date"],
-.editor input[type="time"] {
-  /* iOS gives these a native minimum width wider than the column. */
-  display: block;
-  max-width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  text-align: left;
-}
-
-.editor input[type="datetime-local"]::-webkit-date-and-time-value {
-  min-width: 0;
-  text-align: left;
-}
-
-.editor textarea {
-  min-height: 112px;
-  resize: vertical;
-}
-
-.editor label.checkbox-row {
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.editor label.checkbox-row input {
-  width: 20px;
-  min-width: 20px;
-  min-height: 20px;
-  margin: 0;
-}
-
-.editor .fields-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.editor button {
-  max-width: 100%;
-  min-height: 48px;
-  border: 1px solid #742b4530;
-  border-radius: 16px;
-  padding: 12px 16px;
-  background: #ffffff70;
-  color: #742b45;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-  transition: transform var(--motion-duration-release) var(--motion-ease-out), background-color var(--motion-duration-micro) var(--motion-ease-out), opacity var(--motion-duration-state) var(--motion-ease-out);
-}
-
-.editor button:active:not(:disabled) {
-  transition-duration: var(--motion-duration-press), var(--motion-duration-micro), var(--motion-duration-state);
-  transform: scale(0.985);
-  background: #742b4512;
-}
-
-.editor .submit {
-  border-color: #742b45;
-  background: #742b45;
-  color: white;
-}
-
-.editor .submit:active {
-  background: #61223a;
-}
-
-.editor .editor-icon-button {
-  display: grid;
-  width: 48px;
-  min-width: 48px;
-  height: 48px;
-  min-height: 48px;
-  flex: 0 0 48px;
-  place-items: center;
-  border-radius: 50%;
-  padding: 0;
-  background: #ffffff88;
-}
-
-.editor .actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
-  margin-top: 32px;
-}
-
-.editor .actions > small {
-  flex: 1 1 100%;
-}
-
-.editor .actions button {
-  flex: 0 1 auto;
-}
-
 .editor .error {
   color: #852c32;
   font-size: 0.95rem;
@@ -328,89 +206,6 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.exercise-guide {
-  display: grid;
-  min-width: 0;
-  gap: 24px;
-}
-
-.exercise-guide__list {
-  display: grid;
-  max-height: min(58dvh, 42rem);
-  min-width: 0;
-  gap: 16px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
-  padding: 4px 8px;
-  border-radius: 20px;
-}
-
-.editor--workout .exercise-guide__list {
-  max-height: min(60dvh, 44rem);
-}
-
-.exercise-guide__list:focus-visible {
-  outline: 2px solid #742b45;
-  outline-offset: 3px;
-}
-
-.editor .exercise-guide__item {
-  display: grid;
-  width: 100%;
-  height: max-content;
-  min-height: 88px;
-  grid-template-columns: 62px minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
-  border-color: #742b4530;
-  border-radius: 20px;
-  background: #ffffff58;
-  color: inherit;
-  text-align: left;
-}
-
-.editor .exercise-guide__item.is-selected {
-  border-color: #742b45;
-  background: #742b4510;
-}
-
-.exercise-guide__illustration {
-  display: block;
-  width: 62px;
-  height: 54px;
-}
-
-.exercise-guide__item-copy {
-  display: grid;
-  min-width: 0;
-  gap: 8px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.exercise-guide__item-copy strong {
-  font-weight: 500;
-}
-
-.exercise-guide__item-copy small {
-  color: #76666d;
-}
-
-.exercise-guide__details {
-  margin: 0;
-  padding: 16px 0 0;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
-.exercise-guide__details small {
-  display: inline-block;
-  margin-top: 8px;
-}
-
 /* Opaque ring with a light halo: readable on glass, paper and the dark backdrop. */
 *:focus-visible {
   outline: 3px solid #5b2439;
@@ -423,21 +218,8 @@ button:disabled {
     padding-inline: 20px;
   }
 
-  .editor .fields-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-
   .editor-header {
     gap: 12px;
-  }
-
-  .editor .editor-icon-button {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    min-height: 44px;
-    flex-basis: 44px;
   }
 }
 
@@ -448,10 +230,6 @@ button:disabled {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .editor button:active:not(:disabled) {
-    transform: none;
   }
 }
 
@@ -467,13 +245,6 @@ button:disabled {
     border-color: #5b2439;
     background: #fff;
     color: #21181c;
-  }
-
-  .editor button,
-  .editor input,
-  .editor select,
-  .editor textarea {
-    border-color: currentColor;
   }
 }
 
@@ -503,22 +274,6 @@ button:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
-}
-
-/* Number field with − / + (set weight and repetitions). */
-.editor .step-field { display: grid; gap: 6px; min-width: 0; }
-.editor .stepper { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; align-items: center; }
-.editor .stepper button { min-width: 44px; min-height: 44px; padding: 0; font-size: 20px; line-height: 1; }
-.editor .stepper input { text-align: center; min-width: 0; }
-
-.editor button.danger {
-  border-color: #a3261f55;
-  color: #a3261f;
-}
-
-.editor [aria-invalid="true"] {
-  border-color: #a3261f;
-  outline: 2px solid #a3261f33;
 }
 
 /* Общий вид выпадающих списков: своя стрелка с нормальным отступом от края. */
