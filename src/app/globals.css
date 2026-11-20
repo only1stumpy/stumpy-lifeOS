@@ -482,14 +482,24 @@ button:disabled {
   left: 50%;
   transform: translateX(-50%);
   max-width: min(420px, calc(100vw - 32px));
-  padding: 12px 18px;
-  border-radius: 16px;
+  padding: 16px 26px;
+  border-radius: 18px;
   background: rgba(53, 39, 44, 0.94);
   color: #fffaf9;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
   text-align: center;
   box-shadow: 0 10px 28px rgba(53, 39, 44, 0.28);
+  animation: lifeos-toast-in 0.2s ease-out;
+}
+
+@keyframes lifeos-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
 }
 
 /* Number field with − / + (set weight and repetitions). */

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   AIAnalysisError,
+  type AIAnalysisErrorCode,
+  type AIAttempt,
   type AnalysisEntry,
   type AnalysisProvider,
   type AnalysisResult,
@@ -10,6 +12,7 @@ import {
 } from "./types";
 import { currencyCodeSchema } from "@/domain/currencies";
 import { normalizeClarificationHistory, resolveMoneyClarification } from "./clarification";
+import { aiErrorUserMessage } from "./error-copy";
 import { completeOpenAICompatible, AiProviderTransportError } from "./openai-compatible";
 import { recordAiProviderUsage } from "./provider-accounts";
 import type { AiProviderConfig } from "./provider-profiles";
@@ -121,6 +124,7 @@ export async function runProviderChain<T>(
   const ordered = skipCooledDownAccounts(candidates, startedAt).slice(0, selection?.maxCandidates ?? MAX_CANDIDATES_PER_REQUEST);
   const attemptedProviders: AnalysisProvider[] = [];
   const failures: ProviderFailureKind[] = [];
+  const attempts: AIAttempt[] = [];
   let outOfTime = false;
   for (const config of ordered) {
     const remaining = deadline - Date.now();
@@ -138,20 +142,15 @@ export async function runProviderChain<T>(
       // raw responses, prompt contents, API keys, and thrown messages are not exposed.
       const kind = error instanceof ProviderFailure ? error.kind : "other";
       failures.push(kind);
+      attempts.push({ provider: config.provider, model: config.model, kind, ...(error instanceof ProviderFailure && error.status ? { status: error.status } : {}) });
       if (kind === "quota_exceeded" && config.accountId) quotaCooldownUntil.set(config.accountId, Date.now() + QUOTA_COOLDOWN_MS);
       await recordProviderUsage(selection, config, "failure", kind);
     }
   }
   if (outOfTime || (failures.length > 0 && failures.every((kind) => kind === "unavailable") && deadline - Date.now() < MIN_ATTEMPT_MS)) {
-    throw new AIAnalysisError(
-      "time_budget",
-      task === "food"
-        ? "ИИ-провайдеры отвечают слишком медленно, я не успел разобрать сообщение. Ничего не записано: отправь его ещё раз чуть позже или внеси данные вручную."
-        : "ИИ-провайдеры отвечают слишком медленно, я не успел ответить. Попробуй ещё раз чуть позже.",
-      attemptedProviders,
-    );
+    throw new AIAnalysisError("time_budget", aiErrorUserMessage("time_budget", task), attemptedProviders, attempts);
   }
-  throw providerFailureError(failures, attemptedProviders, task);
+  throw providerFailureError(failures, attemptedProviders, task, attempts);
 }
 
 type ProviderFailureKind =
@@ -164,7 +163,7 @@ type ProviderFailureKind =
 
 /** Exported for the chain tests only. */
 export class ProviderFailure extends Error {
-  constructor(readonly kind: ProviderFailureKind) {
+  constructor(readonly kind: ProviderFailureKind, readonly status?: number) {
     super(kind);
     this.name = "ProviderFailure";
   }
@@ -293,79 +292,19 @@ function providerFailureError(
   failures: ProviderFailureKind[],
   providers: AnalysisProvider[],
   task: "food" | "reference",
+  attempts: AIAttempt[] = [],
 ): AIAnalysisError {
   const uniqueFailures = [...new Set(failures)];
-  const retryHint = task === "food"
-    ? "Можно повторить позже или внести данные вручную."
-    : "Попробуй ещё раз чуть позже.";
-
-  if (uniqueFailures.length > 1) {
-    const details = providers
-      .map((provider, index) => `${providerLabel(provider)}: ${failureLabel(failures[index] ?? "other")}`)
-      .join("; ");
-    return new AIAnalysisError(
-      "provider_mixed",
-      `ИИ-провайдеры завершились разными ошибками (${details}). ${retryHint}`,
-      providers,
-    );
-  }
-
-  const failure = uniqueFailures[0] ?? "other";
-  switch (failure) {
-    case "credits_exhausted":
-      return new AIAnalysisError(
-        "credits_exhausted",
-        `ИИ-провайдер сообщает, что оплаченные кредиты исчерпаны или требуется пополнение. ${retryHint}`,
-        providers,
-      );
-    case "quota_exceeded":
-      return new AIAnalysisError(
-        "quota_exceeded",
-        `Достигнут лимит запросов ИИ API или ограничение частоты. Это не обязательно означает, что закончились оплаченные кредиты. Проверь лимиты провайдера. ${retryHint}`,
-        providers,
-      );
-    case "unavailable":
-      return new AIAnalysisError(
-        "provider_unavailable",
-        `ИИ API сейчас не отвечает или временно недоступен. ${retryHint}`,
-        providers,
-      );
-    case "configuration":
-      return new AIAnalysisError(
-        "provider_configuration",
-        `Проблема с настройкой или доступом к ИИ API. Проверь API-ключ, права проекта и название модели. ${retryHint}`,
-        providers,
-      );
-    case "invalid_response":
-      return new AIAnalysisError(
-        "invalid_response",
-        `ИИ API ответило, но прислало данные в непонятном формате. ${retryHint}`,
-        providers,
-      );
-    case "other":
-      return new AIAnalysisError(
-        "provider_failed",
-        `Не получилось выполнить запрос к ИИ API. ${retryHint}`,
-        providers,
-      );
-  }
-}
-
-function providerLabel(provider: AnalysisProvider): string {
-  if (provider === "gemini") return "Gemini";
-  if (provider === "groq") return "Groq";
-  return "OpenAI-compatible";
-}
-
-function failureLabel(kind: ProviderFailureKind): string {
-  switch (kind) {
-    case "credits_exhausted": return "исчерпаны оплаченные кредиты";
-    case "quota_exceeded": return "достигнут лимит запросов";
-    case "unavailable": return "API временно недоступен";
-    case "configuration": return "ошибка доступа или настройки";
-    case "invalid_response": return "неверный формат ответа";
-    case "other": return "неизвестная ошибка запроса";
-  }
+  const codes: Record<ProviderFailureKind, AIAnalysisErrorCode> = {
+    credits_exhausted: "credits_exhausted",
+    quota_exceeded: "quota_exceeded",
+    unavailable: "provider_unavailable",
+    configuration: "provider_configuration",
+    invalid_response: "invalid_response",
+    other: "provider_failed",
+  };
+  const code: AIAnalysisErrorCode = uniqueFailures.length > 1 ? "provider_mixed" : codes[uniqueFailures[0] ?? "other"];
+  return new AIAnalysisError(code, aiErrorUserMessage(code, task), providers, attempts);
 }
 
 function validateReferenceQuestionInput(input: LifeOSQuestionInput): LifeOSQuestionInput {
@@ -778,7 +717,7 @@ async function requestProvider(
     }
     if (!response.ok) {
       const boundedErrorBody = body.length <= MAX_PROVIDER_RESPONSE_LENGTH ? body : "";
-      throw new ProviderFailure(classifyProviderFailure(provider, response.status, boundedErrorBody));
+      throw new ProviderFailure(classifyProviderFailure(provider, response.status, boundedErrorBody), response.status);
     }
     if (body.length === 0 || body.length > MAX_PROVIDER_RESPONSE_LENGTH) {
       throw new ProviderFailure("invalid_response");

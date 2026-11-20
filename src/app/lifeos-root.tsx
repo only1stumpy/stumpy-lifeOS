@@ -170,6 +170,7 @@ function noticeFor(command: AppCommand): string | null {
     case "finance-plan.purchase": return "Покупка записана, план закрыт.";
     case "debt.create": return "Долг записан.";
     case "debt.repayment.create": return "Возврат записан.";
+    case "personalization.save": return "Сохранено";
     case "profile.save": case "settings.save": return "Цель сохранена.";
     case "rate.save": return "Курс сохранён.";
     case "recurring.save": return "Платёж сохранён.";
@@ -225,7 +226,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 4000);
+    const timer = window.setTimeout(() => setNotice(null), 2200);
     return () => window.clearTimeout(timer);
   }, [notice]);
   const [telegramFullscreen, setTelegramFullscreen] = useState(false);
