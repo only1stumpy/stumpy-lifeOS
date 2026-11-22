@@ -49,7 +49,7 @@ jobs:
           size=$(stat -c %s lifeos.dump.age)
           [ "$size" -gt 1024 ] || { echo "Дамп подозрительно мал ($size байт)"; exit 1; }
           echo "Зашифрованный дамп: $size байт"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lifeos-db-${{ github.run_id }}
           path: lifeos.dump.age
