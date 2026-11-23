@@ -9,3 +9,9 @@
 .admin .bad { color: #b3261e; }
 .admin .good { color: #1b6e3c; }
 .admin .panel > button { margin: 8px 8px 0 0; }
+.admin .chart { margin: 0 0 12px; background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(122, 31, 61, 0.12); border-radius: 18px; padding: 12px 14px; }
+.admin .chart figcaption { font-size: 13px; margin-bottom: 8px; }
+.admin .chart svg { display: block; width: 100%; height: auto; max-height: 120px; }
+.admin .chart-axis { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 11px; color: #8a7a7e; }
+.admin .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; color: #6b5a5f; }
+.admin .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { AppError } from "@/server/http";
 import { isAdminId } from "@/server/admin/config";
+import { loadUptime, uptimeLine } from "@/server/admin/uptime";
 import { sendAdminMessage } from "@/server/admin/telegram";
 
 export const runtime = "nodejs";
@@ -26,7 +27,8 @@ export async function POST(request: Request): Promise<Response> {
     const message = update?.message;
     const fromId = message?.from?.id;
     if (typeof fromId !== "number" || message?.chat?.type !== "private" || message.chat.id !== fromId || !isAdminId(fromId)) return Response.json({ ok: true });
-    await sendAdminMessage(fromId, "Админ-панель LifeOS: состояние сервиса, очередь, cron и статистика.", `${new URL(request.url).origin}/admin`);
+    const uptime = await loadUptime().then(uptimeLine).catch(() => null);
+    await sendAdminMessage(fromId, ["Админ-панель LifeOS: состояние сервиса, очередь, cron, графики и статистика.", uptime].filter(Boolean).join("\n"), `${new URL(request.url).origin}/admin`);
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof AppError) return Response.json({ error: error.message }, { status: error.status });
