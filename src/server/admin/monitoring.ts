@@ -12,7 +12,6 @@ export const SLOW_CRON_MS = 50_000;
 const STUCK_RUN_MS = 120_000;
 /** A pending update older than this is a backlog. */
 export const BACKLOG_MINUTES = 30;
-const RUN_RETENTION_DAYS = 14;
 
 export class CronFailure extends Error {
   constructor(readonly info: string) {
@@ -52,7 +51,6 @@ export async function runMonitoredCron(run: () => Promise<CronResult> = runSched
   if (result.skippedOwners > 0) await raiseAlert("cron_budget", `cron не успел обработать ${result.skippedOwners} пользователей из-за бюджета времени.`, { throttleMinutes: 360 });
   if (durationMs > SLOW_CRON_MS) await raiseAlert("cron_slow", `cron работал ${Math.round(durationMs / 1000)} с при лимите 60 с.`, { throttleMinutes: 360 });
   await checkQueueBacklog();
-  await purgeOldRuns();
   return result;
 }
 
@@ -84,8 +82,4 @@ export async function checkQueueBacklog(): Promise<number> {
     console.error("LifeOS cron: backlog check failed");
     return 0;
   }
-}
-
-async function purgeOldRuns(): Promise<void> {
-  await getDb().delete(schema.adminCronRuns).where(lt(schema.adminCronRuns.startedAt, new Date(Date.now() - RUN_RETENTION_DAYS * 86_400_000))).catch(() => undefined);
 }

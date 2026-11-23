@@ -13,6 +13,9 @@ export const USAGE_EVENT_RETENTION_DAYS = 30;
 /** Delivery keys only prevent duplicate reminders; they are not needed long after the day they refer to. */
 export const NOTIFICATION_DELIVERY_RETENTION_DAYS = 90;
 
+/** Cron run history doubles as the uptime history shown in the admin panel. */
+export const CRON_RUN_RETENTION_DAYS = 90;
+
 export function draftExpiresAt(now: Date = new Date()): Date {
   return new Date(now.getTime() + DRAFT_TTL_DAYS * DAY_MS);
 }
@@ -60,6 +63,11 @@ export async function purgeOldNotificationDeliveries(now: Date = new Date()): Pr
     ));
 }
 
+export async function purgeOldCronRuns(now: Date = new Date()): Promise<void> {
+  await getDb().delete(schema.adminCronRuns)
+    .where(lt(schema.adminCronRuns.startedAt, new Date(now.getTime() - CRON_RUN_RETENTION_DAYS * DAY_MS)));
+}
+
 /** Every step is independent: one failing must not leave the others undone. */
 export async function runRetentionCleanup(now: Date = new Date()): Promise<void> {
   const steps: Array<[string, () => Promise<void>]> = [
@@ -68,6 +76,7 @@ export async function runRetentionCleanup(now: Date = new Date()): Promise<void>
     ["clarifications", () => clearStaleClarifications(now)],
     ["usage events", () => purgeOldUsageEvents(now)],
     ["deliveries", () => purgeOldNotificationDeliveries(now)],
+    ["cron runs", () => purgeOldCronRuns(now)],
   ];
   for (const [name, run] of steps) await run().catch(() => console.error(`LifeOS cron: ${name} cleanup failed`));
 }

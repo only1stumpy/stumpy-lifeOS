@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Link } from "@/components/ui";
 import type { AdminOverview } from "@/server/admin/overview";
 import type { AdminStats } from "@/server/admin/stats";
+import type { AdminCharts } from "@/server/admin/charts";
+import type { UptimeSummary } from "@/server/admin/uptime";
+import { ChartsView, UptimeView } from "./charts";
 import "./admin.css";
 
 type TelegramWebApp = {
@@ -26,6 +29,7 @@ export default function AdminApp() {
   const [initData, setInitData] = useState<string | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [charts, setCharts] = useState<{ charts: AdminCharts; uptime: UptimeSummary } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,6 +67,8 @@ export default function AdminApp() {
       const [nextOverview, nextStats] = await Promise.all([call<AdminOverview>("/api/admin/overview"), call<AdminStats | null>("/api/admin/stats")]);
       setOverview(nextOverview);
       setStats(nextStats);
+      // Charts are optional: a failure here must not hide the rest of the panel.
+      setCharts(await call<{ charts: AdminCharts; uptime: UptimeSummary }>("/api/admin/charts").catch(() => null));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Ошибка запроса.");
     }
@@ -104,6 +110,12 @@ export default function AdminApp() {
         <div className="row"><span>Версия / коммит</span><span>{overview.health.version} · {overview.health.commit ?? "—"}</span></div>
         <div className="row"><span>База и миграции</span><span className={ready ? "good" : "bad"}>{overview.health.readiness.status}</span></div>
       </div>
+
+      <h2>Аптайм</h2>
+      {charts ? <UptimeView uptime={charts.uptime} /> : <p className="muted">История недоступна.</p>}
+
+      <h2>Графики</h2>
+      {charts ? <ChartsView charts={charts.charts} /> : <p className="muted">Графики недоступны.</p>}
 
       <h2>Cron</h2>
       <div className="panel">
