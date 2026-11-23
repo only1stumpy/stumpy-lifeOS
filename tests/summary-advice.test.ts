@@ -5,7 +5,7 @@ import * as schema from "../src/db/schema";
 import { ensureOwner } from "../src/server/lifeos";
 import { withTelegramUser } from "../src/server/owner-context";
 import { encryptProviderApiKey } from "../src/server/ai/provider-profiles";
-import { getSummaryAdvice } from "../src/server/ai/summary-advice";
+import { buildAdvicePayload, getSummaryAdvice, prefetchSummaryAdvice, previousPeriodStart, readCachedSummaryAdvice, weightTrend } from "../src/server/ai/summary-advice";
 import type { PeriodReport } from "../src/domain/period-report";
 import { createCommandDb, newTelegramId, releaseCommandDb, type CommandDb } from "./helpers/command-db";
 import { chatReply, startFakeProvider } from "./helpers/fake-provider";
@@ -85,13 +85,17 @@ test("summary advice uses anonymous aggregate numbers and caches per owner and r
   assert.equal(provider.requests.length, 1);
   const requestBody = JSON.parse(provider.requests[0]!.body) as { messages: { role: string; content: string }[] };
   const sentPrompt = requestBody.messages.find((message) => message.role === "user")?.content ?? "";
-  assert.match(sentPrompt, /expenseMinor/);
-  assert.match(sentPrompt, /expenseCategoryTotals\":\[80000,40000\]/);
-  assert.match(sentPrompt, /incomeCategoryTotals\":\[200000,50000\]/);
-  assert.doesNotMatch(sentPrompt, /Частная категория|Имя клиента|Другой клиент|83f2|2026-11-16/);
+  // Money goes in whole currency units (not minor units) with the category names the person chose; no operation names or dates of entries.
+  assert.match(sentPrompt, /"expenses":1200/);
+  assert.match(sentPrompt, /"incomes":2500/);
+  assert.match(sentPrompt, /"topExpenseCategories":\[\{"category":"Частная категория 83f2","amount":800\}/);
+  assert.match(sentPrompt, /"incomeMayBeIrregular":true/);
+  assert.match(sentPrompt, /"trend":"losing"/);
+  assert.doesNotMatch(sentPrompt, /expenseMinor|amountMinor/);
+  assert.equal(sentPrompt.includes(String(owner.telegramUserId)), false, "no Telegram id goes to the provider");
 
   const [cached] = await db.select().from(schema.summaryAdviceCache).where(eq(schema.summaryAdviceCache.ownerId, owner.id));
-  assert.deepEqual(cached?.advice, { items: firstItems });
+  assert.deepEqual(cached?.advice, { v: 2, items: firstItems });
   assert.deepEqual(await getSummaryAdvice(owner.id, REPORT), result);
   assert.equal(provider.requests.length, 1, "cached advice avoids another provider call");
 
@@ -101,8 +105,8 @@ test("summary advice uses anonymous aggregate numbers and caches per owner and r
   assert.match(separateWindow.advice?.items[0] ?? "", /предыдущем периоде/);
   assert.equal(provider.requests.length, 2, "different period bounds use a different cache row");
 
-  const retried = await getSummaryAdvice(owner.id, REPORT, { retry: true });
-  assert.deepEqual(retried, result, "retry returns the cached success without spending provider quota");
+  assert.deepEqual(await readCachedSummaryAdvice(owner.id, REPORT), { items: firstItems });
+  assert.equal(await readCachedSummaryAdvice(owner.id, { ...REPORT, start: "2026-11-02", end: "2026-11-08" }), null, "cache read never calls the provider");
   assert.equal(provider.requests.length, 2);
 
   const otherOwner = await withTelegramUser(newTelegramId(), () => ensureOwner());
@@ -143,4 +147,61 @@ test("invalid advice schema is rejected and is not cached", async (t) => {
   assert.equal(result.advice, null);
   assert.match(result.adviceError ?? "", /неразборчивый ответ/i);
   assert.equal((await db.select().from(schema.summaryAdviceCache)).length, 0);
+});
+
+test("advice cached by an older prompt version is ignored and regenerated", async (t) => {
+  const { db, owner } = await dbFor(t);
+  await db.insert(schema.summaryAdviceCache).values({
+    ownerId: owner.id, period: REPORT.period, start: REPORT.start, end: REPORT.end,
+    advice: { items: ["Расходы ~162 950 мин. сильно превышают доход (140 мин.)."] },
+  });
+  assert.equal(await readCachedSummaryAdvice(owner.id, REPORT), null);
+  const provider = await startFakeProvider(() => chatReply(JSON.stringify({ items: ["Новый совет по сумме в основных единицах валюты."] })));
+  t.after(() => provider.close());
+  await addMockProvider(db, owner.id, "https://summary-version.mock/v1");
+  const result = await getSummaryAdvice(owner.id, REPORT);
+  assert.match(result.advice?.items[0] ?? "", /Новый совет/);
+  assert.equal(provider.requests.length, 1);
+});
+
+test("prefetch prepares advice for the page, never throws and does not wait forever", async (t) => {
+  const { db, owner } = await dbFor(t);
+  const provider = await startFakeProvider(() => chatReply(JSON.stringify({ items: ["Совет подготовлен заранее, вместе со сводкой."] })));
+  t.after(() => provider.close());
+  await addMockProvider(db, owner.id, "https://summary-prefetch.mock/v1");
+  await prefetchSummaryAdvice(owner.id, REPORT);
+  assert.deepEqual(await readCachedSummaryAdvice(owner.id, REPORT), { items: ["Совет подготовлен заранее, вместе со сводкой."] });
+
+  // Without a configured key (or on any failure) prefetch just returns: the summary message goes out either way.
+  const { owner: keyless } = await dbFor(t);
+  await prefetchSummaryAdvice(keyless.id, REPORT, 50);
+  assert.equal(await readCachedSummaryAdvice(keyless.id, REPORT), null);
+});
+
+test("period helpers: previous period start and weight trend noise", () => {
+  assert.equal(previousPeriodStart("day", "2026-11-22"), "2026-11-21");
+  assert.equal(previousPeriodStart("week", "2026-11-16"), "2026-11-09");
+  assert.equal(previousPeriodStart("month", "2026-12-01"), "2026-11-01");
+  assert.equal(previousPeriodStart("month", "2026-01-01"), "2025-12-01");
+  assert.equal(weightTrend("week", 0.2, 3), "stable");
+  assert.equal(weightTrend("week", 0.4, 3), "gaining");
+  assert.equal(weightTrend("week", -0.4, 3), "losing");
+  assert.equal(weightTrend("month", 0.5, 4), "stable");
+  assert.equal(weightTrend("week", 1, 1), null, "one measurement is not a trend");
+  assert.equal(weightTrend("week", null, 0), null);
+});
+
+test("advice payload: whole units, balance, goal, trend and previous period", () => {
+  const previous: PeriodReport = { ...REPORT, start: "2026-11-09", end: "2026-11-15", finance: { expenseMinor: 90_000, incomeMinor: 0, expenses: [{ name: "Еда", amountMinor: 90_000 }], incomes: [] }, weight: undefined };
+  const payload = buildAdvicePayload({ report: REPORT, previous, goalType: "gain_mass", totalBalanceMinor: 543_210, totalBalancePartial: false });
+  assert.equal(payload.goal, "gain_mass");
+  assert.equal(payload.finance?.expenses, 1200);
+  assert.equal(payload.finance?.accountsTotalBalance, 5432.1);
+  assert.equal(payload.finance?.accountsTotalBalanceIsPartial, false);
+  assert.equal(payload.weight?.trend, "losing");
+  assert.equal(payload.previousPeriod?.expenses, 900);
+  assert.equal(payload.previousPeriod?.start, "2026-11-09");
+  const noBalance = buildAdvicePayload({ report: { ...REPORT, finance: undefined }, previous: null, goalType: null, totalBalanceMinor: null, totalBalancePartial: false });
+  assert.equal("finance" in noBalance, false, "disabled modules send nothing");
+  assert.equal("previousPeriod" in noBalance, false);
 });

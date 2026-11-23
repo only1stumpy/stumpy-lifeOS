@@ -1,8 +1,37 @@
 .stage {
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
+  overflow-x: clip;
   padding: calc(22px + var(--lifeos-inset-top)) 16px calc(36px + var(--lifeos-inset-bottom));
-  background: var(--ui-color-paper);
+  background:
+    radial-gradient(ellipse 66% 31% at 104% 4%, rgba(116, 43, 69, 0.2), transparent 72%),
+    radial-gradient(ellipse 66% 38% at -10% 28%, rgba(196, 221, 202, 0.72), transparent 72%),
+    radial-gradient(ellipse 78% 38% at 108% 72%, rgba(218, 193, 212, 0.76), transparent 72%),
+    radial-gradient(ellipse 68% 34% at 8% 96%, rgba(240, 219, 195, 0.58), transparent 72%),
+    radial-gradient(ellipse 54% 28% at 52% 48%, rgba(255, 255, 255, 0.38), transparent 76%),
+    linear-gradient(155deg, #f6f2ec 0%, #f1e9eb 58%, #f7f1ec 100%);
   color: var(--ui-color-ink);
+}
+
+/* The same soft colour light as on the main screen sits behind the glass cards. */
+.stage::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.52;
+  background:
+    radial-gradient(ellipse 42% 22% at 78% 18%, rgba(255, 255, 255, 0.46), transparent 72%),
+    radial-gradient(ellipse 48% 28% at 16% 38%, rgba(177, 213, 185, 0.3), transparent 72%),
+    radial-gradient(ellipse 46% 24% at 92% 62%, rgba(205, 174, 201, 0.29), transparent 74%),
+    radial-gradient(ellipse 48% 26% at 26% 88%, rgba(234, 204, 176, 0.24), transparent 74%);
+}
+
+/* Full screen: Telegram draws its own controls over the top edge. */
+.stage[data-fullscreen="true"] {
+  padding-top: max(80px, calc(22px + var(--lifeos-inset-top)));
 }
 
 .page {
@@ -120,13 +149,42 @@
 }
 
 .sections {
-  border-top: 1px solid var(--ui-color-divider);
+  display: grid;
+  gap: 14px;
 }
 
-.section {
-  padding: 24px 0;
-  border-bottom: 1px solid var(--ui-color-divider);
+/* Each block of the report is a glass card tinted by its module. */
+.section,
+.deniedSurface,
+.errorSurface,
+.invalidSurface {
+  --surface-caustic: rgba(116, 43, 69, 0.07);
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  overflow: hidden;
+  padding: 22px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 28px;
+  background:
+    radial-gradient(ellipse at 16% 0%, rgba(255, 255, 255, 0.42), transparent 46%),
+    radial-gradient(ellipse at 96% 92%, var(--surface-caustic), transparent 56%),
+    linear-gradient(142deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12) 52%, rgba(255, 255, 255, 0.26)),
+    rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(9px) saturate(1.3);
+  backdrop-filter: blur(9px) saturate(1.3);
+  box-shadow:
+    0 20px 48px rgba(66, 31, 46, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(87, 37, 55, 0.07);
 }
+
+.section[data-module="nutrition"] { --surface-caustic: rgba(102, 131, 109, 0.16); }
+.section[data-module="weight"] { --surface-caustic: rgba(102, 131, 109, 0.12); }
+.section[data-module="finance"] { --surface-caustic: rgba(169, 103, 67, 0.15); }
+.section[data-module="gym"] { --surface-caustic: rgba(107, 102, 132, 0.16); }
+.section[data-module="advice"] { --surface-caustic: rgba(116, 43, 69, 0.11); }
 
 .sectionHeading {
   display: flex;
@@ -413,7 +471,6 @@
 }
 
 .adviceSection {
-  padding-bottom: 2px;
   border-bottom: 0;
 }
 
