@@ -1,0 +1,605 @@
+.stage {
+  min-height: 100dvh;
+  padding: calc(22px + var(--lifeos-inset-top)) 16px calc(36px + var(--lifeos-inset-bottom));
+  background: var(--ui-color-paper);
+  color: var(--ui-color-ink);
+}
+
+.page {
+  width: min(100%, 760px);
+  margin-inline: auto;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 2px 3px 24px;
+}
+
+.pageHeader h1 {
+  margin: 3px 0 0;
+  font-size: 2rem;
+  font-weight: 520;
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.brand,
+.kicker {
+  margin: 0;
+  color: var(--ui-color-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 560;
+  line-height: 1.35;
+}
+
+.brand {
+  color: var(--ui-color-accent);
+  letter-spacing: 0;
+}
+
+.homeLink {
+  flex: none;
+  padding: 9px 4px;
+  color: var(--ui-color-accent);
+  font-size: 0.9rem;
+  font-weight: 550;
+}
+
+.periodNav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 6px;
+  border: 1px solid var(--ui-glass-rim);
+  border-radius: var(--ui-radius-panel);
+  background: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 8px 24px rgba(76, 48, 59, 0.045), inset 0 1px 0 var(--ui-glass-rim-top);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.periodNav > button {
+  width: 100%;
+  min-width: 0;
+}
+
+.dateControls {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.dateControls > p {
+  min-width: 0;
+  margin: 0;
+  color: var(--ui-color-ink);
+  font-size: 0.93rem;
+  font-weight: 520;
+  text-align: center;
+}
+
+.arrowButton {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+
+.arrowButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.todayButton {
+  flex: none;
+}
+
+.reportSurface {
+  width: 100%;
+}
+
+.reportHeader {
+  padding: 2px 0 24px;
+}
+
+.reportHeader h2,
+.deniedSurface h2,
+.errorSurface h2,
+.invalidSurface h2 {
+  margin: 7px 0 0;
+  font-size: 1.5rem;
+  font-weight: 520;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.sections {
+  border-top: 1px solid var(--ui-color-divider);
+}
+
+.section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--ui-color-divider);
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sectionHeading h2 {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+  font-weight: 540;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.sectionMeta {
+  max-width: 48%;
+  color: var(--ui-color-ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.nutritionSummary {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.calorieTotal {
+  display: grid;
+  justify-items: start;
+}
+
+.calorieTotal strong {
+  font-family: "Medeo Mono", monospace;
+  font-size: 3rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.calorieTotal > span {
+  margin-top: 5px;
+  color: var(--ui-color-ink);
+  font-size: 0.9rem;
+}
+
+.calorieTotal small {
+  margin-top: 7px;
+  color: var(--ui-color-ink-soft);
+  font-size: 0.8rem;
+}
+
+.targetNote {
+  max-width: 148px;
+  margin: 0 0 4px;
+  color: var(--ui-color-ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.emptyNote,
+.chartEmpty {
+  margin: 12px 0 0;
+  color: #76666d;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.macroGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--ui-color-divider);
+  border-bottom: 1px solid var(--ui-color-divider);
+}
+
+.macroValue dt,
+.gymGrid dt {
+  color: var(--ui-color-ink-soft);
+  font-size: 0.78rem;
+}
+
+.macroValue dd {
+  margin: 4px 0 0;
+  font-family: "Medeo Mono", monospace;
+  font-size: 1.05rem;
+  font-weight: 520;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.macroValue dd span,
+.gymGrid dd span {
+  color: var(--ui-color-ink-soft);
+  font-family: "Medeo Sans", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 450;
+}
+
+.macroValue small {
+  display: block;
+  margin-top: 3px;
+  color: #76666d;
+  font-size: 0.69rem;
+  line-height: 1.35;
+}
+
+.chartWrap {
+  width: 100%;
+  margin-top: 13px;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chartAxis {
+  stroke: var(--ui-color-divider);
+  stroke-width: 1;
+}
+
+.chartLabel {
+  fill: #76666d;
+  font-family: "Medeo Sans", sans-serif;
+  font-size: 12px;
+}
+
+.bar {
+  fill: #8c5369;
+}
+
+.line {
+  fill: none;
+  stroke: var(--ui-color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.point {
+  fill: var(--ui-color-accent);
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.chartEmpty {
+  padding: 9px 0 3px;
+}
+
+.weightSummary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.weightSummary p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.weightSummary p span {
+  color: var(--ui-color-ink-soft);
+  font-size: 0.79rem;
+}
+
+.weightSummary p strong {
+  font-family: "Medeo Mono", monospace;
+  font-size: 1.25rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.weightArrow {
+  color: #a58995;
+  font-size: 1.1rem;
+}
+
+.moneyTotals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.moneyTotals p {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.moneyTotals p span {
+  color: var(--ui-color-ink-soft);
+  font-size: 0.8rem;
+}
+
+.moneyTotals strong {
+  font-family: "Medeo Mono", monospace;
+  font-size: 1.15rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.moneyLists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding-top: 15px;
+  border-top: 1px solid var(--ui-color-divider);
+}
+
+.moneyList h3 {
+  margin: 0 0 9px;
+  color: #76666d;
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.moneyList ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moneyList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.moneyList li span {
+  min-width: 0;
+  color: var(--ui-color-ink);
+  overflow-wrap: anywhere;
+}
+
+.moneyList li strong {
+  min-width: 0;
+  flex: 0 1 auto;
+  font-family: "Medeo Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.moneyList > p {
+  margin: 0;
+  color: var(--ui-color-ink-soft);
+  font-size: 0.82rem;
+}
+
+.gymGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.gymGrid dd {
+  margin: 5px 0 0;
+  font-family: "Medeo Mono", monospace;
+  font-size: 1.45rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.adviceSection {
+  padding-bottom: 2px;
+  border-bottom: 0;
+}
+
+.adviceList {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 17px;
+  padding-left: 1.15rem;
+  color: var(--ui-color-ink);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.adviceList li::marker {
+  color: var(--ui-color-accent);
+}
+
+.adviceSection > button {
+  margin-top: 15px;
+}
+
+.inlineError {
+  margin: 0;
+  color: #8b3038;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.emptyReport {
+  margin: 0;
+  color: #76666d;
+  line-height: 1.5;
+}
+
+.deniedSurface,
+.errorSurface,
+.invalidSurface {
+  margin-top: 28px;
+}
+
+.deniedSurface > p:not(.kicker),
+.errorSurface > p:not(.kicker),
+.invalidSurface > p:not(.kicker) {
+  margin: 14px 0 18px;
+  color: var(--ui-color-ink);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.invalidSurface > .invalidHint {
+  color: var(--ui-color-ink-soft);
+  font-size: 0.84rem;
+}
+
+.deniedSurface > a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--ui-color-accent);
+  font-weight: 550;
+}
+
+.accessStatus {
+  margin: 56px 0 0;
+  color: var(--ui-color-ink-soft);
+  text-align: center;
+}
+
+.errorSurface > button {
+  min-width: 150px;
+}
+
+.loadingTitle,
+.loadingLine,
+.loadingBlock {
+  border-radius: 12px;
+  background: linear-gradient(100deg, rgba(116, 43, 69, 0.07), rgba(255, 255, 255, 0.36), rgba(116, 43, 69, 0.07));
+  background-size: 220% 100%;
+  animation: loading-shimmer 1.6s ease-in-out infinite;
+}
+
+.loadingTitle {
+  width: 46%;
+  height: 25px;
+}
+
+.loadingLine {
+  width: 70%;
+  height: 12px;
+  margin-top: 28px;
+}
+
+.loadingBlock {
+  height: 150px;
+  margin-top: 18px;
+}
+
+.loadingText {
+  margin: 14px 0 0;
+  color: #76666d;
+  font-size: 0.84rem;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+@keyframes loading-shimmer {
+  to { background-position: -220% 0; }
+}
+
+@media (max-width: 440px) {
+  .stage {
+    padding-inline: 12px;
+  }
+
+  .pageHeader {
+    margin-inline: 2px;
+  }
+
+  .dateControls {
+    gap: 4px;
+  }
+
+  .dateControls > p {
+    flex: 1;
+    font-size: 0.83rem;
+  }
+
+  .todayButton {
+    padding-inline: 8px;
+    font-size: 0.78rem;
+  }
+
+  .sectionMeta {
+    font-size: 0.72rem;
+  }
+
+  .moneyLists {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingTitle,
+  .loadingLine,
+  .loadingBlock {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .periodNav {
+    background: #f8f5f1;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .periodNav {
+    border-color: #6a4655;
+    background: #fffdfa;
+  }
+
+  .sectionMeta,
+  .brand,
+  .kicker,
+  .macroValue dt,
+  .gymGrid dt,
+  .emptyNote,
+  .chartEmpty,
+  .chartLabel {
+    color: #50323f;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .periodNav {
+    background-color: rgba(255, 253, 250, 0.94);
+  }
+}

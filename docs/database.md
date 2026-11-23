@@ -31,7 +31,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 
 ## Таблицы по модулям
 
-### Профиль, ИИ, бот и служебные (12)
+### Профиль, ИИ, бот и служебные (14)
 
 | Таблица | Назначение |
 |---|---|
@@ -46,6 +46,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | `admin_kv` | Служебное хранилище админ-панели: окна подавления алертов, кеш статистики и статуса бэкапа; без данных пользователей |
 | `rate_limit_counters` | Счётчики rate limit: ключ `bucket:subject`, начало окна, число; PK `(key, window_start)`; записи старше двух суток удаляет cron |
 | `notification_deliveries` | Журнал отправленных уведомлений для дедупликации |
+| `summary_advice_cache` | Личные советы ИИ за период: составной ключ владельца, типа периода и дат; удаляется вместе с профилем, в резервную копию не входит |
 | `command_requests` | Id запросов ручных записей (`client_request_id`): повтор с тем же id не создаёт вторую запись |
 | `capture_drafts` | Общая запись о черновике (тип `nutrition`/`finance`/`combined`/`debt`, статус, исходный текст сообщения, id сообщения бота, срок действия); `combined` остался только для старых записей |
 
@@ -61,7 +62,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 
 `exercises` (встроенные и пользовательские упражнения), `workout_days` (дни программы), `workout_day_exercises` (упражнения дня), `workout_sessions` (тренировки), `workout_session_exercises`, `workout_sets` (подходы и кардио).
 
-Итого: 12 + 5 + 10 + 6 = 33 таблицы (`pgTable` в `src/db/schema.ts`), 20 миграций (`0000`–`0019`).
+Итого: 14 + 5 + 10 + 6 = 35 таблиц (`pgTable` в `src/db/schema.ts`), 25 миграций (`0000`–`0024`). Ранее этот счётчик и список отставали от уже существующих миграций `0020`–`0023`.
 
 ## Миграции
 
@@ -87,6 +88,11 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0017 | `0017_command_requests` | `command_requests` |
 | 0018 | `0018_admin_panel` | `admin_cron_runs`, `admin_kv`, колонки `owner_settings.last_active_date`, `ai_provider_usage_events.failure_kind` |
 | 0019 | `0019_privacy_health_consent` | `owner_settings.health_consent_at`, `owner_settings.health_consent_version` (отдельное согласие на данные о здоровье); разовая очистка: текст закрытых черновиков, старые черновики и уточнения, usage events старше 30 и deliveries старше 90 дней |
+| 0020 | `0020_plan_drafts` | Черновики планов покупок |
+| 0021 | `0021_monthly_summary_weight_reminder` | Настройки месячной сводки и ежедневного напоминания |
+| 0022 | `0022_ai_oauth_sessions` | Одноразовые попытки OpenRouter OAuth |
+| 0023 | `0023_cloudflare_provider` | Допуск Cloudflare в ограничения списка провайдеров |
+| 0024 | `0024_summary_advice_cache` | Личный кэш советов сводки по владельцу и границам периода |
 
 Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах.
 

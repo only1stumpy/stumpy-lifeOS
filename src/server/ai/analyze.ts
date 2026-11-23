@@ -295,6 +295,39 @@ export async function answerLifeOSQuestion(
   return { answer, provider: config.provider, model: config.model };
 }
 
+/** Runs a strict JSON parser inside the configured BYOK fallback chain. */
+export async function completeConfiguredAiJson<T>(
+  selection: ProviderSelection,
+  systemPrompt: string,
+  userPrompt: string,
+  parse: (text: string) => T,
+): Promise<T> {
+  const providers = getProviderConfigsForSelection(selection);
+  if (providers.length === 0) {
+    throw new AIAnalysisError(
+      "not_configured",
+      aiErrorUserMessage("not_configured", "reference"),
+    );
+  }
+
+  const { value } = await runProviderChain(providers, selection, "reference", async (candidate, timeoutMs) => {
+    const text = await callOpenAICompatible(
+      candidate,
+      systemPrompt,
+      userPrompt,
+      undefined,
+      jsonResponseFormatFor(candidate),
+      timeoutMs,
+    );
+    try {
+      return parse(text);
+    } catch {
+      throw new ProviderFailure("invalid_response");
+    }
+  });
+  return value;
+}
+
 function providerFailureError(
   failures: ProviderFailureKind[],
   providers: AnalysisProvider[],

@@ -86,7 +86,7 @@ export function parseMinor(value: string): number {
  */
 export function convertToBaseMinor(amountMinor: number, currency: string, baseCurrency: string, rate: string | null): number {
   if (currency === baseCurrency) return amountMinor;
-  if (!rate || !/^\d+(\.\d{1,6})?$/.test(rate) || Number(rate) <= 0) throw new Error(`Для валюты ${currency} нужен ручной курс.`);
+  if (!rate || !/^\d+(\.\d{1,10})?$/.test(rate) || Number(rate) <= 0) throw new Error(`Для валюты ${currency} нужен ручной курс.`);
   const [whole, decimal = ""] = rate.split(".");
   const factor = 10n ** BigInt(decimal.length);
   const scaled = BigInt(whole) * factor + BigInt(decimal || "0");
