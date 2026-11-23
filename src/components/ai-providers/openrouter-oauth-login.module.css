@@ -1,0 +1,12 @@
+.root { display: grid; gap: 10px; }
+.note { margin: 0; color: #806f77; font-size: 13px; line-height: 1.45; }
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(145, 47, 55, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 235, 234, 0.58);
+  color: #852f38;
+  font-size: 14px;
+  line-height: 1.4;
+}

@@ -38,6 +38,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | `owner_settings` | Профиль: Telegram ID, часовой пояс (по умолчанию `Europe/Chisinau`), параметры профиля и цели, модули и функции, настройки уведомлений, основная валюта, флаги онбординга, версия политики и согласие, короткая история уточнения ИИ (30 минут) |
 | `ai_provider_profiles` | Прежняя таблица профилей ИИ-ключей (создана в `0003`, шифрованный ключ) |
 | `ai_provider_accounts` | Аккаунты провайдеров ИИ пользователя: endpoint, модель каталога, `encrypted_api_key` (AES-256-GCM) |
+| `ai_oauth_sessions` | Короткоживущие попытки входа через OpenRouter OAuth: хэш `state`, зашифрованный `code_verifier`, статус, TTL; ключ в таблице не хранится |
 | `ai_provider_model_selections` | Выбранные пользователем модели и порядок очереди; уникально `(owner_id, provider_id, model_id)` |
 | `ai_provider_usage_events` | События использования (аккаунт, модель, исход) для счётчиков за 24 часа; тексты запросов не хранятся |
 | `telegram_updates` | Принятые update: статус `received`/`processing`/`processed`/`failed`, число попыток, `last_error`; payload после обработки очищается |

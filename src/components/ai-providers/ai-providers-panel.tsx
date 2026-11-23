@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { Button, Checkbox, Chip, ChoiceCard, IconButton, Link, TextField } from "@/components/ui";
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
 import { useMotionVariants } from "@/components/motion/motion-system";
+import { OpenRouterLogin } from "./openrouter-oauth-login";
 import { ProviderBrandMark } from "./provider-brand-mark";
 import { clipboardKeyHints, readClipboardKey } from "./clipboard-key";
 import styles from "./ai-providers-panel.module.css";
@@ -308,6 +309,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const [wizardKey, setWizardKey] = useState("");
   const [pasteHint, setPasteHint] = useState("");
   const [wizardFreeConfirmed, setWizardFreeConfirmed] = useState(false);
+  const [openrouterManual, setOpenrouterManual] = useState(false);
   const [wizardConnected, setWizardConnected] = useState<{ name: string; models: number; images: boolean } | null>(null);
   const initialScreenChosenRef = useRef(false);
 
@@ -490,6 +492,13 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
     } finally {
       setBusyAction(null);
     }
+  };
+
+  const finishWizardOAuth = async () => {
+    setWizardFreeConfirmed(false);
+    await postAction({ action: "complete-onboarding" }).then(() => setOnboardingCompleted(true)).catch(() => undefined);
+    setScreen("welcome");
+    await reloadProviders();
   };
 
   const submitCustom = async (event: FormEvent<HTMLFormElement>) => {
@@ -886,23 +895,37 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
               </fieldset>
 
               <form className={styles.connectForm} onSubmit={submitWizardKey}>
-                <ol className={styles.wizardSteps}>
+                {(wizardProviderId !== "openrouter" || openrouterManual) && <ol className={styles.wizardSteps}>
                   {wizardCopy[wizardProviderId].steps.map((step) => <li key={step}>{step}</li>)}
-                </ol>
-                {wizardApiUrl && (
+                </ol>}
+                {wizardApiUrl && (wizardProviderId !== "openrouter" || openrouterManual) && (
                   <Link className={styles.apiLink} href={wizardApiUrl} external onClick={(event) => openProviderLink(event, wizardApiUrl)}>
                     Открыть {wizardCopy[wizardProviderId].site}
                     <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
                   </Link>
                 )}
-                <TextField label="Ключ" autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => { setWizardKey(event.target.value); setPasteHint(""); }} placeholder="Вставь скопированный ключ" required />
-                <Button variant="secondary" onClick={() => void pasteWizardKey()} disabled={busyAction !== null}>Вставить из буфера обмена</Button>
-                {pasteHint && <p className={styles.securityNote} role="status">{pasteHint}</p>}
+                {(wizardProviderId !== "openrouter" || openrouterManual) && (
+                  <>
+                    <TextField label="Ключ" autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => { setWizardKey(event.target.value); setPasteHint(""); }} placeholder="Вставь скопированный ключ" required />
+                    <Button variant="secondary" onClick={() => void pasteWizardKey()} disabled={busyAction !== null}>Вставить из буфера обмена</Button>
+                    {pasteHint && <p className={styles.securityNote} role="status">{pasteHint}</p>}
+                  </>
+                )}
                 <Checkbox className={styles.confirmation} checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} label={`Я на бесплатном тарифе и не привязывал карту к ${wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.`} />
-                <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
-                {formError && <p className={styles.error} role="alert">{formError}</p>}
-                {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметь галочку выше.</p>}
-                <Button variant="primary" size="lg" fullWidth type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</Button>
+                {wizardProviderId === "openrouter" && !openrouterManual ? (
+                  <>
+                    {formError && <p className={styles.error} role="alert">{formError}</p>}
+                    <OpenRouterLogin authorization={authorization} accountName={wizardProvider?.name ?? "OpenRouter"} confirmed={wizardFreeConfirmed} disabled={busyAction !== null} onConnected={finishWizardOAuth} />
+                    <Button variant="text" onClick={() => { setOpenrouterManual(true); setFormError(""); }} disabled={busyAction !== null}>или вставить ключ вручную</Button>
+                  </>
+                ) : (
+                  <>
+                  <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
+                  {formError && <p className={styles.error} role="alert">{formError}</p>}
+                  {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметь галочку выше.</p>}
+                  <Button variant="primary" size="lg" fullWidth type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</Button>
+                  </>
+                )}
               </form>
               {embedded
                 ? <Button variant="text" onClick={() => void completeOnboarding(true)} disabled={busyAction !== null}>Настрою позже</Button>
@@ -1026,7 +1049,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                       <div><p className={styles.eyebrow}>Новый аккаунт</p><h4>Проверить и подключить</h4></div>
                       <Button variant="text" onClick={() => { setConnectProviderId(null); setFormError(""); }} disabled={busyAction !== null}>Отмена</Button>
                     </div>
-                    {(activeProvider.id === "gemini" || activeProvider.id === "groq" || activeProvider.id === "openrouter") && (
+                    {(activeProvider.id === "gemini" || activeProvider.id === "groq" || (activeProvider.id === "openrouter" && openrouterManual)) && (
                       <details className={styles.keyHelp}>
                         <summary>Где взять ключ</summary>
                         <ol className={styles.wizardSteps}>
@@ -1036,7 +1059,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                       </details>
                     )}
                     <TextField label="Название аккаунта" autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required />
-                    <TextField label="API-ключ" autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required />
+                    {(activeProvider.id !== "openrouter" || openrouterManual) && <TextField label="API-ключ" autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required />}
                     {(activeProvider.id === "gemini" || activeProvider.id === "openrouter") && (
                       <p className={styles.securityNote} role="note">
                         {activeProvider.id === "gemini"
@@ -1045,9 +1068,20 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                       </p>
                     )}
                     <Checkbox className={styles.confirmation} checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} label={activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : activeProvider.id === "openrouter" ? "Я прочитал предупреждение и подключаю бесплатные модели. LifeOS не может проверить подписку или настройки оплаты аккаунта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."} />
-                    <p className={styles.securityNote}>Перед сохранением LifeOS проверит ключ коротким тестовым запросом. Он может использовать одну бесплатную квоту. Сам ключ после подключения не показывается.</p>
-                    {formError && <p className={styles.error} role="alert">{formError}</p>}
-                    <Button variant="primary" fullWidth type="submit" disabled={busyAction !== null || !providerFreeTierConfirmed}>{busyAction === `connect:${activeProvider.id}` ? "Проверяю ключ…" : "Проверить и подключить"}</Button>
+                    {activeProvider.id === "openrouter" && !openrouterManual ? (
+                      <>
+                        {formError && <p className={styles.error} role="alert">{formError}</p>}
+                        <OpenRouterLogin authorization={authorization} accountName={connectForm.name} confirmed={providerFreeTierConfirmed} disabled={busyAction !== null} onConnected={() => finishConnection("openrouter", connectForm.name.trim())} />
+                        <Button variant="text" onClick={() => { setOpenrouterManual(true); setFormError(""); }} disabled={busyAction !== null}>или вставить ключ вручную</Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className={styles.securityNote}>Перед сохранением LifeOS проверит ключ коротким тестовым запросом. Он может использовать одну бесплатную квоту. Сам ключ после подключения не показывается.</p>
+                        {formError && <p className={styles.error} role="alert">{formError}</p>}
+                        <Button variant="primary" fullWidth type="submit" disabled={busyAction !== null || !providerFreeTierConfirmed}>{busyAction === `connect:${activeProvider.id}` ? "Проверяю ключ…" : "Проверить и подключить"}</Button>
+                        {activeProvider.id === "openrouter" && <Button variant="text" onClick={() => setOpenrouterManual(false)} disabled={busyAction !== null}>Войти через OpenRouter</Button>}
+                      </>
+                    )}
                   </form>
                 )}
 

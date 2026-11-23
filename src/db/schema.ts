@@ -256,6 +256,30 @@ export const commandRequests = pgTable(
   ],
 );
 
+/** Short-lived PKCE login attempt (OpenRouter OAuth). The verifier is stored encrypted and never leaves the server. */
+export const aiOauthSessions = pgTable(
+  "ai_oauth_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    /** SHA-256 of the random `state` echoed back on the callback. */
+    stateHash: text("state_hash").notNull(),
+    encryptedCodeVerifier: text("encrypted_code_verifier").notNull(),
+    accountName: text("account_name").notNull(),
+    status: text("status").default("pending").notNull(),
+    error: text("error"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique("ai_oauth_sessions_state_hash_unique").on(table.stateHash),
+    index("ai_oauth_sessions_owner_created_idx").on(table.ownerId, table.createdAt),
+    check("ai_oauth_sessions_provider_valid", sql`${table.providerId} in ('openrouter')`),
+    check("ai_oauth_sessions_status_valid", sql`${table.status} in ('pending', 'exchanging', 'done', 'failed', 'cancelled')`),
+  ],
+);
+
 /** One row per confirmation action; a combined food + purchase capture shares this id. */
 export const captureDrafts = pgTable(
   "capture_drafts",
