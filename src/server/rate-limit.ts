@@ -12,6 +12,7 @@ export const RATE_LIMITS = {
   aiProviders: { bucket: "ai-providers", limit: 30, windowSeconds: 60, message: "Слишком много запросов к настройкам ИИ. Подожди минуту." },
   aiQuotas: { bucket: "ai-quotas", limit: 30, windowSeconds: 60, message: "Слишком много запросов лимитов. Подожди минуту." },
   export: { bucket: "export", limit: 5, windowSeconds: 3600, message: "Экспорт данных доступен не чаще пяти раз в час." },
+  summary: { bucket: "summary", limit: 1, windowSeconds: 30, message: "Сводку можно запросить раз в 30 секунд. Попробуй чуть позже." },
   admin: { bucket: "admin", limit: 60, windowSeconds: 60, message: "Слишком много запросов админ-панели. Подожди минуту." },
   telegramMessages: { bucket: "telegram-messages", limit: 60, windowSeconds: 60, message: "Слишком много сообщений подряд." },
   /** Global (all users together): caps how many new profiles open registration can create per hour. */

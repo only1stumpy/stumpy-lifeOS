@@ -8,6 +8,8 @@ import { AppError } from "@/server/http";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
 import { buildHelpSection, buildStartMessage, HELP_MENU_TEXT, helpSections, isHelpSectionId } from "@/domain/welcome";
 import { formatMoney, getAppUrl, isOwner } from "@/server/telegram/shared";
+import { sendRequestedSummary } from "@/server/telegram/notifications";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 
 export type CommandDeps = { sendExport: (telegramUserId: string) => Promise<void> };
 
@@ -81,6 +83,21 @@ export function registerCommands(bot: Bot<Context>, deps: CommandDeps): void {
   bot.command("today", async (ctx) => {
     if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
     await sendToday(ctx);
+  });
+
+  bot.command("summary", async (ctx) => {
+    if (!(await isOwner(ctx)) || ctx.chat?.type !== "private") return;
+    const period = ctx.match.trim() || "week";
+    if (period !== "day" && period !== "week" && period !== "month") {
+      await ctx.reply("Напиши /summary, /summary day, /summary week или /summary month.");
+      return;
+    }
+    try {
+      await enforceRateLimit(RATE_LIMITS.summary, ctx.from!.id);
+      await sendRequestedSummary(period);
+    } catch (error) {
+      await ctx.reply(error instanceof AppError ? error.message : "Не удалось отправить сводку. Попробуй позже.");
+    }
   });
 
   bot.command("export", async (ctx) => {
