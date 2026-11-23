@@ -24,8 +24,13 @@ const accountInputSchema = z.object({
   apiKey: z.string().trim().min(1).max(8_192),
   endpoint: z.string().trim().min(1).max(500).optional(),
   model: z.string().trim().min(1).max(200).optional(),
-  freeTierConfirmed: z.literal(true),
+  freeTierConfirmed: z.literal(true).optional(),
 }).strict().superRefine((input, context) => {
+  // OpenRouter is safe without the checkbox: its model list is filtered to zero-priced `:free` models only.
+  // Every other provider keeps the explicit confirmation (their keys do not reveal billing).
+  if (input.providerId !== "openrouter" && input.freeTierConfirmed !== true) {
+    context.addIssue({ code: "custom", message: "Подтверди бесплатный тариф.", path: ["freeTierConfirmed"] });
+  }
   if (input.providerId === "custom" && !input.model) {
     context.addIssue({ code: "custom", message: "Для расширенного endpoint укажи модель для тестового запроса.", path: ["model"] });
   }
@@ -193,7 +198,7 @@ export async function connectAiProviderAccount(ownerId: string, rawInput: unknow
       endpoint,
       authHeaderName: definition.authHeaderName,
       encryptedApiKey: encryptProviderApiKey(input.apiKey),
-      freeTierConfirmed: input.freeTierConfirmed,
+      freeTierConfirmed: input.providerId === "openrouter" || input.freeTierConfirmed === true,
       enabled: true,
       sortOrder,
       models,

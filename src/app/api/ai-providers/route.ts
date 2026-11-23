@@ -27,7 +27,7 @@ const actionSchema = z.discriminatedUnion("action", [
     apiKey: z.string().trim().min(1).max(8_192),
     endpoint: z.string().trim().min(1).max(500).optional(),
     model: z.string().trim().min(1).max(200).optional(),
-    freeTierConfirmed: z.literal(true),
+    freeTierConfirmed: z.literal(true).optional(),
   }).strict(),
   z.object({
     action: z.literal("set-model-queue"),
@@ -79,7 +79,7 @@ export async function POST(request: Request): Promise<Response> {
             providerId: input.providerId,
             name: input.name,
             apiKey: input.apiKey,
-            freeTierConfirmed: input.freeTierConfirmed,
+            ...(input.freeTierConfirmed ? { freeTierConfirmed: true } : {}),
             ...(input.endpoint ? { endpoint: input.endpoint } : {}),
             ...(input.model ? { model: input.model } : {}),
           });

@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 
 const startSchema = z.object({
   name: z.string().trim().min(1).max(80),
-  freeTierConfirmed: z.literal(true),
 }).strict();
 
 const noStore = { "Cache-Control": "no-store" };

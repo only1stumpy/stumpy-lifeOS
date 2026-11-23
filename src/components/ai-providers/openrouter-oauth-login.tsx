@@ -8,8 +8,6 @@ type Props = {
   /** `tma <initData>` header value of the Mini App session. */
   authorization: string;
   accountName: string;
-  /** The free-tier confirmation the host form already asks for. */
-  confirmed: boolean;
   disabled?: boolean;
   /** Called once the server has saved the new OpenRouter account. */
   onConnected: () => void | Promise<void>;
@@ -50,7 +48,7 @@ function openAuthPage(url: string, mode: "embedded" | "external"): void {
 }
 
 /** «Войти через OpenRouter»: the key is created and stored on the server, the Mini App only waits for the result. */
-export function OpenRouterLogin({ authorization, accountName, confirmed, disabled = false, onConnected }: Props) {
+export function OpenRouterLogin({ authorization, accountName, disabled = false, onConnected }: Props) {
   const [phase, setPhase] = useState<"idle" | "starting" | "waiting">("idle");
   const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -109,14 +107,13 @@ export function OpenRouterLogin({ authorization, accountName, confirmed, disable
     if (phase !== "idle" || disabled) return;
     const name = accountName.trim();
     if (!name) { setError("Укажи название аккаунта."); return; }
-    if (!confirmed) { setError("Подтверди условия бесплатного доступа выше."); return; }
     setError("");
     setPhase("starting");
     try {
       const response = await fetch(ENDPOINT, {
         method: "POST",
         headers: { Authorization: authorization, "Content-Type": "application/json" },
-        body: JSON.stringify({ name, freeTierConfirmed: true }),
+        body: JSON.stringify({ name }),
       });
       const body = await response.json().catch(() => null) as { id?: string; authUrl?: string; expiresAt?: string; error?: string } | null;
       if (!response.ok || !body?.id || !body.authUrl) throw new Error(body?.error || "Не удалось начать вход через OpenRouter. Можно вставить ключ вручную.");

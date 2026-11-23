@@ -48,7 +48,7 @@ type LoadState = "loading" | "ready" | "error";
 type Screen = "intro" | "key" | "providers" | "provider" | "models" | "queue" | "welcome";
 type WizardProviderId = "gemini" | "groq" | "openrouter";
 type ProviderActionPayload =
-  | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; freeTierConfirmed: true }
+  | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; freeTierConfirmed?: true }
   | { action: "connect"; providerId: "custom"; name: string; endpoint: string; model: string; apiKey: string; freeTierConfirmed: true }
   | { action: "set-model-queue"; models: QueueItem[] }
   | { action: "complete-onboarding" }
@@ -65,7 +65,7 @@ type AiProvidersPanelProps = {
   embedded?: boolean;
 };
 
-const providerOrder: ProviderId[] = ["gemini", "groq", "cerebras", "openrouter", "custom"];
+const providerOrder: ProviderId[] = ["openrouter", "gemini", "groq", "cerebras", "custom"];
 const providerCopy: Record<ProviderId, { mark: string | null; description: string }> = {
   gemini: { mark: null, description: "Google AI Studio · проверь, что ключ использует Free Tier." },
   groq: { mark: null, description: "Быстрые модели с бесплатной квотой." },
@@ -424,7 +424,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setFormError("Укажи название аккаунта и API-ключ.");
       return;
     }
-    if (!providerFreeTierConfirmed) {
+    if (connectProviderId !== "openrouter" && !providerFreeTierConfirmed) {
       setFormError("Подтверди условия бесплатного доступа и проверь настройки оплаты аккаунта.");
       return;
     }
@@ -438,7 +438,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
         providerId: connectProviderId,
         name,
         apiKey,
-        freeTierConfirmed: true,
+        ...(connectProviderId !== "openrouter" ? { freeTierConfirmed: true as const } : {}),
       });
       await finishConnection(connectProviderId, name);
     } catch (error) {
@@ -466,7 +466,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setFormError("Вставь ключ, который скопировал на сайте сервиса.");
       return;
     }
-    if (!wizardFreeConfirmed) {
+    if (wizardProviderId !== "openrouter" && !wizardFreeConfirmed) {
       setFormError("Отметь, что используешь бесплатный тариф.");
       return;
     }
@@ -474,7 +474,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
     setBusyAction("wizard-connect");
     setFormError("");
     try {
-      const result = await postAction({ action: "connect", providerId: wizardProviderId, name: providerName, apiKey, freeTierConfirmed: true });
+      const result = await postAction({ action: "connect", providerId: wizardProviderId, name: providerName, apiKey, ...(wizardProviderId !== "openrouter" ? { freeTierConfirmed: true as const } : {}) });
       const models = isObject(result) && Array.isArray(result.models) ? result.models : [];
       setWizardConnected({
         name: providerName,
@@ -911,20 +911,20 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     {pasteHint && <p className={styles.securityNote} role="status">{pasteHint}</p>}
                   </>
                 )}
-                <Checkbox className={styles.confirmation} checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} label={`Я на бесплатном тарифе и не привязывал карту к ${wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.`} />
+                {wizardProviderId !== "openrouter" && <Checkbox className={styles.confirmation} checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} label={`Я на бесплатном тарифе и не привязывал карту к ${wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.`} />}
                 {wizardProviderId === "openrouter" && <p className={styles.securityNote}>У бесплатных моделей OpenRouter лимит около 50 запросов в сутки на аккаунт (до 20 в минуту). Если понадобится больше, добавь ещё один сервис, например Gemini или Groq: LifeOS переключится на него, когда лимит закончится.</p>}
                 {wizardProviderId === "openrouter" && !openrouterManual ? (
                   <>
                     {formError && <p className={styles.error} role="alert">{formError}</p>}
-                    <OpenRouterLogin authorization={authorization} accountName={wizardProvider?.name ?? "OpenRouter"} confirmed={wizardFreeConfirmed} disabled={busyAction !== null} onConnected={finishWizardOAuth} />
+                    <OpenRouterLogin authorization={authorization} accountName={wizardProvider?.name ?? "OpenRouter"} disabled={busyAction !== null} onConnected={finishWizardOAuth} />
                     <Button variant="text" onClick={() => { setOpenrouterManual(true); setFormError(""); }} disabled={busyAction !== null}>или вставить ключ вручную</Button>
                   </>
                 ) : (
                   <>
                   <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
                   {formError && <p className={styles.error} role="alert">{formError}</p>}
-                  {!wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметь галочку выше.</p>}
-                  <Button variant="primary" size="lg" fullWidth type="submit" disabled={busyAction !== null || !wizardFreeConfirmed || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</Button>
+                  {wizardProviderId !== "openrouter" && !wizardFreeConfirmed && wizardKey.trim() && busyAction === null && <p className={styles.securityNote} role="status">Чтобы проверить ключ, отметь галочку выше.</p>}
+                  <Button variant="primary" size="lg" fullWidth type="submit" disabled={busyAction !== null || (wizardProviderId !== "openrouter" && !wizardFreeConfirmed) || !wizardKey.trim()}>{busyAction === "wizard-connect" ? "Проверяю ключ…" : "Проверить ключ"}</Button>
                   </>
                 )}
               </form>
@@ -1068,18 +1068,18 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                           : "Внимание: бесплатные модели OpenRouter могут передавать запросы своим провайдерам, которые вправе хранить их и использовать для обучения. Не отправляй туда персональные данные. Соблюдать условия OpenRouter и провайдеров моделей нужно тебе как владельцу ключа."}
                       </p>
                     )}
-                    <Checkbox className={styles.confirmation} checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} label={activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : activeProvider.id === "openrouter" ? "Я прочитал предупреждение и подключаю бесплатные модели. LifeOS не может проверить подписку или настройки оплаты аккаунта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."} />
+                    {activeProvider.id !== "openrouter" && <Checkbox className={styles.confirmation} checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} label={activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."} />}
                     {activeProvider.id === "openrouter" && !openrouterManual ? (
                       <>
                         {formError && <p className={styles.error} role="alert">{formError}</p>}
-                        <OpenRouterLogin authorization={authorization} accountName={connectForm.name} confirmed={providerFreeTierConfirmed} disabled={busyAction !== null} onConnected={() => finishConnection("openrouter", connectForm.name.trim())} />
+                        <OpenRouterLogin authorization={authorization} accountName={connectForm.name} disabled={busyAction !== null} onConnected={() => finishConnection("openrouter", connectForm.name.trim())} />
                         <Button variant="text" onClick={() => { setOpenrouterManual(true); setFormError(""); }} disabled={busyAction !== null}>или вставить ключ вручную</Button>
                       </>
                     ) : (
                       <>
                         <p className={styles.securityNote}>Перед сохранением LifeOS проверит ключ коротким тестовым запросом. Он может использовать одну бесплатную квоту. Сам ключ после подключения не показывается.</p>
                         {formError && <p className={styles.error} role="alert">{formError}</p>}
-                        <Button variant="primary" fullWidth type="submit" disabled={busyAction !== null || !providerFreeTierConfirmed}>{busyAction === `connect:${activeProvider.id}` ? "Проверяю ключ…" : "Проверить и подключить"}</Button>
+                        <Button variant="primary" fullWidth type="submit" disabled={busyAction !== null || (activeProvider.id !== "openrouter" && !providerFreeTierConfirmed)}>{busyAction === `connect:${activeProvider.id}` ? "Проверяю ключ…" : "Проверить и подключить"}</Button>
                         {activeProvider.id === "openrouter" && <Button variant="text" onClick={() => setOpenrouterManual(false)} disabled={busyAction !== null}>Войти через OpenRouter</Button>}
                       </>
                     )}

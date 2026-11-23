@@ -105,8 +105,8 @@ describe("согласие: сервер отвечает 403 без него, �
 });
 
 describe("провайдеры ИИ: бесплатный тариф подтверждается на сервере", () => {
-  test("connectAiProviderAccount отклоняет Gemini и OpenRouter без freeTierConfirmed до любых запросов к провайдеру", async () => {
-    for (const providerId of ["gemini", "openrouter"]) {
+  test("connectAiProviderAccount отклоняет Gemini и Groq без freeTierConfirmed (OpenRouter подтверждения не требует: каталог только бесплатный) до любых запросов к провайдеру", async () => {
+    for (const providerId of ["gemini", "groq"]) {
       await assert.rejects(
         connectAiProviderAccount(uuid(), { providerId, name: "Тест", apiKey: "k".repeat(20) }),
         (error: unknown) => error instanceof Error && error.name === "ZodError",

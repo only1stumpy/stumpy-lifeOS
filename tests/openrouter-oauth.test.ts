@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { after, afterEach, before, beforeEach, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
+import { connectAiProviderAccount } from "../src/server/ai/provider-accounts";
 import * as schema from "../src/db/schema";
 import {
   codeChallengeFor,
@@ -225,5 +226,29 @@ describe("OpenRouter OAuth PKCE", () => {
     assert.equal(bad.status, 400);
     assert.doesNotMatch(badHtml, /setTimeout\(lifeosBack,500\)/);
     assert.match(badHtml, /Закрыть и вернуться/);
+  });
+
+  test("OpenRouter без подтверждения тарифа: сохраняются только бесплатные модели, платные не попадают ни в каталог, ни в очередь", async () => {
+    provider.setHandler((request) => request.method === "GET"
+      ? { body: JSON.stringify({ data: [
+        { id: "meta/llama:free", name: "Free", pricing: { prompt: "0", completion: "0" } },
+        { id: "vendor/paid-model", name: "Paid", pricing: { prompt: "0.000001", completion: "0.000002" } },
+        { id: "vendor/trap:free", name: "Paid under a :free name", pricing: { prompt: "0.000001", completion: "0" } },
+        { id: "vendor/zero-but-not-free", name: "Zero price, no suffix", pricing: { prompt: "0", completion: "0" } },
+      ] }) }
+      : chatReply("OK"));
+    try {
+      const ownerId = await newOwner();
+      const { models } = await connectAiProviderAccount(ownerId, { providerId: "openrouter", name: "Без галочки", apiKey: "sk-or-v1-x" });
+      assert.deepEqual(models.map((model) => model.id), ["meta/llama:free"]);
+      const [account] = await accountRows(ownerId);
+      assert.deepEqual(account!.models.map((model) => model.id), ["meta/llama:free"]);
+      const queue = await db.select().from(schema.aiProviderModelSelections).where(eq(schema.aiProviderModelSelections.ownerId, ownerId));
+      assert.deepEqual(queue.map((item) => item.modelId), ["meta/llama:free"]);
+      const chats = provider.requests.filter((request) => request.method === "POST").map((request) => JSON.parse(request.body).model);
+      assert.ok(chats.every((model: string) => model === "meta/llama:free"), "тестовый запрос идёт только в бесплатную модель");
+    } finally {
+      provider.setHandler(okProvider);
+    }
   });
 });

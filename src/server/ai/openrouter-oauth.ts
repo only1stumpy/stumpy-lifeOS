@@ -123,7 +123,7 @@ export async function completeOpenRouterOAuth(params: { state: string | null; co
 
   try {
     // Same validation, free-model discovery and encryption as a manually pasted key.
-    await connectAiProviderAccount(claimed.ownerId, { providerId: "openrouter", name: claimed.accountName, apiKey, freeTierConfirmed: true });
+    await connectAiProviderAccount(claimed.ownerId, { providerId: "openrouter", name: claimed.accountName, apiKey });
   } catch (error) {
     return fail(error instanceof AppError ? error.message : "Ключ получен, но проверить и сохранить его не удалось.");
   }
