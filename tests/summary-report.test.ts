@@ -5,12 +5,80 @@ import { eq } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 import { buildPeriodReport, periodBounds } from "../src/domain/period-report";
 import { createCommandDb, newTelegramId, ownerOf, releaseCommandDb } from "./helpers/command-db";
-import { sendDailySummary, sendMonthlySummary, sendWeeklySummary, summaryKeyboard } from "../src/server/telegram/notifications";
+import { requestedSummaryPeriod, sendDailySummary, sendMonthlySummary, sendWeeklySummary, summaryKeyboard } from "../src/server/telegram/notifications";
 import { withTelegramUser } from "../src/server/owner-context";
 import { getBot, resetBotForTests } from "../src/server/telegram/client";
+import { createBotHarness } from "./helpers/bot-harness";
+import { buildHelpSection } from "../src/domain/welcome";
 
 const empty = { foods: [], money: [], weights: [], categories: [], sessions: [], sessionItems: [], sets: [], target: null };
 const base = { period: "week" as const, start: "2026-11-16", end: "2026-11-22", timeZone: "UTC", baseCurrency: "PRB", enabledModules: ["nutrition", "finance", "gym"], disabledFeatures: [], ...empty };
+
+test("ручной период: завершённые сутки, неделя и месяц в локальном поясе", () => {
+  assert.deepEqual(requestedSummaryPeriod("week", new Date("2026-11-23T00:30:00Z"), "Pacific/Auckland"), { start: "2026-11-16", end: "2026-11-22" });
+  assert.deepEqual(requestedSummaryPeriod("week", new Date("2026-11-23T00:30:00Z"), "America/Los_Angeles"), { start: "2026-11-09", end: "2026-11-15" });
+  assert.deepEqual(requestedSummaryPeriod("day", new Date("2027-01-01T00:30:00Z"), "America/Los_Angeles"), { start: "2026-12-30", end: "2026-12-30" });
+  assert.deepEqual(requestedSummaryPeriod("month", new Date("2028-03-01T00:30:00Z"), "Pacific/Auckland"), { start: "2028-02-01", end: "2028-02-29" });
+  assert.deepEqual(requestedSummaryPeriod("month", new Date("2028-03-01T00:30:00Z"), "America/Los_Angeles"), { start: "2028-01-01", end: "2028-01-31" });
+});
+
+test("/summary требует согласия, показывает данные своего периода, не занимает плановую доставку и ограничен частотой", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-23T12:00:00Z") });
+  const previousUrl = process.env.APP_URL;
+  const { db } = await createCommandDb();
+  const harness = await createBotHarness();
+  process.env.APP_URL = "https://preview.example.test/";
+  t.after(async () => {
+    await harness.close();
+    releaseCommandDb();
+    if (previousUrl === undefined) delete process.env.APP_URL;
+    else process.env.APP_URL = previousUrl;
+  });
+  const own = newTelegramId(), other = newTelegramId(), stranger = newTelegramId();
+  const owner = await ownerOf(db, own);
+  const foreign = await ownerOf(db, other);
+  await db.update(schema.ownerSettings).set({ timezone: "UTC", enabledModules: ["nutrition"] }).where(eq(schema.ownerSettings.id, owner.id));
+  await db.insert(schema.nutritionEntries).values([
+    { ownerId: owner.id, name: "Своя еда", portionLabel: "1", calories: "350", proteinGrams: "10", fatGrams: "2", carbsGrams: "50", occurredAt: new Date("2026-11-16T12:00:00Z") },
+    { ownerId: owner.id, name: "Вчера", portionLabel: "1", calories: "200", proteinGrams: "10", fatGrams: "2", carbsGrams: "50", occurredAt: new Date("2026-11-22T12:00:00Z") },
+    { ownerId: foreign.id, name: "Чужая еда", portionLabel: "1", calories: "999", proteinGrams: "10", fatGrams: "2", carbsGrams: "50", occurredAt: new Date("2026-11-16T12:00:00Z") },
+  ]);
+  const monday = Math.floor(new Date("2026-11-23T12:00:00Z").getTime() / 1000);
+  await harness.deliver(stranger, harness.messageUpdate(stranger, "/summary", monday));
+  assert.match(harness.sentTexts().at(-1)!, /принять условия/);
+  await db.update(schema.ownerSettings).set({ healthConsentVersion: null }).where(eq(schema.ownerSettings.id, owner.id));
+  await harness.deliver(own, harness.messageUpdate(own, "/summary", monday));
+  assert.match(harness.sentTexts().at(-1)!, /согласие/);
+  await db.update(schema.ownerSettings).set({ healthConsentVersion: owner.healthConsentVersion }).where(eq(schema.ownerSettings.id, owner.id));
+  harness.clearCalls();
+  await harness.deliver(own, harness.messageUpdate(own, "/summary", monday));
+  assert.match(harness.sentTexts()[0], /2026-11-16 — 2026-11-22/);
+  assert.match(harness.sentTexts()[0], /550 ккал/);
+  assert.doesNotMatch(harness.sentTexts()[0], /999 ккал/);
+  const markup = harness.callsTo("sendMessage")[0].payload.reply_markup as { inline_keyboard: { web_app?: { url: string } }[][] };
+  assert.equal(new URL(markup.inline_keyboard.flat().find((button) => button.web_app)!.web_app!.url).searchParams.get("start"), "2026-11-16");
+  assert.deepEqual(await db.select().from(schema.notificationDeliveries), []);
+  await harness.deliver(own, harness.messageUpdate(own, "/summary month", monday));
+  assert.match(harness.sentTexts().at(-1)!, /раз в 30 секунд/);
+  t.mock.timers.setTime(new Date("2026-11-23T12:00:31Z").getTime());
+  await harness.deliver(own, harness.messageUpdate(own, "/summary month", monday));
+  assert.match(harness.sentTexts().at(-1)!, /записей в твоих включённых разделах пока нет/);
+  t.mock.timers.setTime(new Date("2026-11-23T12:01:01Z").getTime());
+  await harness.deliver(own, harness.messageUpdate(own, "/summary day", monday));
+  assert.match(harness.sentTexts().at(-1)!, /за вчера · 2026-11-22/);
+  assert.match(harness.sentTexts().at(-1)!, /200 \/ /);
+  const dayMarkup = harness.callsTo("sendMessage").at(-1)!.payload.reply_markup as { inline_keyboard: { web_app?: { url: string } }[][] };
+  assert.equal(new URL(dayMarkup.inline_keyboard[0][0].web_app!.url).searchParams.get("period"), "day");
+  assert.equal(new URL(dayMarkup.inline_keyboard[0][0].web_app!.url).searchParams.get("start"), "2026-11-22");
+  t.mock.timers.setTime(new Date("2026-11-23T12:01:31Z").getTime());
+  await harness.deliver(own, harness.messageUpdate(own, "/summary nonsense", monday));
+  assert.match(harness.sentTexts().at(-1)!, /Напиши \/summary/);
+  assert.deepEqual(await db.select().from(schema.notificationDeliveries), []);
+  await withTelegramUser(own, () => sendWeeklySummary(new Date("2026-11-22T12:00:00Z"), "UTC"));
+  assert.equal((await db.select().from(schema.notificationDeliveries)).filter((row) => row.key === "weekly:2026-11-22").length, 1);
+  assert.match(harness.sentTexts().at(-1)!, /Вот как прошла неделя/);
+  assert.match(buildHelpSection("commands", { modules: ["nutrition"], features: [] })!, /\/summary/);
+});
 
 test("границы суток, недели и месяца строго календарные", () => {
   assert.deepEqual(periodBounds("week", "2026-11-16", "2026-11-23"), { start: "2026-11-16", end: "2026-11-22" });

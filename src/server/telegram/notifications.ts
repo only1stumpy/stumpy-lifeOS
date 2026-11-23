@@ -18,6 +18,37 @@ import { sendExportWithApi } from "@/server/telegram/export";
 import { formatMoney, formatSigned, round1 } from "@/server/telegram/shared";
 import { getAppUrl } from "@/server/telegram/shared";
 import { loadPeriodReport } from "@/server/period-report";
+import type { PeriodReport, ReportPeriod } from "@/domain/period-report";
+
+export function requestedSummaryPeriod(period: ReportPeriod, now: Date, timeZone: string): { start: string; end: string } {
+  const localToday = dateKey(now, timeZone);
+  const day = new Date(`${localToday}T12:00:00Z`);
+  if (period === "day") day.setUTCDate(day.getUTCDate() - 1);
+  if (period === "week") day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7) - 7);
+  if (period === "month") day.setUTCDate(0);
+  const date = day.toISOString().slice(0, 10);
+  return { start: period === "month" ? monthStart(date) : date, end: period === "week" ? new Date(day.getTime() + 6 * 86400000).toISOString().slice(0, 10) : date };
+}
+
+function hasPeriodData(report: PeriodReport): boolean {
+  return Boolean(report.nutrition?.loggedDays || report.weight?.points.length
+    || report.finance?.expenses.length || report.finance?.incomes.length || report.gym?.workouts || report.gym?.sets);
+}
+
+export async function sendRequestedSummary(period: ReportPeriod, now = new Date()): Promise<void> {
+  const owner = await ensureOwner();
+  const { start, end } = requestedSummaryPeriod(period, now, owner.timezone);
+  const report = await loadPeriodReport(period, start, now);
+  if (!hasPeriodData(report)) {
+    await sendOwnerMessage(`За ${start}${start === end ? "" : ` — ${end}`} записей в твоих включённых разделах пока нет.`);
+    return;
+  }
+  if (period === "day") {
+    await sendDailySummary(now, owner.timezone, start, true, report);
+  } else {
+    await sendPeriodSummary(now, owner.timezone, period, start, true);
+  }
+}
 
 export function summaryKeyboard(period: "day" | "week" | "month", start: string, existing?: InlineKeyboardMarkup): InlineKeyboardMarkup | undefined {
   const appUrl = getAppUrl();
@@ -110,23 +141,31 @@ export async function sendDueDebtReminder(
   return sendDeduplicatedOwnerNotification("debt:" + debtId + ":" + localDate, text);
 }
 
-export async function sendDailySummary(now: Date, timeZone: string): Promise<boolean> {
-  const today = dateKey(now, timeZone);
-  if (await isOwnerNotificationSent(`daily:${today}`)) return false;
+export async function sendDailySummary(now: Date, timeZone: string, date = dateKey(now, timeZone), manual = false, report?: PeriodReport): Promise<boolean> {
+  const today = date;
+  if (!manual && await isOwnerNotificationSent(`daily:${today}`)) return false;
   const snapshot = await loadSnapshot(today);
   const lines = [`Вот твоя сводка за сегодня · ${today}`];
   const modules = snapshot.settings.enabledModules;
   const nutritionOn = modules.includes("nutrition");
-  if (!nutritionOn && !modules.includes("finance")) return false;
+  if (!nutritionOn && !modules.includes("finance") && !manual) return false;
   const nutrition = snapshot.nutrition;
   if (nutritionOn) {
-    lines.push(`КБЖУ: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
-    lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
-    if (nutrition.target) lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+    if (manual && !report?.nutrition?.loggedDays) {
+      lines.push("Питание: записей за день нет");
+    } else {
+      lines.push(`КБЖУ: ${Math.round(nutrition.consumed.calories)} / ${nutrition.target ? Math.round(nutrition.target.calories) : "—"} ккал`);
+      lines.push(`Б ${Math.round(nutrition.consumed.proteinGrams)} · Ж ${Math.round(nutrition.consumed.fatGrams)} · У ${Math.round(nutrition.consumed.carbsGrams)} г`);
+      if (nutrition.target) lines.push(`До цели по калориям осталось ${Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories))} ккал`);
+    }
   }
   if (modules.includes("finance")) lines.push(`Расходы: ${formatMoney(snapshot.finance.spentTodayMinor, snapshot.settings.baseCurrency)}`);
+  if (manual && modules.includes("gym")) {
+    lines.push(`Тренировки: ${report!.gym!.workouts} · подходы: ${report!.gym!.sets}`);
+  }
+  if (manual && report?.weight?.points.length) lines.push(`Вес: ${round1(report.weight.last!)} кг`);
   const remaining = nutritionOn && nutrition.target ? Math.max(0, Math.round(nutrition.target.calories - nutrition.consumed.calories)) : 0;
-  if (remaining > 0) {
+  if (remaining > 0 && (!manual || report?.nutrition?.loggedDays)) {
     const owner = await ensureOwner();
     const suggestions = await getUsualFoodSuggestions(owner.id, remaining);
     if (suggestions.length) {
@@ -137,6 +176,11 @@ export async function sendDailySummary(now: Date, timeZone: string): Promise<boo
     } else {
       lines.push("Пока не нашёл знакомых блюд для подсказки. Повторяющиеся блюда можно сохранить как обычную порцию.");
     }
+  }
+  if (manual) {
+    lines[0] = `Вот твоя сводка за вчера · ${today}`;
+    await sendOwnerMessage(lines.join("\n"), summaryKeyboard("day", today));
+    return true;
   }
   return sendDeduplicatedOwnerNotification(`daily:${today}`, lines.join("\n"), summaryKeyboard("day", today));
 }
@@ -244,10 +288,10 @@ export async function sendMonthlySummary(now: Date, timeZone: string): Promise<b
   return sendPeriodSummary(now, timeZone, "month", monthStart(localToday));
 }
 
-async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "month", weekStart: string): Promise<boolean> {
-  const localToday = dateKey(now, timeZone);
+async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "month", weekStart: string, manual = false): Promise<boolean> {
+  const localToday = manual ? (await loadPeriodReport(period, weekStart, now)).end : dateKey(now, timeZone);
   const key = `${period === "week" ? "weekly" : "monthly"}:${localToday}`;
-  if (await isOwnerNotificationSent(key)) return false;
+  if (!manual && await isOwnerNotificationSent(key)) return false;
   const owner = await ensureOwner();
   const [report, weights] = await Promise.all([
     loadPeriodReport(period, weekStart, now),
@@ -284,7 +328,12 @@ async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "
     currentTarget ? macroValues(currentTarget) : null,
   );
   if (period === "week" && weightOn && recalculation.line) text.push("", recalculation.line);
-  return sendDeduplicatedOwnerNotification(key, text.join("\n"), summaryKeyboard(period, weekStart, period === "week" && weightOn ? recalculation.keyboard : undefined));
+  const keyboard = summaryKeyboard(period, weekStart, period === "week" && weightOn ? recalculation.keyboard : undefined);
+  if (manual) {
+    await sendOwnerMessage(text.join("\n"), keyboard);
+    return true;
+  }
+  return sendDeduplicatedOwnerNotification(key, text.join("\n"), keyboard);
 }
 
 /** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */
