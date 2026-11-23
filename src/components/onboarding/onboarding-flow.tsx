@@ -94,6 +94,11 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
     return list;
   }, [modules, skipAccount, sectionSetup]);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
+  // The choice of sections changes how many steps follow, so the first screen is not counted: numbering starts after it
+  // and its total stays put until the answers about accounts change it.
+  const countedOffset = steps[0] === "modules" ? 1 : 0;
+  const countedStep = Math.min(stepIndex, steps.length - 1) + 1 - countedOffset;
+  const countedTotal = steps.length - countedOffset;
   // The step before the AI one is where the answers are saved.
   const isLastDataStep = stepIndex >= steps.length - (sectionSetup ? 1 : 2);
 
@@ -225,8 +230,8 @@ export function OnboardingFlow({ snapshot, pending, error, onSubmit, renderAiSte
     <main className={styles.page} ref={rootRef}>
       <div className={styles.inner}>
         <header className={styles.header}>
-          <p className={styles.progress}>Шаг {Math.min(stepIndex, steps.length - 1) + 1} из {steps.length}</p>
-          <div className={styles.bar} aria-hidden="true"><span style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} /></div>
+          <p className={styles.progress}>{step === "modules" ? "Знакомство" : `Шаг ${countedStep} из ${countedTotal}`}</p>
+          <div className={styles.bar} aria-hidden="true" style={step === "modules" ? { visibility: "hidden" } : undefined}><span style={{ width: `${(countedStep / countedTotal) * 100}%` }} /></div>
         </header>
 
         {step === "modules" && (
