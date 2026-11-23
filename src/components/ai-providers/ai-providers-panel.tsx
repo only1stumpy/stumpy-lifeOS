@@ -6,6 +6,7 @@ import { Button, Checkbox, Chip, ChoiceCard, IconButton, Link, TextField } from 
 import { ProviderProfilesSkeleton } from "@/components/loading/loading-skeletons";
 import { useMotionVariants } from "@/components/motion/motion-system";
 import { ProviderBrandMark } from "./provider-brand-mark";
+import { clipboardKeyHints, readClipboardKey } from "./clipboard-key";
 import styles from "./ai-providers-panel.module.css";
 
 type ProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "custom";
@@ -305,6 +306,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const [wizardProviderId, setWizardProviderId] = useState<WizardProviderId>("gemini");
   const [wizardShowOthers, setWizardShowOthers] = useState(false);
   const [wizardKey, setWizardKey] = useState("");
+  const [pasteHint, setPasteHint] = useState("");
   const [wizardFreeConfirmed, setWizardFreeConfirmed] = useState(false);
   const [wizardConnected, setWizardConnected] = useState<{ name: string; models: number; images: boolean } | null>(null);
   const initialScreenChosenRef = useRef(false);
@@ -443,6 +445,16 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setBusyAction(null);
     }
   };
+
+  const pasteWizardKey = useCallback(async () => {
+    const result = await readClipboardKey();
+    if (result.status === "ok") {
+      setWizardKey(result.text);
+      setPasteHint("");
+    } else {
+      setPasteHint(clipboardKeyHints[result.status]);
+    }
+  }, []);
 
   const submitWizardKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -883,7 +895,9 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3H3.75A1.75 1.75 0 0 0 2 4.75v7.5A1.75 1.75 0 0 0 3.75 14h7.5A1.75 1.75 0 0 0 13 12.25V10M8 2h6v6M14 2 7 9" /></svg>
                   </Link>
                 )}
-                <TextField label="Ключ" autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => setWizardKey(event.target.value)} placeholder="Вставь скопированный ключ" required />
+                <TextField label="Ключ" autoComplete="new-password" name="apiKey" type="password" value={wizardKey} onChange={(event) => { setWizardKey(event.target.value); setPasteHint(""); }} placeholder="Вставь скопированный ключ" required />
+                <Button variant="secondary" onClick={() => void pasteWizardKey()} disabled={busyAction !== null}>Вставить из буфера обмена</Button>
+                {pasteHint && <p className={styles.securityNote} role="status">{pasteHint}</p>}
                 <Checkbox className={styles.confirmation} checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} label={`Я на бесплатном тарифе и не привязывал карту к ${wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.`} />
                 <p className={styles.securityNote}>LifeOS проверит ключ одним коротким запросом и сам выберет подходящие модели.</p>
                 {formError && <p className={styles.error} role="alert">{formError}</p>}

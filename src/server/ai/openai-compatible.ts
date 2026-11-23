@@ -23,6 +23,8 @@ export type OpenAICompatibleCompletionInput = {
   image?: OpenAICompatibleImage;
   responseFormat?: "json_object" | "text";
   timeoutMs?: number;
+  /** Called with the lowercase response headers of any completed HTTP response (success or error). */
+  onResponseHeaders?: (headers: Record<string, string>) => void;
 };
 
 export type AiProviderFailureKind = AiProviderTransportFailureKind;
@@ -78,7 +80,7 @@ export async function completeOpenAICompatible(
     payload.response_format = { type: "json_object" };
   }
 
-  let response: { status: number; body: string };
+  let response: { status: number; body: string; headers: Record<string, string> };
   try {
     response = await safeHttpsPost(config.endpoint, config.apiKey, payload, {
       timeoutMs: input.timeoutMs,
@@ -88,6 +90,8 @@ export async function completeOpenAICompatible(
     if (error instanceof SafeHttpsError) throw new AiProviderTransportError(error.kind);
     throw new AiProviderTransportError("unavailable");
   }
+
+  try { input.onResponseHeaders?.(response.headers); } catch { /* observers must not break completions */ }
 
   if (response.status < 200 || response.status >= 300) {
     throw new AiProviderTransportError(classifyOpenAICompatibleFailure(response.status, response.body));
