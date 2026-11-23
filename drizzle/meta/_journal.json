@@ -169,6 +169,13 @@
       "when": 1795422178036,
       "tag": "0023_cloudflare_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795433094606,
+      "tag": "0024_summary_advice_cache",
+      "breakpoints": true
     }
   ]
 }

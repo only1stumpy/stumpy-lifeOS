@@ -5,7 +5,7 @@ import type { MacroValues } from "@/domain/types";
 import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { debtReminderHeadline } from "@/domain/debts";
-import { dateKey, sumMacros, convertToBaseMinor } from "@/domain/math";
+import { dateKey } from "@/domain/math";
 import { isLastDayOfMonth, monthStart } from "@/domain/notifications";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
@@ -16,6 +16,17 @@ import { currentTelegramUserId } from "@/server/owner-context";
 import { getBot } from "@/server/telegram/client";
 import { sendExportWithApi } from "@/server/telegram/export";
 import { formatMoney, formatSigned, round1 } from "@/server/telegram/shared";
+import { getAppUrl } from "@/server/telegram/shared";
+import { loadPeriodReport } from "@/server/period-report";
+
+export function summaryKeyboard(period: "day" | "week" | "month", start: string, existing?: InlineKeyboardMarkup): InlineKeyboardMarkup | undefined {
+  const appUrl = getAppUrl();
+  if (!appUrl) return existing;
+  const url = new URL("/summary", appUrl);
+  url.searchParams.set("period", period);
+  url.searchParams.set("start", start);
+  return new InlineKeyboard([...(existing?.inline_keyboard ?? []), [{ text: "Открыть сводку", web_app: { url: url.toString() } }]]);
+}
 
 export async function sendExportToChat(telegramUserId: string): Promise<void> {
   await sendExportWithApi(getBot().api, telegramUserId);
@@ -127,7 +138,7 @@ export async function sendDailySummary(now: Date, timeZone: string): Promise<boo
       lines.push("Пока не нашёл знакомых блюд для подсказки. Повторяющиеся блюда можно сохранить как обычную порцию.");
     }
   }
-  return sendDeduplicatedOwnerNotification(`daily:${today}`, lines.join("\n"));
+  return sendDeduplicatedOwnerNotification(`daily:${today}`, lines.join("\n"), summaryKeyboard("day", today));
 }
 
 type FoodPortionCandidate = {
@@ -238,52 +249,28 @@ async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "
   const key = `${period === "week" ? "weekly" : "monthly"}:${localToday}`;
   if (await isOwnerNotificationSent(key)) return false;
   const owner = await ensureOwner();
-  const [foods, money, sessions, weights, sets] = await Promise.all([
-    getDb().select().from(schema.nutritionEntries).where(eq(schema.nutritionEntries.ownerId, owner.id)),
-    getDb().select().from(schema.financeEntries).where(eq(schema.financeEntries.ownerId, owner.id)),
-    getDb().select().from(schema.workoutSessions).where(eq(schema.workoutSessions.ownerId, owner.id)),
+  const [report, weights] = await Promise.all([
+    loadPeriodReport(period, weekStart, now),
     getDb().select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id)),
-    getDb().select().from(schema.workoutSets).where(eq(schema.workoutSets.ownerId, owner.id)),
   ]);
-  const isThisPeriod = (date: Date) => {
-    const local = dateKey(date, timeZone);
-    return local >= weekStart && local <= localToday;
-  };
-  const weeklyFoods = foods.filter((entry) => isThisPeriod(entry.occurredAt));
-  const macros = sumMacros(weeklyFoods.map((entry) => ({
-    calories: Number(entry.calories),
-    proteinGrams: Number(entry.proteinGrams),
-    fatGrams: Number(entry.fatGrams),
-    carbsGrams: Number(entry.carbsGrams),
-  })));
-  const loggedDays = new Set(weeklyFoods.map((entry) => dateKey(entry.occurredAt, timeZone)));
-  const weeklySpending = money
-    .filter((entry) => entry.entryType === "expense" && isThisPeriod(entry.occurredAt))
-    .reduce((sum, entry) => sum + convertToBaseMinor(
-      Math.round(Number(entry.amount) * 100),
-      entry.currency,
-      owner.baseCurrency ?? entry.currency,
-      entry.rateToBase,
-    ), 0);
-  const completedWorkouts = sessions.filter((session) => session.status === "completed" && session.completedAt && isThisPeriod(session.completedAt)).length;
-  const completedSets = sets.filter((set) => set.isCompleted && set.completedAt && isThisPeriod(set.completedAt)).length;
-  const weeklyWeights = weights
-    .filter((entry) => isThisPeriod(entry.occurredAt))
-    .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
-  const weightLine = weeklyWeights.length < 2
-    ? weeklyWeights.length === 1 ? `Вес: ${round1(Number(weeklyWeights[0].weightKg))} кг · одна запись ${period === "week" ? "за неделю" : "за месяц"}` : `Вес: записей ${period === "week" ? "на этой неделе" : "в этом месяце"} нет`
-    : `Вес: ${round1(Number(weeklyWeights[0].weightKg))} → ${round1(Number(weeklyWeights[weeklyWeights.length - 1].weightKg))} кг (${formatSigned(Number(weeklyWeights[weeklyWeights.length - 1].weightKg) - Number(weeklyWeights[0].weightKg))} кг)`;
+  const nutrition = report.nutrition;
+  const weight = report.weight;
+  const weightLine = weight?.first === null
+    ? `Вес: записей ${period === "week" ? "на этой неделе" : "в этом месяце"} нет`
+    : weight?.points.length === 1
+      ? `Вес: ${round1(weight.first!)} кг · одна запись ${period === "week" ? "за неделю" : "за месяц"}`
+      : weight ? `Вес: ${round1(weight.first!)} → ${round1(weight.last!)} кг (${formatSigned(weight.change!)} кг)` : "";
   const modules = normalizeModules(owner.enabledModules);
   const nutritionOn = modules.includes("nutrition");
   const weightOn = resolveFeatures(modules, owner.disabledFeatures).includes("nutrition.weight");
   const text = [
     `${period === "week" ? "Вот как прошла неделя" : "Вот как прошёл месяц"} · ${weekStart} — ${localToday}`,
     ...(nutritionOn ? [
-      `Питание: ${Math.round(macros.calories)} ккал · Б ${Math.round(macros.proteinGrams)} · Ж ${Math.round(macros.fatGrams)} · У ${Math.round(macros.carbsGrams)} г суммарно`,
-      loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : `Питание: записей за ${period === "week" ? "неделю" : "месяц"} нет`,
+      `Питание: ${Math.round(nutrition!.total.calories)} ккал · Б ${Math.round(nutrition!.total.proteinGrams)} · Ж ${Math.round(nutrition!.total.fatGrams)} · У ${Math.round(nutrition!.total.carbsGrams)} г суммарно`,
+      nutrition!.loggedDays ? `Среднее: ${Math.round(nutrition!.average.calories)} ккал за ${nutrition!.loggedDays} дн. с записями` : `Питание: записей за ${period === "week" ? "неделю" : "месяц"} нет`,
     ] : []),
-    ...(modules.includes("finance") ? [`Расходы: ${formatMoney(weeklySpending, owner.baseCurrency ?? "")}`] : []),
-    ...(modules.includes("gym") ? [`Тренировки: ${completedWorkouts} · подходы: ${completedSets}`] : []),
+    ...(modules.includes("finance") ? [`Расходы: ${formatMoney(report.finance!.expenseMinor, owner.baseCurrency ?? "")}`] : []),
+    ...(modules.includes("gym") ? [`Тренировки: ${report.gym!.workouts} · подходы: ${report.gym!.sets}`] : []),
     ...(weightOn ? [weightLine] : []),
   ];
   const [currentTarget] = await getDb().select().from(schema.nutritionTargets)
@@ -297,7 +284,7 @@ async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "
     currentTarget ? macroValues(currentTarget) : null,
   );
   if (period === "week" && weightOn && recalculation.line) text.push("", recalculation.line);
-  return sendDeduplicatedOwnerNotification(key, text.join("\n"), period === "week" && weightOn ? recalculation.keyboard : undefined);
+  return sendDeduplicatedOwnerNotification(key, text.join("\n"), summaryKeyboard(period, weekStart, period === "week" && weightOn ? recalculation.keyboard : undefined));
 }
 
 /** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */

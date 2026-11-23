@@ -22,6 +22,7 @@ const PORT = process.env.MINIAPP_SHOTS_PORT ?? "3197";
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 
 const args = process.argv.slice(2);
+const summaryOnly = args.includes("--summary-only");
 const labelIndex = args.indexOf("--label");
 const label = labelIndex >= 0 ? args[labelIndex + 1] ?? "before" : "before";
 const positional = args.filter((value, index) => !value.startsWith("--") && index !== labelIndex + 1);
@@ -256,6 +257,15 @@ async function main() {
   const users = await seed();
   mainUser = users.main;
   await start();
+
+  if (summaryOnly) {
+    const today = new Date().toISOString().slice(0, 10);
+    await send("Page.navigate", { url: `${ORIGIN}/summary?period=day&start=${today}#tgWebAppData=${encodeURIComponent(signedInitData(Number(users.main)))}` });
+    if (!(await until(async () => (await textOf()).includes("Советы недоступны"), 25_000))) throw new Error(`Страница сводки не открылась: ${(await textOf()).slice(0, 500)}`);
+    await shot("summary-report-390x844", false);
+    console.log(`Готово: ${taken.length} снимок в ${outDir}`);
+    return;
+  }
 
   if (!(await openAs(users.main, /Сегодня/))) throw new Error(`Mini App не открылась:\n${(await textOf()).slice(0, 600)}`);
   await wait(800);

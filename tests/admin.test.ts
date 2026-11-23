@@ -196,6 +196,7 @@ test("админ-бот: чужому молчание, админу ответ 
 
 test("обзор и повтор failed: без идентификаторов, повтор возвращает только свежие update", async (t) => {
   isolate(t);
+  mock.method(globalThis, "fetch", async () => Response.json({ workflow_runs: [] }));
   const { db } = await createCommandDb();
   const owner = await ownerOf(db, newTelegramId());
   await db.insert(schema.telegramUpdates).values([

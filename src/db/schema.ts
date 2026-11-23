@@ -242,6 +242,23 @@ export const notificationDeliveries = pgTable(
   ],
 );
 
+/** Owner-scoped, validated AI advice for one completed or in-progress summary window. */
+export const summaryAdviceCache = pgTable(
+  "summary_advice_cache",
+  {
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    start: date("start", { mode: "string" }).notNull(),
+    end: date("end", { mode: "string" }).notNull(),
+    advice: jsonb("advice").$type<{ items: string[] }>().notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ name: "summary_advice_cache_pk", columns: [table.ownerId, table.period, table.start, table.end] }),
+    check("summary_advice_cache_period_valid", sql`${table.period} in ('day', 'week', 'month')`),
+  ],
+);
+
 /** Request ids of manual saves: a repeated request with the same id is a no-op instead of a second record. */
 export const commandRequests = pgTable(
   "command_requests",
