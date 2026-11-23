@@ -1,3 +1,4 @@
+import { rankAiModels } from "@/domain/ai-model-ranking";
 import { AppError } from "@/server/http";
 import { classifyOpenAICompatibleFailure, completeOpenAICompatible } from "./openai-compatible";
 import { safeHttpsGet, SafeHttpsError } from "./safe-fetch";
@@ -148,7 +149,7 @@ export async function discoverFreeModels(
       ? "Каталог не вернул модели. Проверь совместимость endpoint и путь /models."
       : "Нет подходящих моделей: каталог провайдера не вернул бесплатных текстовых моделей для этого ключа. Проверь, что ключ создан на бесплатном тарифе, или выбери другого провайдера.");
   }
-  return models.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  return rankAiModels(providerId, models);
 }
 
 /** A single short completion validates model access before any credential is stored. */

@@ -30,21 +30,18 @@ const telegramWebApp = (): TelegramWebApp | undefined => (window as Window & { T
 
 /**
  * The single place that decides how the login page is opened (revert here to change it).
- * "embedded": window.open, which Telegram clients usually show in their in-app browser; if it is blocked
- * or throws, fall back to openLink. "external": openLink, documented as the external browser.
- * Telegram documents no in-app option, so "embedded" is an experiment; Google/GitHub sign-in may refuse such views.
+ * window.open first: Telegram clients usually show it in their in-app browser. If it is blocked, throws or
+ * does not exist (outside Telegram), fall back to openLink, documented as the external browser.
+ * Google/GitHub sign-in may refuse in-app browsers (disallowed_useragent); the manual key stays as the way out.
  */
-function openAuthPage(url: string, mode: "embedded" | "external"): void {
-  const webApp = telegramWebApp();
-  if (mode === "embedded") {
-    try {
-      if (window.open(url, "_blank")) return;
-    } catch { /* fall back to openLink */ }
-  }
+function openAuthPage(url: string): void {
   try {
+    if (window.open(url, "_blank")) return;
+  } catch { /* fall back to openLink */ }
+  try {
+    const webApp = telegramWebApp();
     if (webApp?.openLink) { webApp.openLink(url, { try_instant_view: false }); return; }
-  } catch { /* fall through to a normal tab */ }
-  window.open(url, "_blank", "noopener,noreferrer");
+  } catch { /* nothing else to try */ }
 }
 
 /** «Войти через OpenRouter»: the key is created and stored on the server, the Mini App only waits for the result. */
@@ -103,7 +100,7 @@ export function OpenRouterLogin({ authorization, accountName, disabled = false, 
     };
   }, [phase, poll]);
 
-  const start = async (mode: "embedded" | "external") => {
+  const start = async () => {
     if (phase !== "idle" || disabled) return;
     const name = accountName.trim();
     if (!name) { setError("Укажи название аккаунта."); return; }
@@ -120,7 +117,7 @@ export function OpenRouterLogin({ authorization, accountName, disabled = false, 
       attempt.current = { id: body.id, expiresAt: Date.parse(body.expiresAt ?? "") || Date.now() + 10 * 60 * 1000 };
       timer.current = setInterval(() => void poll(), POLL_MS);
       setPhase("waiting");
-      openAuthPage(body.authUrl, mode);
+      openAuthPage(body.authUrl);
     } catch (caught) {
       stop();
       setPhase("idle");
@@ -130,7 +127,7 @@ export function OpenRouterLogin({ authorization, accountName, disabled = false, 
 
   return (
     <div className={styles.root}>
-      <Button variant="primary" size="lg" fullWidth onClick={() => void start("embedded")} disabled={disabled || phase !== "idle"}>
+      <Button variant="primary" size="lg" fullWidth onClick={() => void start()} disabled={disabled || phase !== "idle"}>
         {phase === "starting" ? "Открываю OpenRouter…" : phase === "waiting" ? "Жду подтверждения…" : "Войти через OpenRouter"}
       </Button>
       <p className={styles.note}>
@@ -138,7 +135,6 @@ export function OpenRouterLogin({ authorization, accountName, disabled = false, 
           ? "Войди в OpenRouter в браузере и разреши доступ: на странице «Готово» нажми «Закрыть и вернуться». Здесь всё обновится само."
           : "Откроется сайт OpenRouter. LifeOS получит обычный API-ключ и сохранит его зашифрованным; пароль OpenRouter приложению не передаётся."}
       </p>
-      {phase === "idle" && <Button variant="text" onClick={() => void start("external")} disabled={disabled}>Открыть во внешнем браузере</Button>}
       {phase === "waiting" && <Button variant="text" onClick={() => { stop(); setPhase("idle"); }}>Отменить ожидание</Button>}
       {error && <p className={styles.error} role="alert">{error}</p>}
     </div>
