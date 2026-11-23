@@ -13,6 +13,8 @@
  * Provider rules (higher family score first):
  *  - gemini: pro (3) > flash (2) > flash-lite (1); newer first.
  *  - groq: gpt-oss, llama-4, llama-3.3, qwen (2) > everything else, e.g. 8b-instant (1); then version and size.
+ *  - cloudflare: vision first (the free catalog is fixed, context is unknown), then gpt-oss, llama-4, llama-3.3,
+ *    mistral-small (2) > everything else (1); then version and size.
  *  - openrouter (`:free`): bigger context first, then version, then size.
  *  - custom: nothing is known about the provider, only the vision flag and a stable id order.
  */
@@ -22,7 +24,7 @@ export type RankableModel = {
   contextLength: number | null;
 };
 
-type RankProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "custom";
+type RankProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "cloudflare" | "custom";
 
 type ProviderRule = {
   /** Parse version, size and context at all (false = vision flag and id order only). */
@@ -44,6 +46,11 @@ const PROVIDER_RULES: Record<RankProviderId, ProviderRule> = {
     family: (name) => /gpt-oss|llama-4|llama-3\.3|qwen/.test(name) ? 2 : 1,
   },
   cerebras: { inspectId: true, contextFirst: false, family: () => 0 },
+  cloudflare: {
+    inspectId: true,
+    contextFirst: false,
+    family: (name) => /gpt-oss|llama-4|llama-3\.3|mistral-small/.test(name) ? 2 : 1,
+  },
   openrouter: { inspectId: true, contextFirst: true, family: () => 0 },
   custom: { inspectId: false, contextFirst: false, family: () => 0 },
 };

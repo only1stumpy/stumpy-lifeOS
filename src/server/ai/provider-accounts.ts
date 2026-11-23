@@ -9,6 +9,7 @@ import { decryptProviderApiKey, encryptProviderApiKey, type AiProviderConfig } f
 import {
   AI_PROVIDER_IDS,
   assertAiProviderCanConnect,
+  cloudflareEndpoint,
   discoverFreeModels,
   getAiProviderDefinition,
   listAiProviderDefinitions,
@@ -25,12 +26,17 @@ const accountInputSchema = z.object({
   apiKey: z.string().trim().min(1).max(8_192),
   endpoint: z.string().trim().min(1).max(500).optional(),
   model: z.string().trim().min(1).max(200).optional(),
+  /** Cloudflare only; not a secret, kept inside the stored endpoint URL. */
+  cloudflareAccountId: z.string().trim().max(64).optional(),
   freeTierConfirmed: z.literal(true).optional(),
 }).strict().superRefine((input, context) => {
   // OpenRouter is safe without the checkbox: its model list is filtered to zero-priced `:free` models only.
   // Every other provider keeps the explicit confirmation (their keys do not reveal billing).
   if (input.providerId !== "openrouter" && input.freeTierConfirmed !== true) {
     context.addIssue({ code: "custom", message: "Подтверди бесплатный тариф.", path: ["freeTierConfirmed"] });
+  }
+  if (input.providerId === "cloudflare" && !input.cloudflareAccountId) {
+    context.addIssue({ code: "custom", message: "Укажи Account ID Cloudflare.", path: ["cloudflareAccountId"] });
   }
   if (input.providerId === "custom" && !input.model) {
     context.addIssue({ code: "custom", message: "Для расширенного endpoint укажи модель для тестового запроса.", path: ["model"] });
@@ -175,7 +181,9 @@ export async function connectAiProviderAccount(ownerId: string, rawInput: unknow
   if (existing.length >= MAX_ACCOUNTS_PER_USER) throw new AppError(400, "Достигнут лимит аккаунтов ИИ-провайдеров.");
 
   let endpoint = definition.endpoint;
-  if (input.providerId === "custom") {
+  if (input.providerId === "cloudflare") {
+    endpoint = cloudflareEndpoint(input.cloudflareAccountId ?? "");
+  } else if (input.providerId === "custom") {
     if (!input.endpoint) throw new AppError(400, "Для совместимого endpoint нужен HTTPS URL.");
     endpoint = (await validateAiProviderEndpoint(input.endpoint)).endpoint;
   }

@@ -10,7 +10,7 @@ import { ProviderBrandMark } from "./provider-brand-mark";
 import { clipboardKeyHints, readClipboardKey } from "./clipboard-key";
 import styles from "./ai-providers-panel.module.css";
 
-type ProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "custom";
+type ProviderId = "gemini" | "groq" | "cerebras" | "openrouter" | "cloudflare" | "custom";
 type StandardProviderId = Exclude<ProviderId, "custom">;
 
 type ProviderAccount = {
@@ -42,13 +42,13 @@ type AiProvider = {
 };
 
 type QueueItem = { providerId: ProviderId; modelId: string };
-type ConnectForm = { name: string; apiKey: string };
+type ConnectForm = { name: string; apiKey: string; cloudflareAccountId: string };
 type CustomForm = { name: string; endpoint: string; model: string; apiKey: string };
 type LoadState = "loading" | "ready" | "error";
 type Screen = "intro" | "key" | "providers" | "provider" | "models" | "queue" | "welcome";
 type WizardProviderId = "gemini" | "groq" | "openrouter";
 type ProviderActionPayload =
-  | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; freeTierConfirmed?: true }
+  | { action: "connect"; providerId: StandardProviderId; name: string; apiKey: string; cloudflareAccountId?: string; freeTierConfirmed?: true }
   | { action: "connect"; providerId: "custom"; name: string; endpoint: string; model: string; apiKey: string; freeTierConfirmed: true }
   | { action: "set-model-queue"; models: QueueItem[] }
   | { action: "complete-onboarding" }
@@ -65,12 +65,13 @@ type AiProvidersPanelProps = {
   embedded?: boolean;
 };
 
-const providerOrder: ProviderId[] = ["openrouter", "gemini", "groq", "cerebras", "custom"];
+const providerOrder: ProviderId[] = ["openrouter", "gemini", "groq", "cerebras", "cloudflare", "custom"];
 const providerCopy: Record<ProviderId, { mark: string | null; description: string }> = {
   gemini: { mark: null, description: "Google AI Studio · проверь, что ключ использует Free Tier." },
   groq: { mark: null, description: "Быстрые модели с бесплатной квотой." },
   cerebras: { mark: null, description: "Каталог моделей Cerebras." },
   openrouter: { mark: null, description: "Каталог бесплатных моделей с суффиксом :free." },
+  cloudflare: { mark: null, description: "Workers AI · 10 000 Neurons в сутки без карты." },
   custom: { mark: "API", description: "Свой OpenAI-compatible endpoint. Подключай только модель с нулевой стоимостью." },
 };
 
@@ -79,6 +80,7 @@ const providerApiKeyPages: Record<StandardProviderId, string> = {
   groq: "https://console.groq.com/keys",
   cerebras: "https://cloud.cerebras.ai/",
   openrouter: "https://openrouter.ai/settings/keys",
+  cloudflare: "https://dash.cloudflare.com/profile/api-tokens",
 };
 
 const providerBrandClasses: Record<StandardProviderId, string> = {
@@ -86,7 +88,14 @@ const providerBrandClasses: Record<StandardProviderId, string> = {
   groq: styles.brandGroq,
   cerebras: styles.brandCerebras,
   openrouter: styles.brandOpenrouter,
+  cloudflare: styles.brandCloudflare,
 };
+
+const cloudflareSteps = [
+  "Открой Cloudflare по кнопке ниже и зарегистрируйся по почте: карта и телефон не нужны.",
+  "Account ID: в дашборде нажми три точки рядом с названием аккаунта и выбери «Copy account ID» (32 символа). Он же есть в адресной строке: dash.cloudflare.com/<Account ID>/…",
+  "Токен: «My Profile → API Tokens → Create Token», шаблон «Workers AI» (или права Workers AI Read и Edit). Скопируй токен сразу — второй раз он не показывается.",
+];
 
 /** First-run wizard copy: one recommended service first, plain steps instead of provider settings. */
 const wizardProviderOrder: WizardProviderId[] = ["openrouter", "gemini", "groq"];
@@ -126,7 +135,7 @@ const customKeySteps = [
   "В документации сервиса найди базовый адрес API (например, https://…/v1), он начинается с https://. Туда же дописывать /chat/completions не нужно.",
   "Выбери модель с нулевой стоимостью и впиши её точное название.",
 ];
-const emptyConnect: ConnectForm = { name: "", apiKey: "" };
+const emptyConnect: ConnectForm = { name: "", apiKey: "", cloudflareAccountId: "" };
 const emptyCustom: CustomForm = { name: "", endpoint: "", model: "", apiKey: "" };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -424,6 +433,11 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
       setFormError("Укажи название аккаунта и API-ключ.");
       return;
     }
+    const cloudflareAccountId = connectForm.cloudflareAccountId.trim();
+    if (connectProviderId === "cloudflare" && !/^[0-9a-f]{32}$/i.test(cloudflareAccountId)) {
+      setFormError("Account ID Cloudflare — это 32 символа 0–9 и a–f. Скопируй его из дашборда целиком.");
+      return;
+    }
     if (connectProviderId !== "openrouter" && !providerFreeTierConfirmed) {
       setFormError("Подтверди условия бесплатного доступа и проверь настройки оплаты аккаунта.");
       return;
@@ -438,6 +452,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
         providerId: connectProviderId,
         name,
         apiKey,
+        ...(connectProviderId === "cloudflare" ? { cloudflareAccountId } : {}),
         ...(connectProviderId !== "openrouter" ? { freeTierConfirmed: true as const } : {}),
       });
       await finishConnection(connectProviderId, name);
@@ -1059,16 +1074,30 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                         {activeProviderApiUrl && <Link className={styles.apiLink} href={activeProviderApiUrl} external onClick={(event) => openProviderLink(event, activeProviderApiUrl)}>Открыть {wizardCopy[activeProvider.id].site}</Link>}
                       </details>
                     )}
+                    {activeProvider.id === "cloudflare" && (
+                      <details className={styles.keyHelp}>
+                        <summary>Где взять Account ID и токен</summary>
+                        <ol className={styles.wizardSteps}>
+                          {cloudflareSteps.map((step) => <li key={step}>{step}</li>)}
+                        </ol>
+                        {activeProviderApiUrl && <Link className={styles.apiLink} href={activeProviderApiUrl} external onClick={(event) => openProviderLink(event, activeProviderApiUrl)}>Открыть Cloudflare</Link>}
+                      </details>
+                    )}
                     <TextField label="Название аккаунта" autoComplete="organization" name="accountName" value={connectForm.name} onChange={(event) => setConnectForm((current) => ({ ...current, name: event.target.value }))} placeholder="Например, личный аккаунт" maxLength={80} required />
                     {(activeProvider.id !== "openrouter" || openrouterManual) && <TextField label="API-ключ" autoComplete="new-password" name="apiKey" type="password" value={connectForm.apiKey} onChange={(event) => setConnectForm((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Вставь ключ провайдера" required />}
-                    {(activeProvider.id === "gemini" || activeProvider.id === "openrouter") && (
+                    {activeProvider.id === "cloudflare" && (
+                      <TextField label="Account ID" hint="32 символа из дашборда Cloudflare. Это не секрет, но привязан к твоему аккаунту." autoComplete="off" name="cloudflareAccountId" inputMode="text" spellCheck={false} value={connectForm.cloudflareAccountId} onChange={(event) => setConnectForm((current) => ({ ...current, cloudflareAccountId: event.target.value }))} placeholder="32 символа 0–9 и a–f" maxLength={64} required />
+                    )}
+                    {(activeProvider.id === "gemini" || activeProvider.id === "openrouter" || activeProvider.id === "cloudflare") && (
                       <p className={styles.securityNote} role="note">
-                        {activeProvider.id === "gemini"
+                        {activeProvider.id === "cloudflare"
+                          ? "Внимание: бесплатно только 10 000 Neurons в сутки (сброс в 00:00 UTC), после лимита запросы падают, а не списываются. Модели Kimi, GLM-5.x и DeepSeek-V4 работают только на платном Workers Paid и здесь не предлагаются. Если ты подключил Workers Paid, расходы на твоём аккаунте. Запросы обрабатывает Cloudflare по своим условиям: не отправляй персональные данные."
+                          : activeProvider.id === "gemini"
                           ? "Внимание: на бесплатном тарифе Gemini API Google может использовать запросы для улучшения своих продуктов, и их могут читать люди. Google просит не отправлять туда персональные данные. Gemini API разрешён только с 18 лет; в EEA, Швейцарии и Великобритании бесплатный тариф не предоставляется. Соблюдать условия провайдера нужно тебе как владельцу ключа."
                           : "Внимание: бесплатные модели OpenRouter могут передавать запросы своим провайдерам, которые вправе хранить их и использовать для обучения. Не отправляй туда персональные данные. Соблюдать условия OpenRouter и провайдеров моделей нужно тебе как владельцу ключа."}
                       </p>
                     )}
-                    {activeProvider.id !== "openrouter" && <Checkbox className={styles.confirmation} checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} label={activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."} />}
+                    {activeProvider.id !== "openrouter" && <Checkbox className={styles.confirmation} checked={providerFreeTierConfirmed} onChange={(event) => setProviderFreeTierConfirmed(event.target.checked)} label={activeProvider.id === "cloudflare" ? "Я прочитал предупреждение и использую бесплатный план Workers AI. LifeOS не может проверить, подключён ли у меня Workers Paid." : activeProvider.id === "gemini" ? "Я прочитал предупреждение и подтверждаю Free Tier. LifeOS не может проверить настройки биллинга проекта." : "Подтверждаю бесплатный план. LifeOS не может проверить подписку или настройки оплаты аккаунта."} />}
                     {activeProvider.id === "openrouter" && !openrouterManual ? (
                       <>
                         {formError && <p className={styles.error} role="alert">{formError}</p>}

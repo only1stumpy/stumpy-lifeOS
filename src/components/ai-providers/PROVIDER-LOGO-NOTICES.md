@@ -2,11 +2,12 @@
 
 - Google Gemini: Simple Icons, `icons/googlegemini.svg` (CC0 1.0), https://github.com/simple-icons/simple-icons.
 - OpenRouter: Simple Icons, `icons/openrouter.svg` (CC0 1.0), https://github.com/simple-icons/simple-icons.
+- Cloudflare: Simple Icons, `icons/cloudflare.svg` (CC0 1.0), https://github.com/simple-icons/simple-icons.
 - Groq: LobeHub `lobe-icons`, `packages/static-svg/icons/groq.svg`, commit `8b7bbc433d38437fa2b0cca58ae896917162b812`, https://github.com/lobehub/lobe-icons.
 
 The LobeHub mark is distributed under the MIT License. The license text is reproduced below as required:
 
-Trademarks: Gemini, Google, Groq, OpenRouter and the names of other providers and their logos are trademarks of their respective owners. They are shown only to identify the provider whose API the user connects. LifeOS is not affiliated with, sponsored by or endorsed by any of these companies, and the logo licenses above cover only the image files, not the marks themselves. The Cerebras logo was removed because that provider is not connectable.
+Trademarks: Gemini, Google, Groq, OpenRouter, Cloudflare and the names of other providers and their logos are trademarks of their respective owners. They are shown only to identify the provider whose API the user connects. LifeOS is not affiliated with, sponsored by or endorsed by any of these companies, and the logo licenses above cover only the image files, not the marks themselves. The Cerebras logo was removed because that provider is not connectable.
 
 ```text
 MIT License

@@ -1,0 +1,4 @@
+ALTER TABLE "ai_provider_accounts" DROP CONSTRAINT "ai_provider_accounts_provider_valid";--> statement-breakpoint
+ALTER TABLE "ai_provider_model_selections" DROP CONSTRAINT "ai_provider_model_selections_provider_valid";--> statement-breakpoint
+ALTER TABLE "ai_provider_accounts" ADD CONSTRAINT "ai_provider_accounts_provider_valid" CHECK ("ai_provider_accounts"."provider_id" in ('gemini', 'groq', 'cerebras', 'openrouter', 'cloudflare', 'custom'));--> statement-breakpoint
+ALTER TABLE "ai_provider_model_selections" ADD CONSTRAINT "ai_provider_model_selections_provider_valid" CHECK ("ai_provider_model_selections"."provider_id" in ('gemini', 'groq', 'cerebras', 'openrouter', 'cloudflare', 'custom'));

@@ -96,6 +96,17 @@ describe("предвыбор для нового аккаунта", () => {
     const ranked = rankAiModels("groq", [m("llama-3.3-70b-versatile"), m("openai/gpt-oss-120b"), m("qwen/qwen3-32b"), m("llama-3.1-8b-instant"), m("whisper-large-v3")]);
     assert.deepEqual(defaultPreselection(ranked), ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "openai/gpt-oss-120b"]);
   });
+  test("cloudflare: vision первыми, затем сильные семейства", () => {
+    const ranked = rankAiModels("cloudflare", [
+      m("@cf/meta/llama-3.1-8b-instruct"), m("@cf/openai/gpt-oss-20b"), m("@cf/meta/llama-3.2-11b-vision-instruct", true),
+      m("@cf/meta/llama-3.3-70b-instruct-fp8-fast"), m("@cf/mistralai/mistral-small-3.1-24b-instruct", true),
+      m("@cf/meta/llama-4-scout-17b-16e-instruct", true), m("@cf/openai/gpt-oss-120b"),
+    ]);
+    assert.deepEqual(ids(ranked), [
+      "@cf/meta/llama-4-scout-17b-16e-instruct", "@cf/mistralai/mistral-small-3.1-24b-instruct", "@cf/meta/llama-3.2-11b-vision-instruct",
+      "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/openai/gpt-oss-120b", "@cf/openai/gpt-oss-20b", "@cf/meta/llama-3.1-8b-instruct",
+    ]);
+  });
   test("если подходящих нет, остаётся одна модель, чтобы очередь не была пустой", () => {
     assert.deepEqual(defaultPreselection(rankAiModels("custom", [m("whisper-1"), m("tts-1")])), ["tts-1"]);
   });

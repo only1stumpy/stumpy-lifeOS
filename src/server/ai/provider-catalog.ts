@@ -3,7 +3,7 @@ import { AppError } from "@/server/http";
 import { classifyOpenAICompatibleFailure, completeOpenAICompatible } from "./openai-compatible";
 import { safeHttpsGet, SafeHttpsError } from "./safe-fetch";
 
-export const AI_PROVIDER_IDS = ["openrouter", "gemini", "groq", "cerebras", "custom"] as const;
+export const AI_PROVIDER_IDS = ["openrouter", "gemini", "groq", "cerebras", "cloudflare", "custom"] as const;
 export type AiProviderId = typeof AI_PROVIDER_IDS[number];
 
 export type AiProviderCatalogModel = {
@@ -33,11 +33,43 @@ export type AiProviderDefinition = {
 // Gemini and Groq do not publish pricing in their model lists, so free-tier candidates are matched by family
 // pattern instead of a fixed id list: text chat models of the current flash/open-weight families, minus
 // preview, specialised (tts, image, live, embedding, guard, whisper) and paid-only tiers.
-const freeTierModelPatterns: Record<Exclude<AiProviderId, "custom" | "openrouter">, RegExp> = {
+const freeTierModelPatterns: Record<Exclude<AiProviderId, "custom" | "openrouter" | "cloudflare">, RegExp> = {
   gemini: /^gemini-\d+(\.\d+)?-flash(-lite)?$/,
   groq: /^(openai\/gpt-oss-\d+b|qwen\/qwen[\d.]+-\d+b|llama-[\d.]+-\d+b-instant)$/,
   cerebras: /^(gpt-oss-\d+b|qwen-[\d.]+-\d+b)$/,
 };
+
+/** Cloudflare Account ID is a 32-character hex string (REST guide: copy "Account ID" from the dashboard). */
+export const CLOUDFLARE_ACCOUNT_ID_PATTERN = /^[0-9a-f]{32}$/i;
+
+export function normalizeCloudflareAccountId(value: string): string {
+  const id = value.trim().toLowerCase();
+  if (!CLOUDFLARE_ACCOUNT_ID_PATTERN.test(id)) {
+    throw new AppError(400, "Account ID Cloudflare — это 32 символа 0–9 и a–f. Скопируй его из дашборда Cloudflare целиком.");
+  }
+  return id;
+}
+
+/** OpenAI-compatible base URL of one account; `/chat/completions` is appended by the transport. */
+export function cloudflareEndpoint(accountId: string): string {
+  return `https://api.cloudflare.com/client/v4/accounts/${normalizeCloudflareAccountId(accountId)}/ai/v1`;
+}
+
+/**
+ * Cloudflare publishes no model-list endpoint we could confirm, so the catalog is a fixed list of text models
+ * that appear in the documented price table and are not marked as Workers-Paid-only (2026-11-23). Image input
+ * is claimed only where the model page says the model is multimodal. Paid-only models (Kimi, GLM-5.x, DeepSeek-V4,
+ * Inkling) are deliberately absent: they answer 403 on the free plan.
+ */
+export const CLOUDFLARE_FREE_MODELS: readonly AiProviderCatalogModel[] = [
+  { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", name: "Llama 3.3 70B", supportsImages: false },
+  { id: "@cf/openai/gpt-oss-120b", name: "gpt-oss 120B", supportsImages: false },
+  { id: "@cf/openai/gpt-oss-20b", name: "gpt-oss 20B", supportsImages: false },
+  { id: "@cf/meta/llama-3.1-8b-instruct", name: "Llama 3.1 8B", supportsImages: false },
+  { id: "@cf/meta/llama-3.2-11b-vision-instruct", name: "Llama 3.2 11B Vision", supportsImages: true },
+  { id: "@cf/mistralai/mistral-small-3.1-24b-instruct", name: "Mistral Small 3.1 24B", supportsImages: true },
+  { id: "@cf/meta/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout 17B", supportsImages: true },
+].map((model) => ({ ...model, contextLength: null, freeRequestsPerDay: null, freeRequestsPerMinute: null, freeTokensPerMinute: null }));
 
 const definitions: AiProviderDefinition[] = [
   {
@@ -87,6 +119,17 @@ const definitions: AiProviderDefinition[] = [
     description: "Не подходит под режим без карты: пробный доступ требует платёжный метод и действует 30 дней.",
   },
   {
+    id: "cloudflare",
+    name: "Cloudflare Workers AI",
+    endpoint: "",
+    modelsEndpoint: () => "",
+    authHeaderName: "authorization",
+    supportsImages: true,
+    connectable: true,
+    connectionBlockReason: null,
+    description: "Текст и фото · 10 000 Neurons в сутки без карты · нужен Account ID",
+  },
+  {
     id: "custom",
     name: "OpenAI-compatible",
     endpoint: "",
@@ -120,6 +163,7 @@ export async function discoverFreeModels(
 ): Promise<AiProviderCatalogModel[]> {
   const provider = getAiProviderDefinition(providerId);
   assertAiProviderCanConnect(provider);
+  if (providerId === "cloudflare") return CLOUDFLARE_FREE_MODELS.map((model) => ({ ...model }));
   const url = provider.modelsEndpoint(endpoint);
   let response;
   try {
@@ -178,7 +222,8 @@ export async function testProviderModel(
       ? error.kind
       : "other";
     const failure = kind as Parameters<typeof messageForTransportError>[0];
-    throw new AppError(statusForTransportFailure(failure), `Проверка ключа не прошла: ${messageForTransportError(failure)}.`);
+    const reason = providerId === "cloudflare" ? cloudflareFailureMessage(failure) : messageForTransportError(failure);
+    throw new AppError(statusForTransportFailure(failure), `Проверка ключа не прошла: ${reason}.`);
   }
 }
 
@@ -194,6 +239,8 @@ export function normalizeProviderModel(providerId: AiProviderId, value: unknown)
   const rawId = typeof model.id === "string" ? model.id : typeof model.name === "string" ? model.name : "";
   const id = rawId.replace(/^models\//, "");
   if (!id || id.length > 200) return [];
+
+  if (providerId === "cloudflare") return [];
 
   if (providerId === "openrouter") {
     const pricing = recordAt(model, "pricing");
@@ -283,6 +330,13 @@ function messageForTransportError(kind: string): string {
   if (kind === "unavailable") return "API провайдера сейчас недоступен, это не ошибка ключа. Повтори через минуту";
   if (kind === "invalid_response") return "провайдер вернул непонятный ответ";
   return "API провайдера не ответил на проверку";
+}
+
+/** 401/403 on Cloudflare also means "model needs Workers Paid", so the text names every likely cause. */
+export function cloudflareFailureMessage(kind: string): string {
+  if (kind === "configuration") return "Cloudflare отклонил запрос: проверь Account ID, что у токена есть право Workers AI и что модель доступна на бесплатном плане (часть моделей работает только на Workers Paid)";
+  if (kind === "quota_exceeded") return "дневной лимит 10 000 Neurons исчерпан, он сбрасывается в 00:00 UTC";
+  return messageForTransportError(kind);
 }
 
 function statusForTransportFailure(kind: string): number {
