@@ -30,9 +30,19 @@ type TelegramWebApp = {
 };
 const telegramWebApp = (): TelegramWebApp | undefined => (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
 
-/** Telegram has no in-app browser option for openLink (only Instant View), so the login opens externally. */
-function openExternal(url: string): void {
+/**
+ * The single place that decides how the login page is opened (revert here to change it).
+ * "embedded": window.open, which Telegram clients usually show in their in-app browser; if it is blocked
+ * or throws, fall back to openLink. "external": openLink, documented as the external browser.
+ * Telegram documents no in-app option, so "embedded" is an experiment; Google/GitHub sign-in may refuse such views.
+ */
+function openAuthPage(url: string, mode: "embedded" | "external"): void {
   const webApp = telegramWebApp();
+  if (mode === "embedded") {
+    try {
+      if (window.open(url, "_blank")) return;
+    } catch { /* fall back to openLink */ }
+  }
   try {
     if (webApp?.openLink) { webApp.openLink(url, { try_instant_view: false }); return; }
   } catch { /* fall through to a normal tab */ }
@@ -95,7 +105,7 @@ export function OpenRouterLogin({ authorization, accountName, confirmed, disable
     };
   }, [phase, poll]);
 
-  const start = async () => {
+  const start = async (mode: "embedded" | "external") => {
     if (phase !== "idle" || disabled) return;
     const name = accountName.trim();
     if (!name) { setError("Укажи название аккаунта."); return; }
@@ -113,7 +123,7 @@ export function OpenRouterLogin({ authorization, accountName, confirmed, disable
       attempt.current = { id: body.id, expiresAt: Date.parse(body.expiresAt ?? "") || Date.now() + 10 * 60 * 1000 };
       timer.current = setInterval(() => void poll(), POLL_MS);
       setPhase("waiting");
-      openExternal(body.authUrl);
+      openAuthPage(body.authUrl, mode);
     } catch (caught) {
       stop();
       setPhase("idle");
@@ -123,14 +133,15 @@ export function OpenRouterLogin({ authorization, accountName, confirmed, disable
 
   return (
     <div className={styles.root}>
-      <Button variant="primary" size="lg" fullWidth onClick={() => void start()} disabled={disabled || phase !== "idle"}>
+      <Button variant="primary" size="lg" fullWidth onClick={() => void start("embedded")} disabled={disabled || phase !== "idle"}>
         {phase === "starting" ? "Открываю OpenRouter…" : phase === "waiting" ? "Жду подтверждения…" : "Войти через OpenRouter"}
       </Button>
       <p className={styles.note}>
         {phase === "waiting"
-          ? "Войди в OpenRouter в браузере и разреши доступ: страница сама вернёт тебя в LifeOS. Если не вернула, переключись в Telegram, здесь всё обновится."
+          ? "Войди в OpenRouter в браузере и разреши доступ: на странице «Готово» нажми «Закрыть и вернуться». Здесь всё обновится само."
           : "Откроется сайт OpenRouter. LifeOS получит обычный API-ключ и сохранит его зашифрованным; пароль OpenRouter приложению не передаётся."}
       </p>
+      {phase === "idle" && <Button variant="text" onClick={() => void start("external")} disabled={disabled}>Открыть во внешнем браузере</Button>}
       {phase === "waiting" && <Button variant="text" onClick={() => { stop(); setPhase("idle"); }}>Отменить ожидание</Button>}
       {error && <p className={styles.error} role="alert">{error}</p>}
     </div>

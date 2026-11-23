@@ -214,14 +214,16 @@ describe("OpenRouter OAuth PKCE", () => {
     const ok = await callbackGet(new Request(`https://lifeos.example/api/ai/oauth/openrouter/callback?code=c&state=${stateOf(authUrl)}`));
     const okHtml = await ok.text();
     assert.equal(ok.status, 200);
+    assert.match(okHtml, /window\.close\(\)/);
     assert.match(okHtml, /location\.href="https:\/\/t\.me\/lifeos_preview_bot\?startapp=oauth"/);
-    assert.match(okHtml, /class="back" href="https:\/\/t\.me\/lifeos_preview_bot\?startapp=oauth">Вернуться в LifeOS/);
+    assert.match(okHtml, /setTimeout\(lifeosBack,500\)/);
+    assert.match(okHtml, /class="back" href="https:\/\/t\.me\/lifeos_preview_bot\?startapp=oauth" onclick="return lifeosBack\(\)">Закрыть и вернуться/);
     assert.doesNotMatch(okHtml, /secret-oauth-key/);
 
     const bad = await callbackGet(new Request("https://lifeos.example/api/ai/oauth/openrouter/callback?code=c&state=forged"));
     const badHtml = await bad.text();
     assert.equal(bad.status, 400);
-    assert.doesNotMatch(badHtml, /<script>/);
-    assert.match(badHtml, /Вернуться в LifeOS/);
+    assert.doesNotMatch(badHtml, /setTimeout\(lifeosBack,500\)/);
+    assert.match(badHtml, /Закрыть и вернуться/);
   });
 });
