@@ -16,6 +16,7 @@ import {
   type AiProviderId,
 } from "./provider-catalog";
 import { validateAiProviderEndpoint } from "./safe-fetch";
+import { getObservedLimits, getOpenRouterKeyInfo, type KeyCreditInfo, type ObservedLimitsEntry } from "./provider-limits";
 
 const accountInputSchema = z.object({
   providerId: z.enum(AI_PROVIDER_IDS),
@@ -61,7 +62,11 @@ export type ProviderAccountUsageDto = {
   providerId: AiProviderId;
   providerName: string;
   accountName: string;
+  /** Real key-level limits from the provider (OpenRouter `/key`); null = provider does not expose them. */
+  keyLimits: KeyCreditInfo | null;
   models: Array<{
+    /** Real limits from provider response headers of recent LifeOS requests; null = not reported / not seen yet. */
+    providerLimits: ObservedLimitsEntry | null;
     modelId: string;
     modelName: string;
     requestCount24h: number;
@@ -383,16 +388,26 @@ export async function getAiProviderUsage(ownerId: string): Promise<ProviderAccou
       .where(and(eq(schema.aiProviderUsageEvents.ownerId, ownerId), gte(schema.aiProviderUsageEvents.occurredAt, since)))
       .groupBy(schema.aiProviderUsageEvents.accountId, schema.aiProviderUsageEvents.modelId),
   ]);
-  return accounts.map((account) => {
+  const keyLimits = await Promise.all(accounts.map(async (account) => {
+    if (account.providerId !== "openrouter") return null;
+    try {
+      return await getOpenRouterKeyInfo(account.id, decryptProviderApiKey(account.encryptedApiKey));
+    } catch {
+      return null;
+    }
+  }));
+  return accounts.map((account, accountIndex) => {
     const definition = getAiProviderDefinition(account.providerId as AiProviderId);
     return {
       accountId: account.id,
       providerId: account.providerId as AiProviderId,
       providerName: definition.name,
       accountName: account.name,
+      keyLimits: keyLimits[accountIndex] ?? null,
       models: account.models.map((model) => {
         const row = usage.find((value) => value.accountId === account.id && value.modelId === model.id);
         return {
+          providerLimits: getObservedLimits(account.id, model.id),
           modelId: model.id,
           modelName: model.name,
           requestCount24h: row?.requests ?? 0,

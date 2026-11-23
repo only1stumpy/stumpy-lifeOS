@@ -15,6 +15,7 @@ import { normalizeClarificationHistory, resolveMoneyClarification } from "./clar
 import { aiErrorUserMessage } from "./error-copy";
 import { completeOpenAICompatible, AiProviderTransportError } from "./openai-compatible";
 import { recordAiProviderUsage } from "./provider-accounts";
+import { parseRateLimitHeaders, recordObservedLimits } from "./provider-limits";
 import type { AiProviderConfig } from "./provider-profiles";
 
 const MAX_TEXT_LENGTH = 8_000;
@@ -575,6 +576,9 @@ async function callOpenAICompatible(
         image,
         responseFormat,
         timeoutMs,
+        onResponseHeaders: config.accountId
+          ? (headers) => recordObservedLimits(config.accountId!, config.model, parseRateLimitHeaders(headers))
+          : undefined,
       },
     );
   } catch (error) {

@@ -12,7 +12,11 @@ import styles from "./ai-quotas-panel.module.css";
 
 type AiQuotasPanelProps = { initData: string; onClose(): void };
 type LoadState = "loading" | "ready" | "error";
+type LimitWindow = { limit: number | null; remaining: number | null; resetSeconds: number | null };
+type ProviderLimits = { requests: LimitWindow | null; tokens: LimitWindow | null; retryAfterSeconds: number | null; observedAt: string };
+type KeyLimits = { creditLimit: number | null; creditRemaining: number | null; usage: number | null; isFreeTier: boolean | null; observedAt: string };
 type ProviderUsageModel = {
+  providerLimits: ProviderLimits | null;
   modelId: string;
   modelName: string;
   requestCount24h: number;
@@ -26,6 +30,7 @@ type ProviderUsage = {
   providerId: string;
   providerName: string;
   accountName: string;
+  keyLimits: KeyLimits | null;
   models: ProviderUsageModel[];
 };
 type QuotaResponse = { providers: ProviderUsage[]; legacyGemini: AiQuotaSnapshot | null };
@@ -51,12 +56,29 @@ function isQuotaSnapshot(value: unknown): value is AiQuotaSnapshot {
     && typeof value.message === "string";
 }
 
+function isNullableNumber(value: unknown): boolean {
+  return value === null || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isLimitWindow(value: unknown): boolean {
+  return value === null || (isObject(value) && ["limit", "remaining", "resetSeconds"].every((key) => isNullableNumber(value[key])));
+}
+
+function isProviderLimits(value: unknown): boolean {
+  return value === null || (isObject(value) && isLimitWindow(value.requests) && isLimitWindow(value.tokens) && isNullableNumber(value.retryAfterSeconds) && typeof value.observedAt === "string");
+}
+
+function isKeyLimits(value: unknown): boolean {
+  return value === null || (isObject(value) && ["creditLimit", "creditRemaining", "usage"].every((key) => isNullableNumber(value[key])) && (value.isFreeTier === null || typeof value.isFreeTier === "boolean") && typeof value.observedAt === "string");
+}
+
 function isProviderUsage(value: unknown): value is ProviderUsage {
-  if (!isObject(value) || typeof value.accountId !== "string" || typeof value.providerId !== "string" || typeof value.providerName !== "string" || typeof value.accountName !== "string" || !Array.isArray(value.models)) return false;
+  if (!isObject(value) || typeof value.accountId !== "string" || typeof value.providerId !== "string" || typeof value.providerName !== "string" || typeof value.accountName !== "string" || !isKeyLimits(value.keyLimits) || !Array.isArray(value.models)) return false;
   return value.models.every((model) => isObject(model)
     && typeof model.modelId === "string"
     && typeof model.modelName === "string"
     && typeof model.requestCount24h === "number"
+    && isProviderLimits(model.providerLimits)
     && ["published_limit_and_lifeos_counter", "lifeos_counter_only"].includes(String(model.source))
     && ["knownRequestsPerDay", "knownRequestsPerMinute", "knownTokensPerMinute"].every((key) => model[key] === null || typeof model[key] === "number"));
 }
@@ -84,6 +106,52 @@ function amount(value: number, unit: AiQuotaMetric["unit"]): string {
   return `${numberFormat.format(value)} ${plural(value, forms)}`;
 }
 
+function formatReset(seconds: number | null): string {
+  if (seconds === null) return "";
+  if (seconds < 90) return `, сброс через ${Math.max(1, Math.round(seconds))} с`;
+  if (seconds < 5400) return `, сброс через ${Math.round(seconds / 60)} мин`;
+  return `, сброс через ${Math.round(seconds / 3600)} ч`;
+}
+
+function windowLine(window: LimitWindow | null, unit: AiQuotaMetric["unit"]): string | null {
+  if (!window || (window.limit === null && window.remaining === null)) return null;
+  const tail = formatReset(window.resetSeconds);
+  if (window.remaining !== null && window.limit !== null) return `осталось ${numberFormat.format(window.remaining)} из ${amount(window.limit, unit)}${tail}`;
+  if (window.remaining !== null) return `осталось ${amount(window.remaining, unit)}${tail}`;
+  return `лимит ${amount(window.limit!, unit)}${tail}`;
+}
+
+function ProviderLimitsBlock({ limits }: { limits: ProviderLimits | null }) {
+  const lines = limits ? [
+    { label: "Запросы", text: windowLine(limits.requests, "requests") },
+    { label: "Токены", text: windowLine(limits.tokens, "tokens") },
+  ].filter((line): line is { label: string; text: string } => line.text !== null) : [];
+  const at = formatTimestamp(limits?.observedAt ?? null);
+  if (!limits || (lines.length === 0 && limits.retryAfterSeconds === null)) {
+    return <p className={styles.usageNote}>Лимит у провайдера: неизвестен. Провайдер не передал остаток квоты в ответах на запросы LifeOS.</p>;
+  }
+  return (
+    <div className={styles.usageStats}>
+      {lines.map((line) => <div key={line.label}><span>{line.label} (по данным провайдера)</span><b>{line.text}</b></div>)}
+      {limits.retryAfterSeconds !== null && <div><span>Провайдер просит подождать</span><b>{numberFormat.format(Math.ceil(limits.retryAfterSeconds))} с</b></div>}
+      {at && <div><span>Получено</span><b>{at}</b></div>}
+    </div>
+  );
+}
+
+function KeyLimitsBlock({ limits }: { limits: KeyLimits | null }) {
+  if (!limits) return null;
+  const credits = (value: number) => `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 4 }).format(value)} кредитов`;
+  return (
+    <div className={styles.usageStats}>
+      {limits.isFreeTier !== null && <div><span>Тариф ключа</span><b>{limits.isFreeTier ? "бесплатный" : "с оплатой"}</b></div>}
+      {limits.creditLimit !== null ? <div><span>Лимит расходов ключа</span><b>{credits(limits.creditLimit)}</b></div> : <div><span>Лимит расходов ключа</span><b>не задан</b></div>}
+      {limits.creditRemaining !== null && <div><span>Осталось по ключу</span><b>{credits(limits.creditRemaining)}</b></div>}
+      {limits.usage !== null && <div><span>Потрачено ключом</span><b>{credits(limits.usage)}</b></div>}
+    </div>
+  );
+}
+
 function ProviderUsageCard({ provider }: { provider: ProviderUsage }) {
   return (
     <section className={styles.usageCard} aria-label={`${provider.providerName}, ${provider.accountName}`}>
@@ -91,6 +159,7 @@ function ProviderUsageCard({ provider }: { provider: ProviderUsage }) {
         <div><span>{provider.providerName}</span><h3>{provider.accountName}</h3></div>
         <span className={styles.usageBadge}>Лимиты и запросы</span>
       </div>
+      <KeyLimitsBlock limits={provider.keyLimits} />
       {provider.models.length ? (
         <ul className={styles.usageModels}>
           {provider.models.map((model) => (
@@ -103,10 +172,11 @@ function ProviderUsageCard({ provider }: { provider: ProviderUsage }) {
                 {model.knownRequestsPerMinute !== null && <div><span>Опубликованный максимум</span><b>{amount(model.knownRequestsPerMinute, "requests")} в минуту</b></div>}
                 {model.knownTokensPerMinute !== null && <div><span>Ограничение по токенам</span><b>{amount(model.knownTokensPerMinute, "tokens")} в минуту</b></div>}
               </div>
+              <ProviderLimitsBlock limits={model.providerLimits} />
               <p className={styles.usageNote}>
                 {model.source === "published_limit_and_lifeos_counter"
-                  ? "Квота опубликована провайдером; счётчик LifeOS учитывает только запросы этого приложения. Остаток на стороне провайдера отдельно не читается."
-                  : "Точную квоту API-ключа прочитать нельзя. Показан счётчик запросов LifeOS за последние 24 часа, это не остаток квоты."}
+                  ? "Опубликованная квота взята из документации провайдера; счётчик LifeOS учитывает только запросы этого приложения."
+                  : "Счётчик LifeOS за 24 часа учитывает только запросы этого приложения, это не остаток квоты."}
               </p>
             </li>
           ))}

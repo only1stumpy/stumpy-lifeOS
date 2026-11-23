@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
+import { encryptProviderApiKey } from "../../src/server/ai/provider-profiles";
+import { getOpenRouterKeyInfo, parseRateLimitHeaders, recordObservedLimits } from "../../src/server/ai/provider-limits";
 import { createCommandDb, grantConsent, newTelegramId, ownerOf, run, snapshotOf } from "../helpers/command-db";
 
 // Reusable screenshot run of the Mini App at 390x844 (dsf 2): same stand as miniapp.e2e.ts (production build,
@@ -138,7 +140,7 @@ async function settingsPage(name: string, title: string) {
   await wait(300);
   if (!(await openTab("Настройки"))) return skip(name, "нет вкладки «Настройки»");
   await wait(400);
-  if (!(await clickText(title))) return skip(name, `нет пункта «${title}»`);
+  if (!(await clickText(title))) return skip(name, `нет пункта «${title}». Кнопки: ${await buttonsHint()}`);
   await wait(600);
   await shot(name);
 }
@@ -186,7 +188,24 @@ async function seed() {
   const fresh = newTelegramId();
   await grantConsent(fresh);
   await snapshotOf(fresh);
-  return { main, noConsent, fresh, news };
+  // AI limits screen: Groq account with limits seen in response headers, OpenRouter with a /key answer, a custom
+  // endpoint and Gemini with nothing reported ("лимит неизвестен"). Fixtures only, no real keys or provider calls.
+  const ai = newTelegramId();
+  await step("ai user", () => run(ai, { type: "modules.save", modules: ["nutrition", "finance", "gym"] }));
+  await step("ai version.seen", () => run(ai, { type: "version.seen", version: appVersion }));
+  await step("ai accounts", async () => {
+    const aiOwner = await ownerOf(db, ai);
+    const model = (id: string, name: string) => ({ id, name, supportsImages: false, contextLength: 131_072, freeRequestsPerDay: null, freeRequestsPerMinute: null, freeTokensPerMinute: null });
+    const rows = await db.insert(schema.aiProviderAccounts).values([
+      { ownerId: aiOwner.id, providerId: "groq", name: "Личный Groq", endpoint: "https://api.groq.com/openai/v1", encryptedApiKey: encryptProviderApiKey("fixture-key-1"), freeTierConfirmed: true, sortOrder: 0, models: [model("llama-3.1-8b-instant", "Llama 3.1 8B Instant")] },
+      { ownerId: aiOwner.id, providerId: "openrouter", name: "OpenRouter", endpoint: "https://openrouter.ai/api/v1", encryptedApiKey: encryptProviderApiKey("fixture-key-2"), freeTierConfirmed: true, sortOrder: 1, models: [model("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B")] },
+      { ownerId: aiOwner.id, providerId: "gemini", name: "Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", encryptedApiKey: encryptProviderApiKey("fixture-key-3"), freeTierConfirmed: true, sortOrder: 2, models: [model("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite")] },
+    ]).returning();
+    const [groq, router] = rows;
+    recordObservedLimits(groq!.id, "llama-3.1-8b-instant", parseRateLimitHeaders({ "x-ratelimit-limit-requests": "14400", "x-ratelimit-remaining-requests": "14370", "x-ratelimit-reset-requests": "2m59.56s", "x-ratelimit-limit-tokens": "6000", "x-ratelimit-remaining-tokens": "5732", "x-ratelimit-reset-tokens": "7.66s" }));
+    await getOpenRouterKeyInfo(router!.id, "fixture", { fetch: async () => ({ status: 200, headers: {}, body: JSON.stringify({ data: { limit: 10, limit_remaining: 7.5, usage: 2.5, is_free_tier: false } }) }) });
+  });
+  return { main, noConsent, fresh, news, ai };
 }
 
 async function start() {
@@ -246,6 +265,12 @@ async function main() {
   }
   await settingsPage("06-personalization", "Персонализация");
   await settingsPage("07-ai-providers", "ИИ-провайдеры");
+  // Wizard: the key step with the paste button; headless Chrome has no clipboard permission, so this is the "denied" outcome.
+  if (await clickText("^Начать$")) {
+    await wait(600);
+    if (await clickText("Вставить из буфера обмена")) { await wait(500); await shot("07a-ai-wizard-paste-denied"); } else { await shot("07a-ai-wizard-step2"); skip("07a-ai-wizard-paste-denied", `нет кнопки вставки. Кнопки: ${await buttonsHint()}`); }
+  }
+  await openAs(users.main, /Сегодня/);
   await settingsPage("08-privacy", "Данные и приватность");
   // Deletion confirmation: the word is typed through the native setter so React sees the change.
   if (await clickText("^Удалить все данные$")) {
@@ -301,6 +326,23 @@ async function main() {
     } else skip("32-onboarding-2", "нет кнопки «Далее»");
   } else skip("31-onboarding-1", "онбординг не появился");
 
+
+  // Real provider limits panel (separate user with accounts).
+  if (await openAs(users.ai, /Сегодня/)) {
+    await wait(2000); // a freshly opened user: let the first snapshot and the dock transition finish
+    let opened = false;
+    for (let attempt = 0; attempt < 4 && !opened; attempt += 1) {
+      await dock("Сегодня");
+      await wait(500);
+      if (await openTab("Настройки")) { await wait(1000); opened = await clickText("ИИ-провайдеры"); }
+    }
+    if (!opened) skip("07b-ai-providers-accounts", `нет пункта «ИИ-провайдеры». Кнопки: ${await buttonsHint()}`);
+    else {
+      await wait(1200);
+      await shot("07b-ai-providers-accounts");
+      if (await clickText("^Лимиты ИИ$")) { await wait(1800); await shot("07c-ai-limits", false); await evaluate(`document.querySelector("dialog[open] [class*=scrollArea]")?.scrollBy(0, 640)`); await shot("07d-ai-limits-scrolled", false); } else skip("07c-ai-limits", `нет кнопки «Лимиты ИИ». Кнопки: ${await buttonsHint()}`);
+    }
+  } else skip("07b-ai-providers-accounts", "пользователь с аккаунтами не открылся");
   console.log(`\nГотово: ${taken.length} снимков в ${outDir}; пропущено: ${skipped.length}`);
   skipped.forEach((line) => console.log(`  - ${line}`));
 }
