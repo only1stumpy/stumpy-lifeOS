@@ -715,6 +715,6 @@ test("/help menu lists enabled modules plus general sections, and each section i
 
 test("retired AI provider Cerebras is not offered, but old rows still resolve", () => {
   const offered = listAiProviderDefinitions().map((provider) => provider.id);
-  assert.deepEqual(offered, ["gemini", "groq", "openrouter", "cloudflare", "custom"]);
+  assert.deepEqual(offered, ["openrouter", "gemini", "groq", "cloudflare", "custom"]);
   assert.equal(getAiProviderDefinition("cerebras").id, "cerebras");
 });

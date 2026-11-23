@@ -1,8 +1,9 @@
+import { rankAiModels } from "@/domain/ai-model-ranking";
 import { AppError } from "@/server/http";
 import { classifyOpenAICompatibleFailure, completeOpenAICompatible } from "./openai-compatible";
 import { safeHttpsGet, SafeHttpsError } from "./safe-fetch";
 
-export const AI_PROVIDER_IDS = ["gemini", "groq", "cerebras", "openrouter", "cloudflare", "custom"] as const;
+export const AI_PROVIDER_IDS = ["openrouter", "gemini", "groq", "cerebras", "cloudflare", "custom"] as const;
 export type AiProviderId = typeof AI_PROVIDER_IDS[number];
 
 export type AiProviderCatalogModel = {
@@ -72,6 +73,18 @@ export const CLOUDFLARE_FREE_MODELS: readonly AiProviderCatalogModel[] = [
 
 const definitions: AiProviderDefinition[] = [
   {
+    id: "openrouter",
+    name: "OpenRouter",
+    endpoint: "https://openrouter.ai/api/v1",
+    modelsEndpoint: () => "https://openrouter.ai/api/v1/models",
+    modelsSearchParams: { max_price: "0" },
+    authHeaderName: "authorization",
+    supportsImages: true,
+    connectable: true,
+    connectionBlockReason: null,
+    description: "В каталоге только бесплатные модели с суффиксом :free",
+  },
+  {
     id: "gemini",
     name: "Gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -104,18 +117,6 @@ const definitions: AiProviderDefinition[] = [
     connectable: false,
     connectionBlockReason: "Cerebras требует привязать платёжный метод для пробных кредитов; постоянного бесплатного тарифа нет.",
     description: "Не подходит под режим без карты: пробный доступ требует платёжный метод и действует 30 дней.",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    endpoint: "https://openrouter.ai/api/v1",
-    modelsEndpoint: () => "https://openrouter.ai/api/v1/models",
-    modelsSearchParams: { max_price: "0" },
-    authHeaderName: "authorization",
-    supportsImages: true,
-    connectable: true,
-    connectionBlockReason: null,
-    description: "В каталоге только бесплатные модели с суффиксом :free",
   },
   {
     id: "cloudflare",
@@ -192,7 +193,7 @@ export async function discoverFreeModels(
       ? "Каталог не вернул модели. Проверь совместимость endpoint и путь /models."
       : "Нет подходящих моделей: каталог провайдера не вернул бесплатных текстовых моделей для этого ключа. Проверь, что ключ создан на бесплатном тарифе, или выбери другого провайдера.");
   }
-  return models.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  return rankAiModels(providerId, models);
 }
 
 /** A single short completion validates model access before any credential is stored. */
