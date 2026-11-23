@@ -17,6 +17,8 @@ import { AIAnalysisError } from "@/server/ai/types";
 import { alertAiFailure } from "@/server/ai/error-copy";
 import { loadConfiguredAiProviderConfigs } from "@/server/ai/provider-accounts";
 import { clearEditingCapture, formatSigned, isOwner, round1, updateRowIds } from "@/server/telegram/shared";
+import { answerSetBalanceMessage } from "@/server/telegram/balance";
+import { parseSetBalanceMessage } from "@/domain/balance";
 import { downloadTelegramPhoto } from "@/server/telegram/handlers/photo";
 import { bulkDraftKeyboard, formatDraftList, sendDraftMessage, replyInParts } from "@/server/telegram/handlers/drafts";
 
@@ -55,6 +57,19 @@ export function registerMessages(bot: Bot<Context>): void {
           ? await saveWeightFromChat(owner.id, owner.timezone, weightKg)
           : modules.includes("nutrition") ? disabledFeatureMessage("nutrition.weight") : disabledModulesMessage(["nutrition"]));
         return;
+      }
+
+      // «поставь баланс карты 5000»: deterministic, works without AI; the answer is a draft with its own buttons.
+      if (!photo && parseSetBalanceMessage(text)) {
+        if (!modules.includes("finance")) {
+          await ctx.reply(disabledModulesMessage(["finance"]));
+          return;
+        }
+        const reply = await answerSetBalanceMessage(text);
+        if (reply) {
+          await ctx.reply(reply.text, reply.keyboard ? { reply_markup: reply.keyboard } : undefined);
+          return;
+        }
       }
 
       if (!photo && text.trim() && isReferenceQuestion(text)) {

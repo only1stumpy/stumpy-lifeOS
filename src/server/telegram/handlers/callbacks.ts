@@ -6,6 +6,7 @@ import { debtRemainingMinor } from "@/domain/debts";
 import { executeCommand, ensureOwner, loadPendingDrafts } from "@/server/lifeos";
 import { AppError } from "@/server/http";
 import { formatBulkSummary, formatConfirmedRecords, formatRecurringConfirmation } from "@/server/telegram/confirmation";
+import { accountIdsOfDrafts, applyBalanceTarget, balanceAfter, BALANCE_CANCEL, BALANCE_EDIT, BALANCE_SET } from "@/server/telegram/balance";
 import { clearEditingCapture, formatMoney, isOwner, markMessage } from "@/server/telegram/shared";
 
 export function registerCallbacks(bot: Bot<Context>): void {
@@ -38,6 +39,23 @@ export function registerCallbacks(bot: Bot<Context>): void {
         await ctx.answerCallbackQuery({ text: "Норма обновлена." });
         await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard() }).catch(() => undefined);
         await ctx.reply(`Новая норма с сегодняшнего дня: ${calories} ккал · Б ${proteinGrams} · Ж ${fatGrams} · У ${carbsGrams} г. Поменять можно в «Цели КБЖУ» в LifeOS.`);
+        return;
+      }
+
+      if (action === BALANCE_SET) {
+        const text = await applyBalanceTarget(id, Number(dueOn));
+        await ctx.answerCallbackQuery({ text: "Баланс обновлён." });
+        await markMessage(ctx, text);
+        return;
+      }
+      if (action === BALANCE_CANCEL) {
+        await ctx.answerCallbackQuery({ text: "Хорошо, отменил." });
+        await markMessage(ctx, "Хорошо, баланс не менял.");
+        return;
+      }
+      if (action === BALANCE_EDIT) {
+        await ctx.answerCallbackQuery();
+        await markMessage(ctx, "Напиши новую команду целиком — например, «поставь баланс карты 5000». Этот черновик ничего не изменит.");
         return;
       }
 
@@ -86,7 +104,8 @@ export function registerCallbacks(bot: Bot<Context>): void {
           }
         }
         await ctx.answerCallbackQuery({ text: `Записал: ${savedIds.length} из ${pending.length}.` });
-        await ctx.reply(formatBulkSummary(savedIds.map((draftId) => described.get(draftId)).filter((draft): draft is NonNullable<typeof draft> => !!draft), pending.length, problems, baseCurrency));
+        const balanceLines = await balanceAfter(await accountIdsOfDrafts(savedIds));
+        await ctx.reply([formatBulkSummary(savedIds.map((draftId) => described.get(draftId)).filter((draft): draft is NonNullable<typeof draft> => !!draft), pending.length, problems, baseCurrency), ...balanceLines].join("\n"));
         // Drafts that failed keep their own message so they can still be fixed.
         // With failures the bulk message stays: its buttons still apply to the drafts that were not saved.
         await cleanup(savedIds, problems.length === 0);
@@ -97,6 +116,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
         await executeCommand({ type: "draft.confirm", id });
         await clearEditingCapture(id);
         const owner = await ensureOwner();
+        const balanceLines = await balanceAfter(await accountIdsOfDrafts([id]));
         const [food] = await getDb()
           .select({
             id: schema.nutritionEntries.id,
@@ -147,7 +167,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
             const lines = [treatment + ": " + direction + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), owner.baseCurrency ?? "")];
             if (debtDraft.dueOn) lines.push("Срок возврата — " + debtDraft.dueOn + ".");
             await ctx.answerCallbackQuery({ text: "Долг записан." });
-            await markMessage(ctx, lines.join("\n"));
+            await markMessage(ctx, [...lines, ...balanceLines].join("\n"));
             return;
           }
           if (!debtDraft.debtId) throw new AppError(404, "Запись долга не найдена.");
@@ -159,7 +179,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
           const remaining = debtRemainingMinor(Math.round(Number(record.originalAmount) * 100), repayments.map((row) => Math.round(Number(row.amount) * 100)));
           const actionText = debtDraft.direction === "i_owe" ? "Вернул " + debtDraft.personName : debtDraft.personName + " вернул тебе";
           await ctx.answerCallbackQuery({ text: "Возврат записан." });
-          await markMessage(ctx, "Записал: " + actionText + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), owner.baseCurrency ?? "") + "\nОстаток долга: " + formatMoney(remaining, owner.baseCurrency ?? ""));
+          await markMessage(ctx, "Записал: " + actionText + " · " + formatMoney(Math.round(Number(debtDraft.amount) * 100), owner.baseCurrency ?? "") + "\nОстаток долга: " + formatMoney(remaining, owner.baseCurrency ?? "") + (balanceLines.length ? "\n" + balanceLines.join("\n") : ""));
           return;
         }
         const confirmation = formatConfirmedRecords({
@@ -167,7 +187,7 @@ export function registerCallbacks(bot: Bot<Context>): void {
           money: money ? { ...money, entryType: money.entryType as "expense" | "income", currency: money.currency } : null,
         });
         await ctx.answerCallbackQuery({ text: confirmation.callbackText });
-        await markMessage(ctx, confirmation.messageText);
+        await markMessage(ctx, [confirmation.messageText, ...balanceLines].join("\n"));
         if (food) {
           const repeats = await getDb()
             .select({ id: schema.nutritionEntries.id })
@@ -224,19 +244,19 @@ export function registerCallbacks(bot: Bot<Context>): void {
       if (action === "pay") {
         const owner = await ensureOwner();
         const [payment] = await getDb()
-          .select({ name: schema.recurringPayments.name, amount: schema.recurringPayments.amount, currency: schema.recurringPayments.currency })
+          .select({ name: schema.recurringPayments.name, amount: schema.recurringPayments.amount, currency: schema.recurringPayments.currency, accountId: schema.recurringPayments.accountId })
           .from(schema.recurringPayments)
           .where(and(eq(schema.recurringPayments.id, id), eq(schema.recurringPayments.ownerId, owner.id)))
           .limit(1);
         if (!payment) throw new AppError(404, "Платёж не найден.");
         await executeCommand({ type: "recurring.confirm", id, dueOn });
         const confirmation = formatRecurringConfirmation({
-          ...payment,
+          name: payment.name,
           amount: payment.amount,
           currency: payment.currency,
         });
         await ctx.answerCallbackQuery({ text: confirmation.callbackText });
-        await markMessage(ctx, confirmation.messageText);
+        await markMessage(ctx, [confirmation.messageText, ...await balanceAfter([payment.accountId])].join("\n"));
         return;
       }
 
