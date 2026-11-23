@@ -1,6 +1,6 @@
 {
-  "id": "7e5daa63-5ef9-439b-bda5-b218f738aac1",
-  "prevId": "215c0785-3ede-45ae-aa30-c4e1b0a707b5",
+  "id": "456277b7-cef1-4928-a4e8-8cb6c19bc4ee",
+  "prevId": "d9f288bf-1122-4de5-96b5-1ec730745b2e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3453,6 +3453,20 @@
         },
         "weight_reminder_enabled": {
           "name": "weight_reminder_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "monthly_summary_enabled": {
+          "name": "monthly_summary_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "daily_weight_reminder_enabled": {
+          "name": "daily_weight_reminder_enabled",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
