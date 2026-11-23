@@ -55,6 +55,27 @@
   overflow-y: auto;
 }
 
+.accountList {
+  display: grid;
+  gap: var(--ui-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accountRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ui-space-4);
+}
+
+.accountDetails {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Small buttons under a list row. */
 .rowActions {
   display: flex;

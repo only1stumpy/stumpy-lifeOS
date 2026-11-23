@@ -661,7 +661,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       <>
         <section>
           <h3>Счета</h3>
-          {snapshot.finance.accounts.length ? <ul>{snapshot.finance.accounts.map((item) => <li key={item.id}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""} <span className={styles.rowActions}><Button onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</Button></span></li>)}</ul> : <p>Счетов пока нет. Создай основной счёт, чтобы начать вести операции.</p>}
+          {snapshot.finance.accounts.length ? <ul className={styles.accountList}>{snapshot.finance.accounts.map((item) => <li className={styles.accountRow} key={item.id}><span className={styles.accountDetails}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""}</span><Button onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</Button></li>)}</ul> : <p>Счетов пока нет. Создай основной счёт, чтобы начать вести операции.</p>}
         </section>
         <hr />
         <h3>{account ? "Изменить счёт" : "Добавить счёт"}</h3>
