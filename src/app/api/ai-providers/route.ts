@@ -27,6 +27,7 @@ const actionSchema = z.discriminatedUnion("action", [
     apiKey: z.string().trim().min(1).max(8_192),
     endpoint: z.string().trim().min(1).max(500).optional(),
     model: z.string().trim().min(1).max(200).optional(),
+    cloudflareAccountId: z.string().trim().min(1).max(64).optional(),
     freeTierConfirmed: z.literal(true),
   }).strict(),
   z.object({
@@ -82,6 +83,7 @@ export async function POST(request: Request): Promise<Response> {
             freeTierConfirmed: input.freeTierConfirmed,
             ...(input.endpoint ? { endpoint: input.endpoint } : {}),
             ...(input.model ? { model: input.model } : {}),
+            ...(input.cloudflareAccountId ? { cloudflareAccountId: input.cloudflareAccountId } : {}),
           });
           return Response.json(result, { headers: { "Cache-Control": "no-store" } });
         }

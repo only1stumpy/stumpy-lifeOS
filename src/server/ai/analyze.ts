@@ -80,6 +80,8 @@ const AnalysisPayloadSchema = z
 
 export type ProviderConfig = {
   provider: AnalysisProvider;
+  /** Catalog id of a managed account; absent for env keys. */
+  providerId?: string;
   model: string;
   apiKey: string;
   endpoint?: string;
@@ -252,8 +254,8 @@ export async function analyzeMessage(
       ? await callGemini(candidate, context, validatedInput.image, timeoutMs)
       : candidate.provider === "groq"
         ? await callGroq(candidate, context, validatedInput.image, timeoutMs)
-        : await callOpenAICompatible(candidate, SYSTEM_PROMPT, context, validatedInput.image, "json_object", timeoutMs);
-    const parsed = parseAnalysisPayload(text);
+        : await callOpenAICompatible(candidate, SYSTEM_PROMPT, context, validatedInput.image, jsonResponseFormatFor(candidate), timeoutMs);
+    const parsed = parseAnalysisPayload(candidate.providerId === "cloudflare" ? stripJsonFence(text) : text);
     const entries = parsed.entries.map((entry) => entry.money
       ? { ...entry, money: { ...entry.money, currency: anchorRubleToBase(validatedInput.text, entry.money.currency, validatedInput.baseCurrency ?? null) } }
       : entry);
@@ -549,6 +551,7 @@ function getProviderConfigsForSelection(selection?: ProviderSelection): Provider
   if (!selection) return process.env.LIFEOS_ALLOW_ENV_AI_KEYS === "1" ? getProviderConfigs() : [];
   const profiles: ProviderConfig[] = selection.profiles.map((profile) => ({
     provider: "openai-compatible",
+    ...(profile.providerId ? { providerId: profile.providerId } : {}),
     endpoint: profile.endpoint,
     model: profile.model,
     apiKey: profile.apiKey,
@@ -557,6 +560,17 @@ function getProviderConfigsForSelection(selection?: ProviderSelection): Provider
     authHeaderName: profile.authHeaderName,
   }));
   return profiles;
+}
+
+/** Models without a JSON mode often wrap the object in a markdown fence. */
+function stripJsonFence(text: string): string {
+  const match = /^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/i.exec(text);
+  return match?.[1] ?? text;
+}
+
+/** Cloudflare's OpenAI-compatible docs do not confirm response_format, so the reply is validated by the schema instead. */
+function jsonResponseFormatFor(config: ProviderConfig): "json_object" | "text" {
+  return config.providerId === "cloudflare" ? "text" : "json_object";
 }
 
 async function callOpenAICompatible(

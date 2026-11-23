@@ -119,7 +119,7 @@ export const aiProviderAccounts = pgTable(
   },
   (table) => [
     index("ai_provider_accounts_owner_provider_order_idx").on(table.ownerId, table.providerId, table.sortOrder, table.createdAt),
-    check("ai_provider_accounts_provider_valid", sql`${table.providerId} in ('gemini', 'groq', 'cerebras', 'openrouter', 'custom')`),
+    check("ai_provider_accounts_provider_valid", sql`${table.providerId} in ('gemini', 'groq', 'cerebras', 'openrouter', 'cloudflare', 'custom')`),
     check("ai_provider_accounts_auth_header_valid", sql`${table.authHeaderName} in ('authorization', 'x-goog-api-key')`),
     check("ai_provider_accounts_sort_order_nonnegative", sql`${table.sortOrder} >= 0`),
   ],
@@ -141,7 +141,7 @@ export const aiProviderModelSelections = pgTable(
   (table) => [
     uniqueIndex("ai_provider_model_selections_owner_provider_model_unique").on(table.ownerId, table.providerId, table.modelId),
     index("ai_provider_model_selections_owner_provider_order_idx").on(table.ownerId, table.providerId, table.sortOrder),
-    check("ai_provider_model_selections_provider_valid", sql`${table.providerId} in ('gemini', 'groq', 'cerebras', 'openrouter', 'custom')`),
+    check("ai_provider_model_selections_provider_valid", sql`${table.providerId} in ('gemini', 'groq', 'cerebras', 'openrouter', 'cloudflare', 'custom')`),
     check("ai_provider_model_selections_sort_order_nonnegative", sql`${table.sortOrder} >= 0`),
   ],
 );
