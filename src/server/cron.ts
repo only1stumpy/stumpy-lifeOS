@@ -15,12 +15,14 @@ import {
   sendDuePaymentReminder,
   sendDueDebtReminder,
   sendWeeklySummary,
+  sendMonthlySummary,
+  sendDailyWeightReminder,
   sendWeightReminder,
   sendReleaseNotice,
   isOwnerNotificationSent,
 } from "@/server/telegram/bot";
 import { APP_VERSION, RELEASE_HISTORY, releaseNoticeKey, shouldAnnounceRelease } from "@/domain/release";
-import { inSummaryWindow, minuteOfDay } from "@/domain/notifications";
+import { inSummaryWindow, isLastDayOfMonth, minuteOfDay } from "@/domain/notifications";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
 
 /** The route's `maxDuration` is 60 s; the work below must finish inside it with a margin. */
@@ -164,6 +166,9 @@ async function processOwner(
     if (owner.dailySummaryEnabled && due(ownDailyMinute) && await sendDailySummary(now, owner.timezone)) sent.push("daily");
     if (owner.weeklySummaryEnabled && localTime.weekday === 0 && due(ownWeeklyMinute) && await sendWeeklySummary(now, owner.timezone)) sent.push("weekly");
     if (owner.weightReminderEnabled && features.includes("nutrition.weight") && localTime.weekday === 4 && due(ownWeeklyMinute) && await sendWeightReminder(now, owner.timezone)) sent.push("weight");
+    // Runs after the Thursday nudge and shares its delivery key: at most one weigh-in message per local day.
+    if (owner.dailyWeightReminderEnabled && features.includes("nutrition.weight") && due(ownDailyMinute) && await sendDailyWeightReminder(now, owner.timezone)) sent.push("weight-daily");
+    if (owner.monthlySummaryEnabled && isLastDayOfMonth(localDate) && due(ownWeeklyMinute) && await sendMonthlySummary(now, owner.timezone)) sent.push("monthly");
   });
   return sent;
 }

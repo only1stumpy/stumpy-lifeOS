@@ -27,6 +27,8 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
   const [dailySummary, setDailySummary] = useState(notifications.dailySummary);
   const [weeklySummary, setWeeklySummary] = useState(notifications.weeklySummary);
   const [weightReminder, setWeightReminder] = useState(notifications.weightReminder);
+  const [monthlySummary, setMonthlySummary] = useState(notifications.monthlySummary);
+  const [dailyWeightReminder, setDailyWeightReminder] = useState(notifications.dailyWeightReminder);
   const [summaryTime, setSummaryTime] = useState(notifications.summaryTime ?? "19:30");
   const savedZone = snapshot.settings.timeZone;
   const [timeZone, setTimeZone] = useState(savedZone);
@@ -45,6 +47,8 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
     || dailySummary !== notifications.dailySummary
     || weeklySummary !== notifications.weeklySummary
     || weightReminder !== notifications.weightReminder
+    || monthlySummary !== notifications.monthlySummary
+    || dailyWeightReminder !== notifications.dailyWeightReminder
     || summaryTime !== (notifications.summaryTime ?? "19:30")
     || timeZone !== savedZone;
 
@@ -56,7 +60,7 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
     if (summaryTime && !TIME_PATTERN.test(summaryTime)) { setError("Время в формате ЧЧ:ММ."); return; }
     const ok = await onSave([
       ...(timeZone !== savedZone ? [{ type: "settings.save" as const, timeZone, target: null }] : []),
-      { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, weightReminder, summaryTime: summaryTime || null } },
+      { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, monthlySummary, weightReminder, dailyWeightReminder, summaryTime: summaryTime || null } },
     ]);
     if (!ok) setError("Не удалось сохранить. Проверь соединение и повтори.");
   }
@@ -87,6 +91,8 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         <h2 id="notifications-heading">Сводки и напоминания</h2>
         <Checkbox checked={dailySummary} onChange={(event) => { touch(); setDailySummary(event.target.checked); }} label={<strong>Дневная сводка</strong>} description={summaryText(modules, "day")} />
         <Checkbox checked={weeklySummary} onChange={(event) => { touch(); setWeeklySummary(event.target.checked); }} label={<strong>Недельная сводка</strong>} description={`По воскресеньям: ${summaryText(modules, "week")}`} />
+        <Checkbox checked={monthlySummary} onChange={(event) => { touch(); setMonthlySummary(event.target.checked); }} label={<strong>Месячная сводка</strong>} description={`В последний день месяца: ${summaryText(modules, "month")}`} />
+        {modules.includes("nutrition") && <Checkbox checked={dailyWeightReminder} onChange={(event) => { touch(); setDailyWeightReminder(event.target.checked); }} label={<strong>Взвешивание каждый день</strong>} description="Напоминание каждый день в выбранное время, если вес за день ещё не записан. Вместе с четверговым напоминанием придёт одно сообщение." />}
         {modules.includes("nutrition") && <Checkbox checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} label={<strong>Напоминание взвеситься</strong>} description="По четвергам, если за 7 дней меньше трёх замеров." />}
         <TextField
           type="time"
@@ -156,11 +162,11 @@ function timeZoneList(current: string): string[] {
   return zones.includes(current) ? zones : [current, ...zones];
 }
 
-function summaryText(modules: readonly string[], period: "day" | "week"): string {
+function summaryText(modules: readonly string[], period: "day" | "week" | "month"): string {
   const parts: string[] = [];
-  if (modules.includes("nutrition")) parts.push(period === "day" ? "съеденное КБЖУ и остаток на день" : "питание и пересчёт нормы по среднему весу");
-  if (modules.includes("finance")) parts.push(period === "day" ? "расходы за день" : "расходы за неделю");
-  if (modules.includes("gym") && period === "week") parts.push("тренировки за неделю");
+  if (modules.includes("nutrition")) parts.push(period === "day" ? "съеденное КБЖУ и остаток на день" : period === "week" ? "питание и пересчёт нормы по среднему весу" : "питание за месяц");
+  if (modules.includes("finance")) parts.push(period === "day" ? "расходы за день" : period === "week" ? "расходы за неделю" : "расходы за месяц");
+  if (modules.includes("gym") && period !== "day") parts.push(period === "week" ? "тренировки за неделю" : "тренировки за месяц");
   if (!parts.length) return period === "day" ? "Дневная сводка считает питание и расходы: включи «Питание» или «Финансы»." : "Включи хотя бы один раздел, чтобы получать сводки.";
   const text = parts.join(", ");
   return text.charAt(0).toUpperCase() + text.slice(1) + ".";

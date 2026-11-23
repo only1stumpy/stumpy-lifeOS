@@ -6,6 +6,7 @@ import * as schema from "@/db/schema";
 import { getDb } from "@/db/client";
 import { debtReminderHeadline } from "@/domain/debts";
 import { dateKey, sumMacros, convertToBaseMinor } from "@/domain/math";
+import { isLastDayOfMonth, monthStart } from "@/domain/notifications";
 import { MIN_WEEKLY_WEIGH_INS, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import { normalizeModules, resolveFeatures } from "@/domain/modules";
 import { buildReleaseNotice, releaseNoticeKey, type Release } from "@/domain/release";
@@ -222,8 +223,20 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
   const weekday = new Date(`${localToday}T12:00:00Z`).getUTCDay();
   const monday = new Date(`${localToday}T12:00:00Z`);
   monday.setUTCDate(monday.getUTCDate() - ((weekday + 6) % 7));
-  const weekStart = monday.toISOString().slice(0, 10);
-  if (await isOwnerNotificationSent(`weekly:${localToday}`)) return false;
+  return sendPeriodSummary(now, timeZone, "week", monday.toISOString().slice(0, 10));
+}
+
+/** Month-to-date summary for the last calendar day of the owner's month; any other day sends nothing. */
+export async function sendMonthlySummary(now: Date, timeZone: string): Promise<boolean> {
+  const localToday = dateKey(now, timeZone);
+  if (!isLastDayOfMonth(localToday)) return false;
+  return sendPeriodSummary(now, timeZone, "month", monthStart(localToday));
+}
+
+async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "month", weekStart: string): Promise<boolean> {
+  const localToday = dateKey(now, timeZone);
+  const key = `${period === "week" ? "weekly" : "monthly"}:${localToday}`;
+  if (await isOwnerNotificationSent(key)) return false;
   const owner = await ensureOwner();
   const [foods, money, sessions, weights, sets] = await Promise.all([
     getDb().select().from(schema.nutritionEntries).where(eq(schema.nutritionEntries.ownerId, owner.id)),
@@ -232,11 +245,11 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     getDb().select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id)),
     getDb().select().from(schema.workoutSets).where(eq(schema.workoutSets.ownerId, owner.id)),
   ]);
-  const isThisWeek = (date: Date) => {
+  const isThisPeriod = (date: Date) => {
     const local = dateKey(date, timeZone);
     return local >= weekStart && local <= localToday;
   };
-  const weeklyFoods = foods.filter((entry) => isThisWeek(entry.occurredAt));
+  const weeklyFoods = foods.filter((entry) => isThisPeriod(entry.occurredAt));
   const macros = sumMacros(weeklyFoods.map((entry) => ({
     calories: Number(entry.calories),
     proteinGrams: Number(entry.proteinGrams),
@@ -245,29 +258,29 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
   })));
   const loggedDays = new Set(weeklyFoods.map((entry) => dateKey(entry.occurredAt, timeZone)));
   const weeklySpending = money
-    .filter((entry) => entry.entryType === "expense" && isThisWeek(entry.occurredAt))
+    .filter((entry) => entry.entryType === "expense" && isThisPeriod(entry.occurredAt))
     .reduce((sum, entry) => sum + convertToBaseMinor(
       Math.round(Number(entry.amount) * 100),
       entry.currency,
       owner.baseCurrency ?? entry.currency,
       entry.rateToBase,
     ), 0);
-  const completedWorkouts = sessions.filter((session) => session.status === "completed" && session.completedAt && isThisWeek(session.completedAt)).length;
-  const completedSets = sets.filter((set) => set.isCompleted && set.completedAt && isThisWeek(set.completedAt)).length;
+  const completedWorkouts = sessions.filter((session) => session.status === "completed" && session.completedAt && isThisPeriod(session.completedAt)).length;
+  const completedSets = sets.filter((set) => set.isCompleted && set.completedAt && isThisPeriod(set.completedAt)).length;
   const weeklyWeights = weights
-    .filter((entry) => isThisWeek(entry.occurredAt))
+    .filter((entry) => isThisPeriod(entry.occurredAt))
     .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
   const weightLine = weeklyWeights.length < 2
-    ? weeklyWeights.length === 1 ? `Вес: ${round1(Number(weeklyWeights[0].weightKg))} кг · одна запись за неделю` : "Вес: записей на этой неделе нет"
+    ? weeklyWeights.length === 1 ? `Вес: ${round1(Number(weeklyWeights[0].weightKg))} кг · одна запись ${period === "week" ? "за неделю" : "за месяц"}` : `Вес: записей ${period === "week" ? "на этой неделе" : "в этом месяце"} нет`
     : `Вес: ${round1(Number(weeklyWeights[0].weightKg))} → ${round1(Number(weeklyWeights[weeklyWeights.length - 1].weightKg))} кг (${formatSigned(Number(weeklyWeights[weeklyWeights.length - 1].weightKg) - Number(weeklyWeights[0].weightKg))} кг)`;
   const modules = normalizeModules(owner.enabledModules);
   const nutritionOn = modules.includes("nutrition");
   const weightOn = resolveFeatures(modules, owner.disabledFeatures).includes("nutrition.weight");
   const text = [
-    `Вот как прошла неделя · ${weekStart} — ${localToday}`,
+    `${period === "week" ? "Вот как прошла неделя" : "Вот как прошёл месяц"} · ${weekStart} — ${localToday}`,
     ...(nutritionOn ? [
       `Питание: ${Math.round(macros.calories)} ккал · Б ${Math.round(macros.proteinGrams)} · Ж ${Math.round(macros.fatGrams)} · У ${Math.round(macros.carbsGrams)} г суммарно`,
-      loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : "Питание: записей за неделю нет",
+      loggedDays.size ? `Среднее: ${Math.round(macros.calories / loggedDays.size)} ккал за ${loggedDays.size} дн. с записями` : `Питание: записей за ${period === "week" ? "неделю" : "месяц"} нет`,
     ] : []),
     ...(modules.includes("finance") ? [`Расходы: ${formatMoney(weeklySpending, owner.baseCurrency ?? "")}`] : []),
     ...(modules.includes("gym") ? [`Тренировки: ${completedWorkouts} · подходы: ${completedSets}`] : []),
@@ -283,8 +296,8 @@ export async function sendWeeklySummary(now: Date, timeZone: string): Promise<bo
     localToday,
     currentTarget ? macroValues(currentTarget) : null,
   );
-  if (weightOn && recalculation.line) text.push("", recalculation.line);
-  return sendDeduplicatedOwnerNotification(`weekly:${localToday}`, text.join("\n"), weightOn ? recalculation.keyboard : undefined);
+  if (period === "week" && weightOn && recalculation.line) text.push("", recalculation.line);
+  return sendDeduplicatedOwnerNotification(key, text.join("\n"), period === "week" && weightOn ? recalculation.keyboard : undefined);
 }
 
 /** Midweek nudge when the 7-day window has too few weigh-ins for the Sunday target recalculation. */
@@ -297,6 +310,19 @@ export async function sendWeightReminder(now: Date, timeZone: string): Promise<b
   if (week.weighIns >= MIN_WEEKLY_WEIGH_INS) return false;
   const text = `Чтобы в воскресенье пересчитать норму КБЖУ по среднему весу, нужно хотя бы ${MIN_WEEKLY_WEIGH_INS} замера за 7 дней, сейчас ${week.weighIns}. Взвесься и напиши, например, «вес 72,4» — или запиши вес в LifeOS.`;
   return sendDeduplicatedOwnerNotification(`weight-reminder:${localToday}`, text);
+}
+
+/**
+ * Daily «weigh in» nudge. Shares the delivery key with the Thursday reminder, so on a day when both are due the user gets one
+ * message (whichever is sent first). Stays quiet once a weight is already logged today.
+ */
+export async function sendDailyWeightReminder(now: Date, timeZone: string): Promise<boolean> {
+  const localToday = dateKey(now, timeZone);
+  if (await isOwnerNotificationSent(`weight-reminder:${localToday}`)) return false;
+  const owner = await ensureOwner();
+  const weights = await getDb().select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id));
+  if (weights.some((entry) => dateKey(entry.occurredAt, timeZone) === localToday)) return false;
+  return sendDeduplicatedOwnerNotification(`weight-reminder:${localToday}`, "Пора взвеситься. Напиши, например, «вес 72,4» — или запиши вес в LifeOS.");
 }
 
 /** Weekly target proposal: the profile formula with the 7-day average weight, applied only after a button press. */

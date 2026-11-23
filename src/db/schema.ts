@@ -44,6 +44,8 @@ export const ownerSettings = pgTable(
     dailySummaryEnabled: boolean("daily_summary_enabled").default(false).notNull(),
     weeklySummaryEnabled: boolean("weekly_summary_enabled").default(false).notNull(),
     weightReminderEnabled: boolean("weight_reminder_enabled").default(false).notNull(),
+    monthlySummaryEnabled: boolean("monthly_summary_enabled").default(false).notNull(),
+    dailyWeightReminderEnabled: boolean("daily_weight_reminder_enabled").default(false).notNull(),
     summaryTime: text("summary_time"),
     lastSeenVersion: text("last_seen_version"),
     privacyAcceptedAt: timestamp("privacy_accepted_at", { withTimezone: true, mode: "date" }),

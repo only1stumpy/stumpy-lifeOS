@@ -1,0 +1,2 @@
+ALTER TABLE "owner_settings" ADD COLUMN "monthly_summary_enabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "owner_settings" ADD COLUMN "daily_weight_reminder_enabled" boolean DEFAULT false NOT NULL;
