@@ -152,3 +152,29 @@ async function exchangeCodeForKey(code: string, codeVerifier: string): Promise<s
   if (!key || key.length > 8_192) throw new AppError(502, "OpenRouter вернул неожиданный ответ.");
   return key;
 }
+
+let cachedBotUsername: string | undefined;
+
+/**
+ * Deep link that brings the user back into the Mini App from the external browser. The bot username comes from
+ * Telegram `getMe` (cached per instance); `TELEGRAM_MINIAPP_NAME` (optional BotFather short name) selects a
+ * non-main Mini App. Falls back to the plain app URL when Telegram cannot be asked.
+ */
+export async function miniAppReturnLink(): Promise<string | null> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (token && !cachedBotUsername) {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getMe`, { signal: AbortSignal.timeout(3_000) });
+      const body = await response.json() as { ok?: boolean; result?: { username?: unknown } };
+      if (response.ok && body.ok && typeof body.result?.username === "string" && /^[A-Za-z0-9_]{3,64}$/.test(body.result.username)) cachedBotUsername = body.result.username;
+    } catch { /* fall back below */ }
+  }
+  if (cachedBotUsername) {
+    const app = process.env.TELEGRAM_MINIAPP_NAME?.trim();
+    const path = app && /^[A-Za-z0-9_]{3,64}$/.test(app) ? `${cachedBotUsername}/${app}` : cachedBotUsername;
+    return `https://t.me/${path}?startapp=oauth`;
+  }
+  return getAppUrl();
+}
+
+export function resetBotUsernameCache(): void { cachedBotUsername = undefined; }

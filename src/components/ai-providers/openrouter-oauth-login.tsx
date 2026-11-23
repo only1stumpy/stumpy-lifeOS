@@ -23,10 +23,18 @@ const FAILURE_COPY = {
   expired: "Время входа истекло.",
 } as const;
 
+type TelegramWebApp = {
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+  onEvent?: (event: string, handler: () => void) => void;
+  offEvent?: (event: string, handler: () => void) => void;
+};
+const telegramWebApp = (): TelegramWebApp | undefined => (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+
+/** Telegram has no in-app browser option for openLink (only Instant View), so the login opens externally. */
 function openExternal(url: string): void {
-  const webApp = (window as Window & { Telegram?: { WebApp?: { openLink?: (url: string) => void } } }).Telegram?.WebApp;
+  const webApp = telegramWebApp();
   try {
-    if (webApp?.openLink) { webApp.openLink(url); return; }
+    if (webApp?.openLink) { webApp.openLink(url, { try_instant_view: false }); return; }
   } catch { /* fall through to a normal tab */ }
   window.open(url, "_blank", "noopener,noreferrer");
 }
@@ -75,9 +83,16 @@ export function OpenRouterLogin({ authorization, accountName, confirmed, disable
   // Returning from the external browser is the moment the result is most likely ready.
   useEffect(() => {
     if (phase !== "waiting") return;
-    const onVisible = () => { if (document.visibilityState === "visible") void poll(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    const onReturn = () => { if (document.visibilityState === "visible") void poll(); };
+    const webApp = telegramWebApp();
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
+    try { webApp?.onEvent?.("activated", onReturn); } catch { /* older Telegram clients */ }
+    return () => {
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
+      try { webApp?.offEvent?.("activated", onReturn); } catch { /* older Telegram clients */ }
+    };
   }, [phase, poll]);
 
   const start = async () => {
@@ -113,7 +128,7 @@ export function OpenRouterLogin({ authorization, accountName, confirmed, disable
       </Button>
       <p className={styles.note}>
         {phase === "waiting"
-          ? "Войди в OpenRouter в браузере и разреши доступ, затем вернись в Telegram. Здесь всё обновится само."
+          ? "Войди в OpenRouter в браузере и разреши доступ: страница сама вернёт тебя в LifeOS. Если не вернула, переключись в Telegram, здесь всё обновится."
           : "Откроется сайт OpenRouter. LifeOS получит обычный API-ключ и сохранит его зашифрованным; пароль OpenRouter приложению не передаётся."}
       </p>
       {phase === "waiting" && <Button variant="text" onClick={() => { stop(); setPhase("idle"); }}>Отменить ожидание</Button>}

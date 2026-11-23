@@ -89,10 +89,10 @@ const providerBrandClasses: Record<StandardProviderId, string> = {
 };
 
 /** First-run wizard copy: one recommended service first, plain steps instead of provider settings. */
-const wizardProviderOrder: WizardProviderId[] = ["gemini", "openrouter", "groq"];
+const wizardProviderOrder: WizardProviderId[] = ["openrouter", "gemini", "groq"];
 const wizardCopy: Record<WizardProviderId, { summary: string; site: string; steps: string[] }> = {
   gemini: {
-    summary: "Понимает текст, фото еды и чеков. Нужен аккаунт Google.",
+    summary: "Понимает текст, фото еды и чеков. Нужен аккаунт Google. Подойдёт как запасной.",
     site: "Google AI Studio",
     steps: [
       "Открой Google AI Studio по кнопке ниже и войди через аккаунт Google.",
@@ -101,7 +101,7 @@ const wizardCopy: Record<WizardProviderId, { summary: string; site: string; step
     ],
   },
   openrouter: {
-    summary: "Понимает текст, фото еды и чеков. Подойдёт, если Google AI Studio недоступен.",
+    summary: "Понимает текст, фото еды и чеков. Вход в один клик, ключ копировать не нужно.",
     site: "OpenRouter",
     steps: [
       "Открой OpenRouter по кнопке ниже и зарегистрируйся по почте.",
@@ -304,7 +304,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
   const [modelQuery, setModelQuery] = useState<Record<string, string>>({});
   const [confirmDelete, setConfirmDelete] = useState<{ providerId: ProviderId; account: ProviderAccount } | null>(null);
   const [draggedQueueIndex, setDraggedQueueIndex] = useState<number | null>(null);
-  const [wizardProviderId, setWizardProviderId] = useState<WizardProviderId>("gemini");
+  const [wizardProviderId, setWizardProviderId] = useState<WizardProviderId>("openrouter");
   const [wizardShowOthers, setWizardShowOthers] = useState(false);
   const [wizardKey, setWizardKey] = useState("");
   const [pasteHint, setPasteHint] = useState("");
@@ -883,7 +883,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                         <span className={styles.wizardChoiceBody}>
                           <span className={`${styles.providerMark} ${providerBrandClasses[providerId]}`} aria-hidden="true"><ProviderBrandMark provider={providerId} /></span>
                           <span className={styles.wizardChoiceCopy}>
-                            <strong>{provider.name}{index === 0 && providerId === "gemini" ? <Chip variant="success">Советуем</Chip> : null}</strong>
+                            <strong>{provider.name}{index === 0 && providerId === "openrouter" ? <Chip variant="success">Советуем</Chip> : null}</strong>
                             <span>{wizardCopy[providerId].summary}</span>
                           </span>
                         </span>
@@ -891,7 +891,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                     />
                   );
                 })}
-                {!wizardShowOthers && <Button variant="text" onClick={() => setWizardShowOthers(true)}>Не открывается или нет аккаунта Google? Другие сервисы</Button>}
+                {!wizardShowOthers && <Button variant="text" onClick={() => setWizardShowOthers(true)}>Другие сервисы: Gemini, Groq</Button>}
               </fieldset>
 
               <form className={styles.connectForm} onSubmit={submitWizardKey}>
@@ -912,6 +912,7 @@ export function AiProvidersPanel({ initData, onClose, onOpenQuotas, guidedOnboar
                   </>
                 )}
                 <Checkbox className={styles.confirmation} checked={wizardFreeConfirmed} onChange={(event) => setWizardFreeConfirmed(event.target.checked)} label={`Я на бесплатном тарифе и не привязывал карту к ${wizardProvider?.name ?? "сервису"}. LifeOS не может проверить это сам.`} />
+                {wizardProviderId === "openrouter" && <p className={styles.securityNote}>У бесплатных моделей OpenRouter лимит около 50 запросов в сутки на аккаунт (до 20 в минуту). Если понадобится больше, добавь ещё один сервис, например Gemini или Groq: LifeOS переключится на него, когда лимит закончится.</p>}
                 {wizardProviderId === "openrouter" && !openrouterManual ? (
                   <>
                     {formError && <p className={styles.error} role="alert">{formError}</p>}

@@ -8,8 +8,11 @@ import {
   completeOpenRouterOAuth,
   generatePkce,
   getOpenRouterOAuthStatus,
+  miniAppReturnLink,
+  resetBotUsernameCache,
   startOpenRouterOAuth,
 } from "../src/server/ai/openrouter-oauth";
+import { GET as callbackGet } from "../src/app/api/ai/oauth/openrouter/callback/route";
 import { createCommandDb, newTelegramId, ownerOf, releaseCommandDb, rejectsWith, type CommandDb } from "./helpers/command-db";
 import { chatReply, startFakeProvider, type FakeRequest } from "./helpers/fake-provider";
 
@@ -21,6 +24,7 @@ describe("OpenRouter OAuth PKCE", () => {
   const realAppUrl = process.env.APP_URL;
   let exchanges: { url: string; body: Record<string, string> }[];
   let exchangeReply: () => Response;
+  let getMeReply: () => Response;
 
   const MODELS = { data: [{ id: "meta/llama:free", name: "Llama", pricing: { prompt: "0", completion: "0" } }] };
   const okProvider = (request: FakeRequest) => request.method === "GET" ? { body: JSON.stringify(MODELS) } : chatReply("OK");
@@ -36,8 +40,13 @@ describe("OpenRouter OAuth PKCE", () => {
     process.env.APP_URL = "https://lifeos.example/";
     exchanges = [];
     exchangeReply = goodKey;
+    getMeReply = () => Response.json({ ok: true, result: { username: "lifeos_preview_bot" } });
+    process.env.TELEGRAM_BOT_TOKEN = "123456:test-token";
+    delete process.env.TELEGRAM_MINIAPP_NAME;
+    resetBotUsernameCache();
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
+      if (url.startsWith("https://api.telegram.org/")) return getMeReply();
       if (!url.startsWith("https://openrouter.ai/api/v1/auth/keys")) return realFetch(input, init);
       exchanges.push({ url, body: JSON.parse(String(init?.body)) as Record<string, string> });
       return exchangeReply();
@@ -188,5 +197,31 @@ describe("OpenRouter OAuth PKCE", () => {
     assert.equal((await getOpenRouterOAuthStatus(ownerId, first.id)).status, "cancelled");
     assert.equal((await completeOpenRouterOAuth({ state: stateOf(first.authUrl), code: "c" })).ok, false);
     assert.equal((await getOpenRouterOAuthStatus(ownerId, second.id)).status, "pending");
+  });
+
+  test("ссылка возврата: бот из getMe, необязательное имя Mini App, запасной вариант — APP_URL", async () => {
+    assert.equal(await miniAppReturnLink(), "https://t.me/lifeos_preview_bot?startapp=oauth");
+    process.env.TELEGRAM_MINIAPP_NAME = "app";
+    assert.equal(await miniAppReturnLink(), "https://t.me/lifeos_preview_bot/app?startapp=oauth");
+    resetBotUsernameCache();
+    getMeReply = () => Response.json({ ok: false });
+    assert.equal(await miniAppReturnLink(), "https://lifeos.example/");
+  });
+
+  test("страница callback: после успеха автопереход и большая кнопка, при отказе только кнопка", async () => {
+    const ownerId = await newOwner();
+    const { authUrl } = await startOpenRouterOAuth(ownerId, "Личный");
+    const ok = await callbackGet(new Request(`https://lifeos.example/api/ai/oauth/openrouter/callback?code=c&state=${stateOf(authUrl)}`));
+    const okHtml = await ok.text();
+    assert.equal(ok.status, 200);
+    assert.match(okHtml, /location\.href="https:\/\/t\.me\/lifeos_preview_bot\?startapp=oauth"/);
+    assert.match(okHtml, /class="back" href="https:\/\/t\.me\/lifeos_preview_bot\?startapp=oauth">Вернуться в LifeOS/);
+    assert.doesNotMatch(okHtml, /secret-oauth-key/);
+
+    const bad = await callbackGet(new Request("https://lifeos.example/api/ai/oauth/openrouter/callback?code=c&state=forged"));
+    const badHtml = await bad.text();
+    assert.equal(bad.status, 400);
+    assert.doesNotMatch(badHtml, /<script>/);
+    assert.match(badHtml, /Вернуться в LifeOS/);
   });
 });
