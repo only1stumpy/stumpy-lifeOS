@@ -13,14 +13,21 @@ type SummaryResponse = {
   adviceError: string | null;
 };
 type TelegramInset = { top?: number; bottom?: number };
+type TelegramEvent = "safeAreaChanged" | "contentSafeAreaChanged" | "fullscreenChanged" | "fullscreenFailed";
 type TelegramWebApp = {
   initData?: string;
+  isFullscreen?: boolean;
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
   ready?(): void;
   expand?(): void;
-  onEvent?(event: "safeAreaChanged" | "contentSafeAreaChanged", handler: () => void): void;
-  offEvent?(event: "safeAreaChanged" | "contentSafeAreaChanged", handler: () => void): void;
+  requestFullscreen?(): void;
+  isVersionAtLeast?(version: string): boolean;
+  setHeaderColor?(color: string): void;
+  setBackgroundColor?(color: string): void;
+  setBottomBarColor?(color: string): void;
+  onEvent?(event: TelegramEvent, handler: () => void): void;
+  offEvent?(event: TelegramEvent, handler: () => void): void;
 };
 type Access = { status: "checking" } | { status: "outside" } | { status: "ready"; initData: string };
 type Selection = { period: Period; start: string };
@@ -250,7 +257,7 @@ function WeightChart({ points }: { points: NonNullable<PeriodReport["weight"]>["
 
 function NutritionSection({ nutrition }: { nutrition: NonNullable<PeriodReport["nutrition"]> }) {
   return (
-    <section className={styles.section} aria-labelledby="nutrition-heading">
+    <section className={styles.section} data-module="nutrition" aria-labelledby="nutrition-heading">
       <div className={styles.sectionHeading}>
         <div><p className={styles.kicker}>Питание</p><h2 id="nutrition-heading">КБЖУ</h2></div>
         <span className={styles.sectionMeta}>{nutrition.loggedDays} {nutrition.loggedDays === 1 ? "день с записями" : "дн. с записями"}</span>
@@ -279,7 +286,7 @@ function WeightSection({ weight }: { weight: NonNullable<PeriodReport["weight"]>
     ? "Недостаточно замеров для сравнения"
     : `${weight.change > 0 ? "+" : weight.change < 0 ? "−" : ""}${numberFormat.format(Math.abs(weight.change))} кг за период`;
   return (
-    <section className={styles.section} aria-labelledby="weight-heading">
+    <section className={styles.section} data-module="weight" aria-labelledby="weight-heading">
       <div className={styles.sectionHeading}>
         <div><p className={styles.kicker}>Питание</p><h2 id="weight-heading">Вес</h2></div>
         <span className={styles.sectionMeta}>{changeLabel}</span>
@@ -315,7 +322,7 @@ function FinanceList({ label, rows, income, currency }: {
 
 function FinanceSection({ finance, currency }: { finance: NonNullable<PeriodReport["finance"]>; currency: string }) {
   return (
-    <section className={styles.section} aria-labelledby="finance-heading">
+    <section className={styles.section} data-module="finance" aria-labelledby="finance-heading">
       <div className={styles.sectionHeading}>
         <div><p className={styles.kicker}>Финансы</p><h2 id="finance-heading">Движение денег</h2></div>
       </div>
@@ -333,7 +340,7 @@ function FinanceSection({ finance, currency }: { finance: NonNullable<PeriodRepo
 
 function GymSection({ gym }: { gym: NonNullable<PeriodReport["gym"]> }) {
   return (
-    <section className={styles.section} aria-labelledby="gym-heading">
+    <section className={styles.section} data-module="gym" aria-labelledby="gym-heading">
       <div className={styles.sectionHeading}>
         <div><p className={styles.kicker}>Зал</p><h2 id="gym-heading">Тренировки</h2></div>
       </div>
@@ -358,15 +365,15 @@ function AdviceSection({
   onRetry(): void;
 }) {
   return (
-    <section className={`${styles.section} ${styles.adviceSection}`} aria-labelledby="advice-heading">
+    <section className={`${styles.section} ${styles.adviceSection}`} data-module="advice" aria-labelledby="advice-heading">
       <div className={styles.sectionHeading}>
         <div><p className={styles.kicker}>Следующий шаг</p><h2 id="advice-heading">Советы</h2></div>
       </div>
       {advice?.items.length ? <ul className={styles.adviceList}>{advice.items.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
-        : <p className={error ? styles.inlineError : styles.emptyNote} role={error ? "alert" : undefined}>{error ? `Советы недоступны: ${error}` : "Готовим советы для этого периода…"}</p>}
+        : <p className={error ? styles.inlineError : styles.emptyNote} role={error ? "alert" : undefined}>{error ? `Советы недоступны: ${error}` : "Советы для этого периода ещё не подготовлены."}</p>}
       {advice?.items.length && error && <p className={styles.inlineError} role="alert">{`Советы недоступны: ${error}`}</p>}
       {(!advice?.items.length || error) && <Button variant="secondary" size="sm" loading={loading} onClick={onRetry}>
-        {loading ? "Получаем советы…" : "Повторить запрос"}
+        {loading ? "Готовим советы…" : error ? "Повторить запрос" : "Получить советы"}
       </Button>}
     </section>
   );
@@ -405,6 +412,7 @@ export default function SummaryPage() {
   const [error, setError] = useState("");
   const [adviceLoading, setAdviceLoading] = useState(false);
   const [reloadRevision, setReloadRevision] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
   const adviceAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -432,12 +440,27 @@ export default function SummaryPage() {
       rootStyle.setProperty("--lifeos-inset-bottom", `max(${bottom}px, env(safe-area-inset-bottom, 0px))`);
     };
     const onInsetsChanged = () => syncInsets();
+    const onFullscreenChanged = () => {
+      setFullscreen(webApp.isFullscreen === true);
+      syncInsets();
+    };
+    // Same presentation as the main app: full screen where the client supports it, otherwise just expanded.
+    const supportsFullscreen = typeof webApp.requestFullscreen === "function"
+      && (typeof webApp.isVersionAtLeast !== "function" || webApp.isVersionAtLeast("8.0"));
     try {
       webApp.ready?.();
-      webApp.expand?.();
+      webApp.onEvent?.("fullscreenChanged", onFullscreenChanged);
+      webApp.onEvent?.("fullscreenFailed", onFullscreenChanged);
+      if (supportsFullscreen) webApp.requestFullscreen?.();
+      else webApp.expand?.();
+      webApp.setHeaderColor?.("#f6f2ec");
+      webApp.setBackgroundColor?.("#f6f2ec");
+      webApp.setBottomBarColor?.("#f6f2ec");
     } catch {
       // Telegram presentation methods are best-effort; signed initData still controls access.
+      try { webApp.expand?.(); } catch { /* nothing more to try */ }
     }
+    setFullscreen(webApp.isFullscreen === true);
     syncInsets();
     webApp.onEvent?.("safeAreaChanged", onInsetsChanged);
     webApp.onEvent?.("contentSafeAreaChanged", onInsetsChanged);
@@ -447,6 +470,8 @@ export default function SummaryPage() {
     return () => {
       webApp.offEvent?.("safeAreaChanged", onInsetsChanged);
       webApp.offEvent?.("contentSafeAreaChanged", onInsetsChanged);
+      webApp.offEvent?.("fullscreenChanged", onFullscreenChanged);
+      webApp.offEvent?.("fullscreenFailed", onFullscreenChanged);
       if (previousTop) rootStyle.setProperty("--lifeos-inset-top", previousTop);
       else rootStyle.removeProperty("--lifeos-inset-top");
       if (previousBottom) rootStyle.setProperty("--lifeos-inset-bottom", previousBottom);
@@ -474,28 +499,6 @@ export default function SummaryPage() {
   }, [access, selection, reloadRevision]);
 
   useEffect(() => () => adviceAbortRef.current?.abort(), []);
-
-  useEffect(() => {
-    if (access.status !== "ready" || !selection || loadState !== "ready" || !data || data.report.period !== selection.period
-      || data.report.start !== selection.start || data.advice || data.adviceError) return;
-    const controller = new AbortController();
-    adviceAbortRef.current = controller;
-    setAdviceLoading(true);
-    void requestSummary("POST", selection, access.initData, controller.signal)
-      .then((result) => {
-        if (!controller.signal.aborted) setData((current) => current ? { ...current, advice: result.advice, adviceError: result.adviceError } : current);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted) setData((current) => current ? { ...current, adviceError: reason instanceof Error ? reason.message : "Советы недоступны." } : current);
-      })
-      .finally(() => {
-        if (adviceAbortRef.current === controller) {
-          adviceAbortRef.current = null;
-          setAdviceLoading(false);
-        }
-      });
-    return () => controller.abort();
-  }, [access, selection, loadState, data]);
 
   const changeSelection = (next: Selection) => {
     adviceAbortRef.current?.abort();
@@ -529,7 +532,7 @@ export default function SummaryPage() {
   const canGoForward = Boolean(selection && movePeriod(selection.start, selection.period, 1) <= todayStart);
 
   return (
-    <main className={styles.stage} data-lg-role="stage">
+    <main className={styles.stage} data-lg-role="stage" data-fullscreen={fullscreen ? "true" : undefined}>
       <div className={styles.page}>
         <header className={styles.pageHeader}>
           <div>

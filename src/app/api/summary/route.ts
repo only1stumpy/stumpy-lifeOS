@@ -4,7 +4,7 @@ import { withTelegramUser } from "@/server/owner-context";
 import { ensureOwner } from "@/server/lifeos";
 import { enforceRateLimit, RATE_LIMITS } from "@/server/rate-limit";
 import { loadPeriodReport } from "@/server/period-report";
-import { getSummaryAdvice } from "@/server/ai/summary-advice";
+import { getSummaryAdvice, readCachedSummaryAdvice } from "@/server/ai/summary-advice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +26,8 @@ async function respond(request: Request, includeAdvice = false) {
       const owner = await ensureOwner();
       assertConsent(owner);
       const report = await loadPeriodReport(parsed.data.period, parsed.data.start);
-      const advice = includeAdvice ? await getSummaryAdvice(owner.id, report) : { advice: null, adviceError: null };
+      // Opening the page only reads advice prepared when the summary was created; the POST button generates it on demand.
+      const advice = includeAdvice ? await getSummaryAdvice(owner.id, report) : { advice: await readCachedSummaryAdvice(owner.id, report), adviceError: null };
       return Response.json({ report, ...advice }, { headers: { "Cache-Control": "no-store" } });
     });
   } catch (error) { return errorResponse(error); }

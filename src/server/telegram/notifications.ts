@@ -18,6 +18,7 @@ import { sendExportWithApi } from "@/server/telegram/export";
 import { formatMoney, formatSigned, round1 } from "@/server/telegram/shared";
 import { getAppUrl } from "@/server/telegram/shared";
 import { loadPeriodReport } from "@/server/period-report";
+import { prefetchSummaryAdvice } from "@/server/ai/summary-advice";
 import type { PeriodReport, ReportPeriod } from "@/domain/period-report";
 
 export function requestedSummaryPeriod(period: ReportPeriod, now: Date, timeZone: string): { start: string; end: string } {
@@ -177,6 +178,8 @@ export async function sendDailySummary(now: Date, timeZone: string, date = dateK
       lines.push("Пока не нашёл знакомых блюд для подсказки. Повторяющиеся блюда можно сохранить как обычную порцию.");
     }
   }
+  const adviceReport = report ?? await loadPeriodReport("day", today, now).catch(() => null);
+  if (adviceReport) await prefetchSummaryAdvice((await ensureOwner()).id, adviceReport);
   if (manual) {
     lines[0] = `Вот твоя сводка за вчера · ${today}`;
     await sendOwnerMessage(lines.join("\n"), summaryKeyboard("day", today));
@@ -297,6 +300,8 @@ async function sendPeriodSummary(now: Date, timeZone: string, period: "week" | "
     loadPeriodReport(period, weekStart, now),
     getDb().select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id)),
   ]);
+  // Advice is prepared now, with the summary, so the report page already has it when it is opened.
+  await prefetchSummaryAdvice(owner.id, report);
   const nutrition = report.nutrition;
   const weight = report.weight;
   const weightLine = weight?.first === null
