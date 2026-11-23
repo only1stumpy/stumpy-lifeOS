@@ -42,6 +42,8 @@ export const settingsHandlers = {
       notificationsConfigured: true,
       dailySummaryEnabled: preset.dailySummary,
       weeklySummaryEnabled: preset.weeklySummary,
+      monthlySummaryEnabled: preset.monthlySummary,
+      dailyWeightReminderEnabled: preset.dailyWeightReminder,
       weightReminderEnabled: preset.weightReminder && nutritionOn,
       profileOnboardingCompleted: true,
       ...(command.timeZone !== undefined ? { timezone: command.timeZone } : {}),
@@ -59,11 +61,11 @@ export const settingsHandlers = {
   },
   "personalization.save": async ({ tx, owner }, command) => {
     const { settings } = command;
-    await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, disabledFeatures: command.disabledFeatures, notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+    await tx.update(s.ownerSettings).set({ enabledModules: command.modules, modulesConfigured: true, disabledFeatures: command.disabledFeatures, notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, monthlySummaryEnabled: settings.monthlySummary, dailyWeightReminderEnabled: settings.dailyWeightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
   },
   "notifications.save": async ({ tx, owner }, command) => {
     const { settings } = command;
-    await tx.update(s.ownerSettings).set({ notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
+    await tx.update(s.ownerSettings).set({ notificationsConfigured: true, dailySummaryEnabled: settings.dailySummary, weeklySummaryEnabled: settings.weeklySummary, weightReminderEnabled: settings.weightReminder, monthlySummaryEnabled: settings.monthlySummary, dailyWeightReminderEnabled: settings.dailyWeightReminder, summaryTime: settings.summaryTime, updatedAt: new Date() }).where(eq(s.ownerSettings.id, owner.id));
   },
   "privacy.accept": async ({ tx, owner }, command) => {
     if (command.version !== PRIVACY_POLICY_VERSION) throw new AppError(409, "Версия политики устарела. Открой приложение заново.");

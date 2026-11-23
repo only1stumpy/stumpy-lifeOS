@@ -148,6 +148,13 @@
       "when": 1795156236419,
       "tag": "0020_plan_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795217744768,
+      "tag": "0021_monthly_summary_weight_reminder",
+      "breakpoints": true
     }
   ]
 }
