@@ -2,6 +2,7 @@ import { and, asc, count, eq, gte } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
+import { defaultPreselection, rankAiModels } from "@/domain/ai-model-ranking";
 import { expandAiModelQueue, initializeAiModelQueue as buildInitialAiModelQueue } from "@/domain/ai-model-queue";
 import { AppError } from "@/server/http";
 import { decryptProviderApiKey, encryptProviderApiKey, type AiProviderConfig } from "./provider-profiles";
@@ -24,8 +25,13 @@ const accountInputSchema = z.object({
   apiKey: z.string().trim().min(1).max(8_192),
   endpoint: z.string().trim().min(1).max(500).optional(),
   model: z.string().trim().min(1).max(200).optional(),
-  freeTierConfirmed: z.literal(true),
+  freeTierConfirmed: z.literal(true).optional(),
 }).strict().superRefine((input, context) => {
+  // OpenRouter is safe without the checkbox: its model list is filtered to zero-priced `:free` models only.
+  // Every other provider keeps the explicit confirmation (their keys do not reveal billing).
+  if (input.providerId !== "openrouter" && input.freeTierConfirmed !== true) {
+    context.addIssue({ code: "custom", message: "Подтверди бесплатный тариф.", path: ["freeTierConfirmed"] });
+  }
   if (input.providerId === "custom" && !input.model) {
     context.addIssue({ code: "custom", message: "Для расширенного endpoint укажи модель для тестового запроса.", path: ["model"] });
   }
@@ -132,7 +138,8 @@ export async function listAiProviderCards(ownerId: string): Promise<{
       connectable: definition.connectable,
       connectionBlockReason: definition.connectionBlockReason,
       accounts: providerAccounts.map(toAccountDto),
-      models: [...modelMap.values()].sort((left, right) => left.name.localeCompare(right.name, "ru")),
+      // Display order of the catalog only; the user's queue and saved selection are never reordered here.
+      models: rankAiModels(definition.id, [...modelMap.values()]),
     };
   });
 
@@ -193,7 +200,7 @@ export async function connectAiProviderAccount(ownerId: string, rawInput: unknow
       endpoint,
       authHeaderName: definition.authHeaderName,
       encryptedApiKey: encryptProviderApiKey(input.apiKey),
-      freeTierConfirmed: input.freeTierConfirmed,
+      freeTierConfirmed: input.providerId === "openrouter" || input.freeTierConfirmed === true,
       enabled: true,
       sortOrder,
       models,
@@ -207,15 +214,16 @@ export async function connectAiProviderAccount(ownerId: string, rawInput: unknow
       .where(eq(schema.aiProviderModelSelections.ownerId, ownerId));
     const knownModels = new Set(existingSelections.filter((selection) => selection.providerId === input.providerId).map((selection) => selection.modelId));
     let nextOrder = Math.max(-1, ...existingSelections.filter((selection) => selection.enabled).map((selection) => selection.sortOrder)) + 1;
-    const newModels = models.filter((model, index) => models.findIndex((item) => item.id === model.id) === index && !knownModels.has(model.id));
+    const newModels = rankAiModels(input.providerId, models.filter((model, index) => models.findIndex((item) => item.id === model.id) === index && !knownModels.has(model.id)));
     if (newModels.length > 0) {
-      await tx.insert(schema.aiProviderModelSelections).values(newModels.map((model) => ({
-        ownerId,
-        providerId: input.providerId,
-        modelId: model.id,
-        enabled: true,
-        sortOrder: nextOrder++,
-      })));
+      // A new provider starts with its best few models enabled; the rest are saved as known but off, so a later
+      // refresh does not switch them on. Rows that already exist (the user's choice and order) are never touched.
+      const preselected = new Set(defaultPreselection(newModels));
+      let disabledOrder = nextOrder + preselected.size;
+      await tx.insert(schema.aiProviderModelSelections).values(newModels.map((model) => {
+        const enabled = preselected.has(model.id);
+        return { ownerId, providerId: input.providerId, modelId: model.id, enabled, sortOrder: enabled ? nextOrder++ : disabledOrder++ };
+      }));
     }
     return created;
   });
@@ -478,7 +486,7 @@ async function appendNewModelSelections(ownerId: string, providerId: AiProviderI
     .from(schema.aiProviderModelSelections)
     .where(eq(schema.aiProviderModelSelections.ownerId, ownerId));
   const knownModels = new Set(existing.filter((selection) => selection.providerId === providerId).map((selection) => selection.modelId));
-  const freshModels = models.filter((model, index) => models.findIndex((item) => item.id === model.id) === index && !knownModels.has(model.id));
+  const freshModels = rankAiModels(providerId, models.filter((model, index) => models.findIndex((item) => item.id === model.id) === index && !knownModels.has(model.id)));
   if (freshModels.length === 0) return;
 
   let nextOrder = Math.max(-1, ...existing.filter((selection) => selection.enabled).map((selection) => selection.sortOrder)) + 1;
