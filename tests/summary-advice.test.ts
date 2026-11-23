@@ -7,6 +7,7 @@ import { withTelegramUser } from "../src/server/owner-context";
 import { encryptProviderApiKey } from "../src/server/ai/provider-profiles";
 import { buildAdvicePayload, getSummaryAdvice, prefetchSummaryAdvice, previousPeriodStart, readCachedSummaryAdvice, weightTrend } from "../src/server/ai/summary-advice";
 import type { PeriodReport } from "../src/domain/period-report";
+import { formatMoney } from "../src/domain/currencies";
 import { createCommandDb, newTelegramId, releaseCommandDb, type CommandDb } from "./helpers/command-db";
 import { chatReply, startFakeProvider } from "./helpers/fake-provider";
 
@@ -85,17 +86,17 @@ test("summary advice uses anonymous aggregate numbers and caches per owner and r
   assert.equal(provider.requests.length, 1);
   const requestBody = JSON.parse(provider.requests[0]!.body) as { messages: { role: string; content: string }[] };
   const sentPrompt = requestBody.messages.find((message) => message.role === "user")?.content ?? "";
-  // Money goes in whole currency units (not minor units) with the category names the person chose; no operation names or dates of entries.
-  assert.match(sentPrompt, /"expenses":1200/);
-  assert.match(sentPrompt, /"incomes":2500/);
-  assert.match(sentPrompt, /"topExpenseCategories":\[\{"category":"Частная категория 83f2","amount":800\}/);
-  assert.match(sentPrompt, /"incomeMayBeIrregular":true/);
-  assert.match(sentPrompt, /"trend":"losing"/);
-  assert.doesNotMatch(sentPrompt, /expenseMinor|amountMinor/);
+  // Money goes as ready strings in the app's own format with the category names the person chose;
+  // the payload uses plain Russian words, no technical identifiers, operation names or Telegram ids.
+  assert.ok(sentPrompt.includes(`"расходы":"${formatMoney(120_000, "MDL")}"`), sentPrompt);
+  assert.doesNotMatch(sentPrompt, /доход|Имя клиента|Другой клиент|250/, "income data never reaches the provider");
+  assert.ok(sentPrompt.includes(`"крупныеКатегорииРасходов":[{"категория":"Частная категория 83f2","сумма":"${formatMoney(80_000, "MDL")}"}`));
+  assert.match(sentPrompt, /"динамика":"снижается"/);
+  assert.doesNotMatch(sentPrompt, /expenseMinor|amountMinor|gain_mass|lose_weight|trend/);
   assert.equal(sentPrompt.includes(String(owner.telegramUserId)), false, "no Telegram id goes to the provider");
 
   const [cached] = await db.select().from(schema.summaryAdviceCache).where(eq(schema.summaryAdviceCache.ownerId, owner.id));
-  assert.deepEqual(cached?.advice, { v: 2, items: firstItems });
+  assert.deepEqual(cached?.advice, { v: 3, items: firstItems });
   assert.deepEqual(await getSummaryAdvice(owner.id, REPORT), result);
   assert.equal(provider.requests.length, 1, "cached advice avoids another provider call");
 
@@ -191,17 +192,21 @@ test("period helpers: previous period start and weight trend noise", () => {
   assert.equal(weightTrend("week", null, 0), null);
 });
 
-test("advice payload: whole units, balance, goal, trend and previous period", () => {
+test("advice payload: readable words, ready money strings, balance, goal, trend and previous period", () => {
   const previous: PeriodReport = { ...REPORT, start: "2026-11-09", end: "2026-11-15", finance: { expenseMinor: 90_000, incomeMinor: 0, expenses: [{ name: "Еда", amountMinor: 90_000 }], incomes: [] }, weight: undefined };
   const payload = buildAdvicePayload({ report: REPORT, previous, goalType: "gain_mass", totalBalanceMinor: 543_210, totalBalancePartial: false });
-  assert.equal(payload.goal, "gain_mass");
-  assert.equal(payload.finance?.expenses, 1200);
-  assert.equal(payload.finance?.accountsTotalBalance, 5432.1);
-  assert.equal(payload.finance?.accountsTotalBalanceIsPartial, false);
-  assert.equal(payload.weight?.trend, "losing");
-  assert.equal(payload.previousPeriod?.expenses, 900);
-  assert.equal(payload.previousPeriod?.start, "2026-11-09");
+  assert.equal(payload.цель, "Набрать массу", "the goal is a label, not an enum value");
+  assert.equal(payload.финансы?.расходы, formatMoney(120_000, "MDL"));
+  assert.equal(payload.финансы?.общийБалансСчетов, formatMoney(543_210, "MDL"));
+  assert.equal(payload.финансы?.балансПосчитанНеПоВсемСчетам, false);
+  assert.equal(payload.вес?.динамика, "снижается");
+  assert.equal(payload.питание?.вСреднемЗаДеньСЗаписями?.ккал, 2_100, "calories and grams are whole numbers");
+  assert.equal(payload.прошлыйПериод?.расходы, formatMoney(90_000, "MDL"));
+  assert.equal(payload.прошлыйПериод?.с, "2026-11-09");
+  assert.doesNotMatch(JSON.stringify(payload), /доход/i, "no income fields anywhere, including the previous period");
+  assert.doesNotMatch(JSON.stringify(payload), /gain_mass|Minor|trend/);
   const noBalance = buildAdvicePayload({ report: { ...REPORT, finance: undefined }, previous: null, goalType: null, totalBalanceMinor: null, totalBalancePartial: false });
-  assert.equal("finance" in noBalance, false, "disabled modules send nothing");
-  assert.equal("previousPeriod" in noBalance, false);
+  assert.equal("финансы" in noBalance, false, "disabled modules send nothing");
+  assert.equal("прошлыйПериод" in noBalance, false);
+  assert.equal(noBalance.цель, null);
 });

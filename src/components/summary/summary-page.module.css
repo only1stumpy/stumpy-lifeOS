@@ -129,7 +129,10 @@
   flex: none;
 }
 
+/* Header, the grid of module cards and the advice card are siblings: one gap between all of them. */
 .reportSurface {
+  display: grid;
+  gap: 14px;
   width: 100%;
 }
 
