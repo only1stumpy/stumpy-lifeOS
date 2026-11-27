@@ -36,7 +36,7 @@ type LifeOSAppProps = {
   snapshot: AppSnapshot | null;
   onAction(action: LifeOSAction): void;
   onOpenAiProviders(): void;
-  onCloseAiProviders(): void;
+  onCloseAiProviders(): boolean;
   aiSettingsActive: boolean;
   aiSettingsContent: ReactNode;
   onHaptic?(kind: "selection" | "success" | "error"): void;
@@ -584,10 +584,10 @@ function LifeOSApp({ snapshot, onAction, onOpenAiProviders, onCloseAiProviders, 
   };
 
   const navigate = (key: ModuleKey) => {
+    if (aiSettingsActive && onCloseAiProviders() === false) return;
     if (key !== section) onHaptic?.("selection");
     // Every tab opens from the top instead of keeping the previous scroll position.
     if (key !== section || aiSettingsActive) window.scrollTo({ top: 0 });
-    if (aiSettingsActive) onCloseAiProviders();
     setSection(key);
     if (key !== "gym") {
       setSelectedExerciseId(null);

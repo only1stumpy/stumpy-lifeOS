@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { eq } from "drizzle-orm";
 import * as schema from "../../src/db/schema";
-import { createCommandDb, newTelegramId, ownerOf, run } from "../helpers/command-db";
+import { createCommandDb, newTelegramId, ownerOf, run, snapshotOf } from "../helpers/command-db";
 
 // Mini App screens in a real browser, without AI. The page is served by the production build (`next start`);
 // the browser's /api calls are answered by the real route handlers running against PGlite in this process, and
@@ -30,6 +30,7 @@ function signedInitData(userId: number) {
 const TELEGRAM_STUB = `(() => {
   const params = new URLSearchParams(location.hash.slice(1));
   const known = { initData: params.get("tgWebAppData") ?? "", version: "8.0", platform: "ios", colorScheme: "light", isFullscreen: false, isVersionAtLeast: () => false };
+  known.BackButton = { onClick: (handler) => { window.__telegramBack = handler; }, offClick: () => {}, show: () => {}, hide: () => {} };
   window.Telegram = { WebApp: new Proxy(known, { get: (target, name) => (name in target ? target[name] : () => undefined) }) };
 })();`;
 
@@ -37,6 +38,7 @@ let server: ChildProcess;
 let chrome: ChildProcess;
 let profileDir: string;
 let ws: WebSocket;
+let testUser: string;
 const problems: string[] = [];
 const pending = new Map<number, (message: { result?: unknown; error?: { message: string } }) => void>();
 type CdpParams = {
@@ -72,6 +74,7 @@ async function answerApi(url: URL, request: { method: string; headers: Record<st
 before(async () => {
   const { db } = await createCommandDb();
   const telegramId = newTelegramId();
+  testUser = telegramId;
   await run(telegramId, { type: "modules.save", modules: ["nutrition", "finance", "gym"] });
   await run(telegramId, { type: "account.save", name: "Касса", currency: "PRB", openingBalanceMinor: 100_000, isDefault: true });
   const owner = await ownerOf(db, telegramId);
@@ -199,4 +202,63 @@ test("F26: под открытой шторкой страница не прок
   await until("редактор закрыт", async () => evaluate<boolean>("!document.querySelector('dialog.editor[open]')"));
   await until("блокировка снята", async () => (await evaluate<string>("document.body.style.position")) === "");
   assert.equal(await evaluate<number>("window.scrollY"), before, "позиция страницы восстановлена");
+});
+
+test("персонализация: четыре экрана, сохранение отдельно, отмена ухода и возврат Telegram", async () => {
+  const menu = 'nav[aria-label="Разделы персонализации"]';
+  const open = async (title: string) => {
+    assert.equal(await evaluate<boolean>(`(() => { const item = [...document.querySelectorAll(${JSON.stringify(menu + " button")})].find((el) => el.querySelector("strong")?.textContent === ${JSON.stringify(title)}); item?.click(); return Boolean(item); })()`), true);
+    await until(`открыт «${title}»`, () => evaluate<boolean>(`document.querySelector('h1[tabindex="-1"]')?.textContent === ${JSON.stringify(title)}`));
+    assert.equal(await evaluate<string>("document.activeElement?.tagName"), "H1");
+  };
+  const back = async () => {
+    await evaluate("window.__telegramBack()");
+    await until("меню персонализации", () => evaluate<boolean>(`Boolean(document.querySelector(${JSON.stringify(menu)}))`));
+  };
+  const save = async () => {
+    await evaluate(`document.querySelector('[class*="saveBar"] button').click()`);
+    await until("панель сохранения закрылась", () => evaluate<boolean>(`document.querySelector('[class*="saveBar"]')?.getAttribute("data-open") === "false"`));
+  };
+  await evaluate(`${dockButton("Настройки")}.click()`);
+  await until("настройки открыты", () => evaluate<boolean>('Boolean(document.querySelector(\'nav[aria-label="Настройки"]\'))'));
+  await evaluate(`document.querySelector('nav[aria-label="Настройки"] button').click()`);
+  await until("меню персонализации", () => evaluate<boolean>(`Boolean(document.querySelector(${JSON.stringify(menu)}))`));
+  assert.equal(await evaluate<number>(`document.querySelectorAll(${JSON.stringify(menu + " button")}).length`), 4);
+
+  await open("Разделы и функции");
+  await evaluate(`(() => { const label = [...document.querySelectorAll("label")].find((el) => el.textContent.includes("Финансы")); label?.click(); })()`);
+  assert.equal(await evaluate<string>(`document.querySelector('[class*="saveBar"]').getAttribute("data-open")`), "true");
+  await evaluate("window.confirm = () => false; window.__telegramBack()");
+  assert.equal(await evaluate<string>("document.querySelector('h1[tabindex=\"-1\"]')?.textContent"), "Разделы и функции", "отмена сохраняет черновик");
+  await evaluate("window.confirm = () => true");
+  await save();
+  assert.deepEqual((await snapshotOf(testUser)).settings.enabledModules, ["nutrition", "gym"]);
+  await back();
+
+  await open("Уведомления и сводки");
+  await evaluate(`(() => { const label = [...document.querySelectorAll("label")].find((el) => el.textContent.includes("Дневная сводка")); label?.click(); })()`);
+  await save();
+  assert.equal((await snapshotOf(testUser)).settings.notifications.dailySummary, true);
+  assert.deepEqual((await snapshotOf(testUser)).settings.enabledModules, ["nutrition", "gym"], "сводки не перезаписали разделы");
+  await evaluate(`(() => { const label = [...document.querySelectorAll("label")].find((el) => el.textContent.includes("Дневная сводка")); label?.click(); })()`);
+  await back();
+  await open("Уведомления и сводки");
+  assert.equal(await evaluate<boolean>(`[...document.querySelectorAll("label")].find((el) => el.textContent.includes("Дневная сводка"))?.querySelector("input")?.checked`), true, "подтверждённый выход отбросил черновик");
+  assert.equal(await evaluate<string>(`document.querySelector('[class*="saveBar"]').getAttribute("data-open")`), "false");
+  await back();
+
+  await open("Время и часовой пояс");
+  await evaluate(`(() => { const select = document.querySelector("select"); select.value = "UTC"; select.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await until("пояс изменён", () => evaluate<boolean>(`document.querySelector('[class*="saveBar"]')?.getAttribute("data-open") === "true"`));
+  await save();
+  assert.equal((await snapshotOf(testUser)).settings.timeZone, "UTC");
+  assert.equal((await snapshotOf(testUser)).settings.notifications.dailySummary, true);
+  await back();
+
+  await open("Оформление");
+  assert.equal(await evaluate<boolean>(`Boolean(document.querySelector('[role="radiogroup"]'))`), true);
+  assert.equal(await evaluate<boolean>(`document.querySelector('[class*="saveBar"]')?.getAttribute("data-open") === "false"`), true);
+  await back();
+  await evaluate("window.__telegramBack()");
+  await until("главное меню настроек", () => evaluate<boolean>('Boolean(document.querySelector(\'nav[aria-label="Настройки"]\'))'));
 });

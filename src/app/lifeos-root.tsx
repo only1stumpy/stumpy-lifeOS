@@ -166,8 +166,9 @@ function noticeFor(command: AppCommand): string | null {
     case "finance-plan.purchase": return "Покупка записана, план закрыт.";
     case "debt.create": return "Долг записан.";
     case "debt.repayment.create": return "Возврат записан.";
-    case "personalization.save": return "Сохранено";
-    case "profile.save": case "settings.save": return "Цель сохранена.";
+    case "modules.save": case "personalization.save": case "notifications.save": return "Сохранено";
+    case "settings.save": return command.target ? "Цель сохранена." : "Сохранено";
+    case "profile.save": return "Цель сохранена.";
     case "rate.save": return "Курс сохранён.";
     case "recurring.save": return "Платёж сохранён.";
     case "session.finish": return "Тренировка завершена. Она в журнале на вкладке «Зал».";
@@ -235,6 +236,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   const telegramBackHandlerRef = useRef<() => void>(() => undefined);
   const appBackHandlerRef = useRef<(() => void) | null>(null);
   const editorBackHandlerRef = useRef<(() => void) | null>(null);
+  const personalizationNavigationRef = useRef<{ back(): boolean; canLeave(): boolean } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -360,7 +362,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
       return;
     }
     if (showAiProviders) {
-      // Inside a settings page «back» returns to the settings menu; from the menu it leaves settings.
+      if (settingsPage === "personalization" && personalizationNavigationRef.current?.back()) return;
       if (settingsPage !== "menu") setSettingsPage("menu");
       else setShowAiProviders(false);
       return;
@@ -514,10 +516,12 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
   }, [settingsPage, showAiProviders]);
 
   const closeAiQuotas = useCallback(() => setShowAiQuotas(false), []);
-  const closeAiProviders = useCallback(() => {
+  const closeAiProviders = useCallback((): boolean => {
+    if (settingsPage === "personalization" && !personalizationNavigationRef.current?.canLeave()) return false;
     setShowAiProviders(false);
     setSettingsPage("menu");
-  }, []);
+    return true;
+  }, [settingsPage]);
   const sendExport = useCallback(async (): Promise<boolean> => {
     if (!initData || pendingRef.current) return false;
     pendingRef.current = true;
@@ -542,7 +546,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
     for (const command of commands) {
       if (!(await sendCommand(command, true))) return false;
     }
-    const saved = commands.find((command) => command.type === "personalization.save");
+    const saved = commands.find((command) => command.type === "personalization.save" || command.type === "modules.save");
     if (saved && snapshot) {
       const needed = modulesNeedingSetup(snapshot.settings.enabledModules, saved.modules, {
         hasNutritionTarget: snapshot.nutrition.target !== null,
@@ -747,7 +751,7 @@ function LifeOSRoot({ configured }: LifeOSRootProps) {
           aiSettingsContent={showAiProviders && initData ? (
             settingsPage === "menu" ? <SettingsMenu onOpen={setSettingsPage} />
               : settingsPage === "privacy" ? <SettingsSubpage><PrivacyPage snapshot={snapshot} pending={pending} onSendExport={sendExport} onDelete={() => sendCommand({ type: "account.delete", confirmation: DELETE_CONFIRMATION_WORD }, true)} onRevokeHealth={() => sendCommand({ type: "privacy.health.revoke" }, true)} /></SettingsSubpage>
-              : settingsPage === "personalization" ? <SettingsSubpage><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} /></SettingsSubpage>
+              : settingsPage === "personalization" ? <SettingsSubpage><PersonalizationPage snapshot={snapshot} pending={pending} onSave={savePersonalization} navigationRef={personalizationNavigationRef} /></SettingsSubpage>
               : <SettingsSubpage><AiProvidersPanel key="ai-providers" initData={initData} onClose={() => setSettingsPage("menu")} onOpenQuotas={() => setShowAiQuotas(true)} /></SettingsSubpage>
           ) : null}
           onDateChange={(date) => void changeDate(date)}

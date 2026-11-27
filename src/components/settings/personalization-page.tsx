@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Button, Checkbox, Radio, Select, TextField } from "@/components/ui";
 import { setLightPreference, useLightMode, useLightPreference, type LightPreference } from "@/components/glass/light-mode";
@@ -11,16 +11,22 @@ import styles from "./settings.module.css";
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/**
- * Settings page: which life areas and features are on, and which summaries and reminders the bot sends.
- * One form, one save button; nothing opens in a popup.
- */
-export function PersonalizationPage({ snapshot, pending, onSave }: {
+type PersonalizationSection = "menu" | "modules" | "notifications" | "time" | "appearance";
+const SECTIONS: { page: Exclude<PersonalizationSection, "menu">; title: string; description: string }[] = [
+  { page: "modules", title: "Разделы и функции", description: "Что видно в приложении и доступно боту." },
+  { page: "notifications", title: "Уведомления и сводки", description: "Сводки, напоминания и время отправки." },
+  { page: "time", title: "Время и часовой пояс", description: "Локальное время записей и отчётов." },
+  { page: "appearance", title: "Оформление", description: "Лёгкое оформление на этом устройстве." },
+];
+
+export function PersonalizationPage({ snapshot, pending, onSave, navigationRef }: {
   snapshot: AppSnapshot;
   pending: boolean;
-  /** Sends the commands one after another and resolves to false as soon as one is rejected. */
   onSave(commands: AppCommand[]): Promise<boolean>;
+  navigationRef: RefObject<{ back(): boolean; canLeave(): boolean } | null>;
 }) {
+  const [section, setSection] = useState<PersonalizationSection>("menu");
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const { enabledModules, disabledFeatures, notifications } = snapshot.settings;
   const [modules, setModules] = useState<LifeModule[]>(enabledModules);
   const [features, setFeatures] = useState<LifeFeature[]>(ALL_FEATURES.filter((feature) => !disabledFeatures.includes(feature)));
@@ -42,32 +48,78 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
   };
 
   const sameList = (left: readonly string[], right: readonly string[]) => left.length === right.length && left.every((item) => right.includes(item));
-  const dirty = !sameList(modules, enabledModules)
-    || !sameList(features, ALL_FEATURES.filter((feature) => !disabledFeatures.includes(feature)))
-    || dailySummary !== notifications.dailySummary
+  const modulesDirty = !sameList(modules, enabledModules)
+    || !sameList(features, ALL_FEATURES.filter((feature) => !disabledFeatures.includes(feature)));
+  const notificationsDirty = dailySummary !== notifications.dailySummary
     || weeklySummary !== notifications.weeklySummary
     || weightReminder !== notifications.weightReminder
     || monthlySummary !== notifications.monthlySummary
     || dailyWeightReminder !== notifications.dailyWeightReminder
-    || summaryTime !== (notifications.summaryTime ?? "19:30")
-    || timeZone !== savedZone;
+    || summaryTime !== (notifications.summaryTime ?? "19:30");
+  const dirty = section === "modules" ? modulesDirty : section === "notifications" ? notificationsDirty : section === "time" && timeZone !== savedZone;
 
-  const open = dirty || pending || error !== null;
+  const open = section !== "menu" && section !== "appearance" && (dirty || pending || error !== null);
+  const canLeave = () => !pending && (!dirty || window.confirm("Изменения не сохранены. Выйти без сохранения?"));
+  useEffect(() => {
+    navigationRef.current = {
+      canLeave,
+      back: () => {
+        if (section === "menu") return false;
+        if (canLeave()) {
+          if (dirty && section === "modules") {
+            setModules(enabledModules);
+            setFeatures(ALL_FEATURES.filter((feature) => !disabledFeatures.includes(feature)));
+          }
+          if (dirty && section === "notifications") {
+            setDailySummary(notifications.dailySummary);
+            setWeeklySummary(notifications.weeklySummary);
+            setMonthlySummary(notifications.monthlySummary);
+            setWeightReminder(notifications.weightReminder);
+            setDailyWeightReminder(notifications.dailyWeightReminder);
+            setSummaryTime(notifications.summaryTime ?? "19:30");
+          }
+          if (dirty && section === "time") setTimeZone(savedZone);
+          setError(null);
+          setSection("menu");
+        }
+        return true;
+      },
+    };
+    return () => { navigationRef.current = null; };
+  });
+  useEffect(() => {
+    if (section !== "menu") titleRef.current?.focus();
+    window.scrollTo({ top: 0 });
+  }, [section]);
 
   async function save() {
-    if (pending) return;
-    if (!modules.length) { setError("Оставь хотя бы один раздел."); return; }
-    if (summaryTime && !TIME_PATTERN.test(summaryTime)) { setError("Время в формате ЧЧ:ММ."); return; }
-    const ok = await onSave([
-      ...(timeZone !== savedZone ? [{ type: "settings.save" as const, timeZone, target: null }] : []),
-      { type: "personalization.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)), settings: { dailySummary, weeklySummary, monthlySummary, weightReminder, dailyWeightReminder, summaryTime: summaryTime || null } },
-    ]);
+    if (pending || !dirty) return;
+    if (section === "modules" && !modules.length) { setError("Оставь хотя бы один раздел."); return; }
+    if (section === "notifications" && summaryTime && !TIME_PATTERN.test(summaryTime)) { setError("Время в формате ЧЧ:ММ."); return; }
+    const settings = { dailySummary, weeklySummary, monthlySummary, weightReminder, dailyWeightReminder, summaryTime: summaryTime || null };
+    const commands: AppCommand[] = section === "modules"
+      ? [{ type: "modules.save", modules: ALL_MODULES.filter((module) => modules.includes(module)), disabledFeatures: ALL_FEATURES.filter((feature) => !features.includes(feature)) }]
+      : section === "notifications" ? [{ type: "notifications.save", settings }]
+        : section === "time" ? [{ type: "settings.save", timeZone, target: null }] : [];
+    const ok = await onSave(commands);
     if (!ok) setError("Не удалось сохранить. Проверь соединение и повтори.");
   }
 
   return (
     <div className={styles.page} data-no-scroll-anchor="true">
-      <h1 className={styles.title}>Персонализация</h1>
+      {section === "menu" ? <>
+        <h1 className={styles.title}>Персонализация</h1>
+        <nav className={styles.menu} aria-label="Разделы персонализации">
+          {SECTIONS.map((item) => (
+            // eslint-disable-next-line no-restricted-syntax -- строка-карточка пункта меню
+            <button key={item.page} type="button" className={styles.menuItem} onClick={() => { setError(null); setSection(item.page); }}>
+              <strong>{item.title}</strong><span>{item.description}</span>
+            </button>
+          ))}
+        </nav>
+      </> : <>
+      <h1 ref={titleRef} tabIndex={-1} className={styles.title}>{SECTIONS.find((item) => item.page === section)?.title}</h1>
+      {section === "modules" && <>
       <p className={styles.hint}>Выключенные разделы и функции пропадают из приложения, не попадают в сводки и напоминания и не передаются ИИ. Данные сохраняются: включи снова, и всё будет на месте.</p>
 
       <section className={styles.section} aria-labelledby="modules-heading">
@@ -86,14 +138,15 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
           );
         })}
       </section>
+      </>}
 
+      {section === "notifications" && (
       <section className={styles.section} aria-labelledby="notifications-heading">
-        <h2 id="notifications-heading">Сводки и напоминания</h2>
-        <Checkbox checked={dailySummary} onChange={(event) => { touch(); setDailySummary(event.target.checked); }} label={<strong>Дневная сводка</strong>} description={summaryText(modules, "day")} />
-        <Checkbox checked={weeklySummary} onChange={(event) => { touch(); setWeeklySummary(event.target.checked); }} label={<strong>Недельная сводка</strong>} description={`По воскресеньям: ${summaryText(modules, "week")}`} />
-        <Checkbox checked={monthlySummary} onChange={(event) => { touch(); setMonthlySummary(event.target.checked); }} label={<strong>Месячная сводка</strong>} description={`В последний день месяца: ${summaryText(modules, "month")}`} />
-        {modules.includes("nutrition") && <Checkbox checked={dailyWeightReminder} onChange={(event) => { touch(); setDailyWeightReminder(event.target.checked); }} label={<strong>Взвешивание каждый день</strong>} description="Напоминание каждый день в выбранное время, если вес за день ещё не записан. Вместе с четверговым напоминанием придёт одно сообщение." />}
-        {modules.includes("nutrition") && <Checkbox checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} label={<strong>Напоминание взвеситься</strong>} description="По четвергам, если за 7 дней меньше трёх замеров." />}
+        <Checkbox checked={dailySummary} onChange={(event) => { touch(); setDailySummary(event.target.checked); }} label={<strong>Дневная сводка</strong>} description={summaryText(enabledModules, "day")} />
+        <Checkbox checked={weeklySummary} onChange={(event) => { touch(); setWeeklySummary(event.target.checked); }} label={<strong>Недельная сводка</strong>} description={`По воскресеньям: ${summaryText(enabledModules, "week")}`} />
+        <Checkbox checked={monthlySummary} onChange={(event) => { touch(); setMonthlySummary(event.target.checked); }} label={<strong>Месячная сводка</strong>} description={`В последний день месяца: ${summaryText(enabledModules, "month")}`} />
+        {enabledModules.includes("nutrition") && <Checkbox checked={dailyWeightReminder} onChange={(event) => { touch(); setDailyWeightReminder(event.target.checked); }} label={<strong>Взвешивание каждый день</strong>} description="Напоминание каждый день в выбранное время, если вес за день ещё не записан. Вместе с четверговым напоминанием придёт одно сообщение." />}
+        {enabledModules.includes("nutrition") && <Checkbox checked={weightReminder} onChange={(event) => { touch(); setWeightReminder(event.target.checked); }} label={<strong>Напоминание взвеситься</strong>} description="По четвергам, если за 7 дней меньше трёх замеров." />}
         <TextField
           type="time"
           className={styles.timeInput}
@@ -103,9 +156,10 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
           onChange={(event) => { touch(); setSummaryTime(event.target.value); }}
         />
       </section>
+      )}
 
+      {section === "time" && (
       <section className={styles.section} aria-labelledby="timezone-heading">
-        <h2 id="timezone-heading">Часовой пояс</h2>
         <Select
           label={<strong>Твой пояс</strong>}
           hint="По нему считаются «сегодня», время записей, сводки и сроки. Уже сохранённые записи не пересчитываются: они остаются в тот же момент времени."
@@ -116,8 +170,10 @@ export function PersonalizationPage({ snapshot, pending, onSave }: {
         </Select>
         {detectedZone() && detectedZone() !== timeZone ? <Button variant="secondary" onClick={() => { touch(); setTimeZone(detectedZone() as string); }}>Определить по устройству: {detectedZone()}</Button> : null}
       </section>
+      )}
 
-      <LightModeSection />
+      {section === "appearance" && <LightModeSection />}
+      </>}
 
       {/* The bar is a portal: ancestors animated by framer-motion carry a transform, which would make them the containing block of position: fixed. */}
       <div className={styles.saveSpacer} data-open={open} aria-hidden="true" />

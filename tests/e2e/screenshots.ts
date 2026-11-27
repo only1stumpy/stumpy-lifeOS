@@ -274,6 +274,12 @@ async function main() {
     if (await openTab(tab)) { await wait(500); await shot(file); } else skip(file, `нет вкладки «${tab}»`);
   }
   await settingsPage("06-personalization", "Персонализация");
+  for (const [file, title] of [["06a-modules", "Разделы и функции"], ["06b-notifications", "Уведомления и сводки"], ["06c-timezone", "Время и часовой пояс"], ["06d-appearance", "Оформление"]] as const) {
+    if (!(await clickText(`^${title}$`, 'nav[aria-label="Разделы персонализации"]'))) { skip(file, `нет подраздела «${title}»`); continue; }
+    await wait(400);
+    await shot(file, false);
+    await settingsPage("06-personalization", "Персонализация");
+  }
   await settingsPage("07-ai-providers", "ИИ-провайдеры");
   // Wizard: the key step with the paste button; headless Chrome has no clipboard permission, so this is the "denied" outcome.
   if (await clickText("^Начать$")) {
