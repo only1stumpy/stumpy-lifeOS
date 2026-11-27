@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Transaction } from "@/db/client";
 import * as s from "@/db/schema";
 import { AppError } from "../http";
-import { account, category, toMinor, macroNumbers, macroStrings, rateAt } from "./shared";
+import { account, baseCurrencyOf, category, toMinor, macroNumbers, macroStrings, rateAt } from "./shared";
 import type { CommandHandlers } from "./types";
 import { saveDebtRepayment, saveDebtTransfer } from "./debts";
 
@@ -71,7 +71,7 @@ export const draftsHandlers = {
       const chosen = await account(tx, owner.id, money.accountId ?? undefined, money.currency);
       const group = money.categoryId ? null : await category(tx, owner.id, money.proposedCategory!, money.entryType as "expense" | "income");
       const rate = await rateAt(tx, owner.id, chosen.currency, money.occurredAt);
-      await tx.insert(s.financeEntries).values({ ownerId: owner.id, captureDraftId: draft.id, accountId: chosen.id, categoryId: money.categoryId ?? group!.id, entryType: money.entryType, name: money.name, amount: money.amount, currency: chosen.currency, rateToBase: rate, occurredAt: money.occurredAt });
+      await tx.insert(s.financeEntries).values({ ownerId: owner.id, captureDraftId: draft.id, accountId: chosen.id, categoryId: money.categoryId ?? group!.id, entryType: money.entryType, name: money.name, amount: money.amount, currency: chosen.currency, rateToBase: rate, baseCurrencyEpoch: owner.baseCurrencyEpoch, occurredAt: money.occurredAt });
     }
     if (debt) {
       if (debt.operation === "create") {
@@ -87,11 +87,12 @@ export const draftsHandlers = {
           captureDraftId: draft.id,
         });
       } else {
-        if (!debt.debtId || !debt.accountId) throw new AppError(400, "В черновике возврата не хватает долга или счёта.");
+        if (!debt.debtId) throw new AppError(400, "В черновике возврата не хватает долга.");
+        const repaymentAccount = debt.accountId ?? (await account(tx, owner.id, undefined, await baseCurrencyOf(tx, owner.id))).id;
         await saveDebtRepayment(tx, owner.id, {
           debtId: debt.debtId,
           amountMinor: toMinor(debt.amount),
-          accountId: debt.accountId,
+          accountId: repaymentAccount,
           occurredAt: debt.occurredAt,
           captureDraftId: draft.id,
         });

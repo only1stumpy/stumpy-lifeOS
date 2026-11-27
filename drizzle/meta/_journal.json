@@ -176,6 +176,13 @@
       "when": 1795433094606,
       "tag": "0024_summary_advice_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795438337721,
+      "tag": "0025_base_currency_change",
+      "breakpoints": true
     }
   ]
 }

@@ -56,8 +56,9 @@ export const ownerSettings = pgTable(
     enabledModules: text("enabled_modules").array().default(sql`ARRAY['nutrition','finance','gym']::text[]`).notNull(),
     modulesConfigured: boolean("modules_configured").default(false).notNull(),
     disabledFeatures: text("disabled_features").array().default(sql`ARRAY[]::text[]`).notNull(),
-    /** Currency of the first account; totals, plans and debts are kept in it. Null until the first account. */
+    /** First account sets this initially; confirmed changes advance baseCurrencyEpoch. */
     baseCurrency: text("base_currency"),
+    baseCurrencyEpoch: integer("base_currency_epoch").default(0).notNull(),
     /** Only a UTC date of the last visit (no content): feeds anonymous activity counts in the admin panel. */
     lastActiveDate: date("last_active_date", { mode: "string" }),
     financeConfirmationRequired: boolean("finance_confirmation_required").default(true).notNull(),
@@ -499,6 +500,24 @@ export const exchangeRates = pgTable(
   ],
 );
 
+/** Immutable conversion trail; the audit contains pre-change plan/debt/draft amounts and manual rates. */
+export const baseCurrencyChanges = pgTable(
+  "base_currency_changes",
+  {
+    ownerId: uuid("owner_id").notNull().references(() => ownerSettings.id, { onDelete: "cascade" }),
+    epoch: integer("epoch").notNull(),
+    previousCurrency: text("previous_currency").notNull(),
+    currency: text("currency").notNull(),
+    rateToNew: numeric("rate_to_new", { precision: 20, scale: 10 }).notNull(),
+    audit: jsonb("audit").$type<Record<string, unknown>>().notNull(),
+    changedAt: createdAt(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ownerId, table.epoch] }),
+    check("base_currency_changes_rate_positive", sql`${table.rateToNew} > 0`),
+  ],
+);
+
 export const recurringPayments = pgTable(
   "recurring_payments",
   {
@@ -601,6 +620,7 @@ export const financeEntries = pgTable(
     amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
     currency: text("currency").notNull(),
     rateToBase: numeric("rate_to_base", { precision: 20, scale: 10 }),
+    baseCurrencyEpoch: integer("base_currency_epoch").default(0).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "date" }).notNull(),
     source: text("source").default("chat").notNull(),
     createdAt: createdAt(),

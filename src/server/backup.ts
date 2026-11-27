@@ -4,8 +4,8 @@ import * as schema from "@/db/schema";
 import { AppError } from "@/server/http";
 
 const formatName = "stumpy-lifeos-backup";
-/** 4: owner_settings gained privacy_* columns (migration 0015). Versions 1-3 are still readable. */
-export const BACKUP_VERSION = 4;
+/** 5: currency change history and operation epochs (migration 0025). Versions 1-4 remain readable. */
+export const BACKUP_VERSION = 5;
 const OLDEST_READABLE_VERSION = 1;
 export const BACKUP_MAX_BYTES = 25 * 1024 * 1024;
 export const BACKUP_MAX_ROWS = 100_000;
@@ -25,6 +25,7 @@ const backupTables = [
   { key: "financeAccounts", table: schema.financeAccounts, ownerProperty: "ownerId" },
   { key: "financeCategories", table: schema.financeCategories, ownerProperty: "ownerId" },
   { key: "exchangeRates", table: schema.exchangeRates, ownerProperty: "ownerId" },
+  { key: "baseCurrencyChanges", table: schema.baseCurrencyChanges, ownerProperty: "ownerId" },
   { key: "recurringPayments", table: schema.recurringPayments, ownerProperty: "ownerId" },
   { key: "nutritionDrafts", table: schema.nutritionDrafts, ownerProperty: "ownerId" },
   { key: "moneyDrafts", table: schema.moneyDrafts, ownerProperty: "ownerId" },
@@ -68,6 +69,7 @@ const backupV2TableKeys = [
   "financePlans",
   ...backupV1TableKeys.slice(13),
 ] as const;
+const backupV4TableKeys = backupTables.map((table) => table.key).filter((key) => key !== "baseCurrencyChanges");
 
 export type BackupTableKey = (typeof backupTables)[number]["key"];
 export type LifeOSBackup = {
@@ -249,7 +251,7 @@ export function validateBackup(input: unknown): LifeOSBackup {
   }
   const versionOne = input.version === 1;
   const versionTwo = input.version === 2;
-  const expectedKeys = versionOne ? [...backupV1TableKeys] : versionTwo ? [...backupV2TableKeys] : backupTables.map((table) => table.key);
+  const expectedKeys = versionOne ? [...backupV1TableKeys] : versionTwo ? [...backupV2TableKeys] : (input.version as number) < 5 ? backupV4TableKeys : backupTables.map((table) => table.key);
   if (!isRecord(input.tables) || !keysMatch(input.tables, expectedKeys)) {
     throw new AppError(400, "Список таблиц резервной копии не совпадает со схемой.");
   }
@@ -260,6 +262,15 @@ export function validateBackup(input: unknown): LifeOSBackup {
     inputTables.ownerSettings = inputTables.ownerSettings.map((row) =>
       isRecord(row) ? { privacyAcceptedAt: null, privacyPolicyVersion: null, ...row } : row,
     );
+  }
+  if ((input.version as number) < 5) {
+    inputTables.ownerSettings = (inputTables.ownerSettings as unknown[]).map((row) =>
+      isRecord(row) ? { baseCurrencyEpoch: 0, ...row } : row,
+    );
+    inputTables.financeEntries = (inputTables.financeEntries as unknown[]).map((row) =>
+      isRecord(row) ? { baseCurrencyEpoch: 0, ...row } : row,
+    );
+    inputTables.baseCurrencyChanges = [];
   }
   if (versionOne) inputTables.financePlans = [];
   if (versionOne || versionTwo) {

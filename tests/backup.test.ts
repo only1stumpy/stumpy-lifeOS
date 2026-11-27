@@ -556,6 +556,7 @@ test("backup round-trips all persistent tables and leaves ephemeral references c
     delete legacyTables.financeDebts;
     delete legacyTables.financeDebtRepayments;
     delete legacyTables.financeDebtDrafts;
+    delete legacyTables.baseCurrencyChanges;
     const legacyV2 = validateBackup({
       ...backup,
       version: 2,
@@ -664,7 +665,14 @@ test("backup made before the privacy migration (V3 without consent columns) is r
     const owner = { ...backup.tables.ownerSettings[0] } as Record<string, unknown>;
     delete owner.privacyAcceptedAt;
     delete owner.privacyPolicyVersion;
-    const legacy = validateBackup({ ...backup, version: 3, tables: { ...backup.tables, ownerSettings: [owner] } });
+    delete owner.baseCurrencyEpoch;
+    const oldTables = { ...backup.tables } as Record<string, unknown>;
+    delete oldTables.baseCurrencyChanges;
+    const financeEntries = backup.tables.financeEntries;
+    const legacy = validateBackup({ ...backup, version: 3, tables: {
+      ...oldTables, ownerSettings: [owner],
+      financeEntries: financeEntries.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => key !== "baseCurrencyEpoch"))),
+    } });
     assert.equal(legacy.version, BACKUP_VERSION);
     assert.equal(legacy.tables.ownerSettings[0].privacyAcceptedAt, null);
     assert.equal(legacy.tables.ownerSettings[0].privacyPolicyVersion, null);

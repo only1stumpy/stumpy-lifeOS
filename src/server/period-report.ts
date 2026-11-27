@@ -15,9 +15,10 @@ export async function loadPeriodReport(period: ReportPeriod, start: string, now 
     throw new AppError(400, "Некорректный период сводки.");
   }
   const db = getDb();
-  const [foods, money, weights, categories, sessions, sessionItems, sets, targets] = await Promise.all([
+  const [foods, money, changes, weights, categories, sessions, sessionItems, sets, targets] = await Promise.all([
     db.select().from(schema.nutritionEntries).where(eq(schema.nutritionEntries.ownerId, owner.id)),
     db.select().from(schema.financeEntries).where(eq(schema.financeEntries.ownerId, owner.id)),
+    db.select().from(schema.baseCurrencyChanges).where(eq(schema.baseCurrencyChanges.ownerId, owner.id)),
     db.select().from(schema.weightEntries).where(eq(schema.weightEntries.ownerId, owner.id)),
     db.select().from(schema.financeCategories).where(eq(schema.financeCategories.ownerId, owner.id)),
     db.select().from(schema.workoutSessions).where(eq(schema.workoutSessions.ownerId, owner.id)),
@@ -32,5 +33,5 @@ export async function loadPeriodReport(period: ReportPeriod, start: string, now 
   } : null;
   return buildPeriodReport({ period, ...bounds, timeZone: owner.timezone, baseCurrency: owner.baseCurrency ?? "USD",
     enabledModules: owner.enabledModules, disabledFeatures: owner.disabledFeatures,
-    foods, money, weights, categories, sessions, sessionItems, sets, target });
+    foods, money, changes, weights, categories, sessions, sessionItems, sets, target });
 }

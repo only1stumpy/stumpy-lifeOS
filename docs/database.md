@@ -54,15 +54,15 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 
 `nutrition_targets` (цели КБЖУ с датой начала), `nutrition_drafts` (черновики еды), `food_templates` (обычные блюда и порции), `nutrition_entries` (записи дневника), `weight_entries` (масса тела).
 
-### Финансы (10)
+### Финансы (11)
 
-`finance_accounts` (счета, валюта, основной счёт), `finance_categories`, `exchange_rates` (ручные курсы к основной валюте с датой действия), `recurring_payments` (подписки и регулярные платежи), `money_drafts` (черновики расходов и доходов), `finance_entries` (операции; для неосновной валюты хранят курс на момент операции), `finance_plans` (планы покупок), `finance_debts`, `finance_debt_repayments`, `finance_debt_drafts`.
+`finance_accounts` (счета, валюта, основной счёт), `finance_categories`, `exchange_rates` (ручные курсы к основной валюте с датой действия), `base_currency_changes` (журнал смен с курсом и исходными значениями пересчитанных сумм), `recurring_payments` (подписки и регулярные платежи), `money_drafts` (черновики расходов и доходов), `finance_entries` (операции; для неосновной валюты хранят курс на момент операции и эпоху основной валюты), `finance_plans` (планы покупок), `finance_debts`, `finance_debt_repayments`, `finance_debt_drafts`.
 
 ### Зал (6)
 
 `exercises` (встроенные и пользовательские упражнения), `workout_days` (дни программы), `workout_day_exercises` (упражнения дня), `workout_sessions` (тренировки), `workout_session_exercises`, `workout_sets` (подходы и кардио).
 
-Итого: 14 + 5 + 10 + 6 = 35 таблиц (`pgTable` в `src/db/schema.ts`), 25 миграций (`0000`–`0024`). Ранее этот счётчик и список отставали от уже существующих миграций `0020`–`0023`.
+Итого: 36 таблиц (`pgTable` в `src/db/schema.ts`), 26 миграций (`0000`–`0025`).
 
 ## Миграции
 
@@ -93,6 +93,7 @@ Neon Serverless PostgreSQL, доступ через Drizzle ORM (`@neondatabase/
 | 0022 | `0022_ai_oauth_sessions` | Одноразовые попытки OpenRouter OAuth |
 | 0023 | `0023_cloudflare_provider` | Допуск Cloudflare в ограничения списка провайдеров |
 | 0024 | `0024_summary_advice_cache` | Личный кэш советов сводки по владельцу и границам периода |
+| 0025 | `0025_base_currency_change` | Эпоха основной валюты в профиле и операциях; журнал смен с курсом и исходными значениями |
 
 Содержимое строк в таблице сверено по `CREATE`/`ALTER TABLE` в файлах `drizzle/`; точное содержимое смотрите в самих SQL-файлах.
 

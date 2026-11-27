@@ -7,8 +7,9 @@ import { AnimatePresence, motion } from "motion/react";
 import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import { exerciseCatalog } from "@/domain/exercise-catalog";
-import { currencyName, currencyUnit, formatMoney } from "@/domain/currencies";
+import { currencyName, currencyUnit, formatMoney, normalizeCurrencyCode } from "@/domain/currencies";
 import { instantToZonedLocal, parseMinor, zonedLocalToInstant } from "@/domain/math";
+import { totalInBaseMinor } from "@/domain/balance";
 import { ACTIVITY_LEVELS, GOALS, MIN_WEEKLY_WEIGH_INS, profileSchema, suggestTargets, targetFromAverage, weeklyAverageWeight } from "@/domain/nutrition";
 import type { NutritionProfile } from "@/domain/nutrition";
 import { APP_VERSION, releasesSince } from "@/domain/release";
@@ -17,7 +18,7 @@ import { ExerciseGuide } from "./exercise-guide";
 import type { ExerciseSet, FinanceDebt, FinancePlan, FoodLogEntry, MacroValues, MoneyAccount, MoneyEntry } from "@/domain/types";
 import { CurrencyPicker } from "@/components/finance/currency-picker";
 import { useMotionVariants } from "@/components/motion/motion-system";
-import { Button, Checkbox, ChipButton, Field, IconButton, Select, Textarea, TextField } from "@/components/ui";
+import { Button, Checkbox, ChipButton, Field, IconButton, Radio, Select, Textarea, TextField } from "@/components/ui";
 import styles from "./editor.module.css";
 
 export type FormValues = Record<string, string[]>;
@@ -42,7 +43,7 @@ export type EditorState =
   | { kind: "target"; firstRun?: boolean }
   | { kind: "whats-new" }
   | { kind: "weight" }
-  | { kind: "accounts"; account?: MoneyAccount }
+  | { kind: "accounts"; account?: MoneyAccount; changeBaseCurrency?: boolean }
   | { kind: "recurring"; item?: AppSnapshot["recurring"][number] }
   | { kind: "program" }
   | { kind: "exercise"; dayId: string }
@@ -158,6 +159,17 @@ function amountInput(amountMinor: number): string {
   return amountMinor < 0 ? `-${value}` : value;
 }
 
+function rateInput(value: string): string | null {
+  const normalized = value.trim().replace(",", ".");
+  return /^\d{1,10}(?:\.\d{1,10})?$/.test(normalized) && Number(normalized) > 0 ? normalized : null;
+}
+
+function invertRate(value?: string): string {
+  if (!value || !/^\d{1,10}(?:\.\d{1,10})?$/.test(value) || Number(value) <= 0) return "";
+  const inverse = (1 / Number(value)).toFixed(10).replace(/\.?0+$/, "");
+  return rateInput(inverse) ? inverse : "";
+}
+
 function MacroFields({ values }: { values?: { calories: number; proteinGrams: number; fatGrams: number; carbsGrams: number } | null }) {
   return (
     <div className={styles.fieldsRow}>
@@ -198,6 +210,8 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [confirmRemoval, setConfirmRemoval] = useState<string | null>(null);
   const [newAccountCurrency, setNewAccountCurrency] = useState("");
+  const [targetBaseCurrency, setTargetBaseCurrency] = useState("");
+  const [rateToNewInput, setRateToNewInput] = useState("");
   const [pickedFinanceAccount, setPickedFinanceAccount] = useState<{ form: string; id: string } | null>(null);
   const baseCurrency = snapshot.settings.baseCurrency;
   const tz = snapshot.settings.timeZone;
@@ -662,6 +676,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
         <section>
           <h3>Счета</h3>
           {snapshot.finance.accounts.length ? <ul className={styles.accountList}>{snapshot.finance.accounts.map((item) => <li className={styles.accountRow} key={item.id}><span className={styles.accountDetails}><strong>{item.name}</strong> · {signedAmountLabel(item.balanceMinor, item.currency)}{item.isDefault ? " · основной" : ""}</span><Button onClick={() => onChange({ kind: "accounts", account: item })}>Изменить</Button></li>)}</ul> : <p>Счетов пока нет. Создай основной счёт, чтобы начать вести операции.</p>}
+          {!account && snapshot.finance.accounts.length > 0 && <div className={styles.actions}><Button size="lg" onClick={() => onChange({ kind: "accounts", changeBaseCurrency: true })}>Сменить основную валюту · {baseCurrency}</Button></div>}
         </section>
         <hr />
         <h3>{account ? "Изменить счёт" : "Добавить счёт"}</h3>
@@ -717,6 +732,101 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
           </>
         )}
       </>
+    );
+  }
+
+  function renderBaseCurrencyForm() {
+    const accountCurrencies = [...new Set(snapshot.finance.accounts.map((account) => account.currency))];
+    const currentTotalMinor = totalInBaseMinor(snapshot.finance.accounts, baseCurrency, snapshot.settings.rates);
+    const nextCurrency = normalizeCurrencyCode(targetBaseCurrency);
+    const storedRate = nextCurrency ? snapshot.settings.rates[nextCurrency] : undefined;
+    const storedRateToNew = invertRate(storedRate);
+    const normalizedRate = rateInput(rateToNewInput);
+    let nextTotalMinor: number | null = null;
+    if (nextCurrency && normalizedRate) {
+      try {
+        const nextRates = Object.fromEntries(Object.entries(snapshot.settings.rates)
+          .filter(([code]) => code !== nextCurrency)
+          .map(([code, value]) => [code, (Number(value) * Number(normalizedRate)).toFixed(10)]));
+        nextRates[baseCurrency] = normalizedRate;
+        nextTotalMinor = totalInBaseMinor(snapshot.finance.accounts, nextCurrency, nextRates);
+      } catch {
+        nextTotalMinor = null;
+      }
+    }
+
+    function selectCurrency(code: string) {
+      setTargetBaseCurrency(code);
+      setRateToNewInput(code === baseCurrency ? "1" : invertRate(snapshot.settings.rates[code]));
+    }
+
+    return (
+      <form className={styles.form} onSubmit={(event) => submitForm(event, (form) => ({
+        type: "base-currency.change",
+        currency: requiredText(form, "currency", "Код новой валюты"),
+        previousCurrency: baseCurrency,
+        rateToNew: requiredText(form, "rateToNew", "Курс").replace(",", "."),
+      }))}>
+        <p>Текущая основная валюта — <strong>{currencyName(baseCurrency)} ({baseCurrency})</strong>.</p>
+        <fieldset className={styles.currencyChoices}>
+          <legend>Валюта счетов</legend>
+          {accountCurrencies.map((code) => (
+            <Radio
+              key={code}
+              name="accountCurrency"
+              value={code}
+              checked={targetBaseCurrency === code}
+              onChange={() => selectCurrency(code)}
+              label={<><strong>{code}</strong> · {currencyName(code)}</>}
+            />
+          ))}
+        </fieldset>
+        <TextField
+          label="Код новой валюты"
+          name="currency"
+          value={targetBaseCurrency}
+          onChange={(event) => {
+            const code = event.target.value.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 5);
+            setTargetBaseCurrency(code);
+            setRateToNewInput(code === baseCurrency ? "1" : invertRate(snapshot.settings.rates[code]));
+          }}
+          maxLength={5}
+          pattern="[A-Z]{3,5}"
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          required
+          hint="От 3 до 5 латинских букв. Можно выбрать валюту счёта выше."
+        />
+        <TextField
+          label={`1 ${baseCurrency} = … ${nextCurrency ?? "новой валюты"}`}
+          name="rateToNew"
+          value={rateToNewInput}
+          onChange={(event) => setRateToNewInput(event.target.value.replace(",", "."))}
+          readOnly={Boolean(storedRateToNew)}
+          type="text"
+          inputMode="decimal"
+          pattern="[0-9]{1,10}([.][0-9]{1,10})?"
+          required
+          hint={storedRateToNew
+            ? `По сохранённому курсу 1 ${nextCurrency} = ${storedRate} ${baseCurrency}.`
+            : `Введи единиц новой валюты за 1 ${baseCurrency}. До 10 знаков после запятой.`}
+          placeholder="Например, 1,08"
+        />
+        <div className={styles.currencySummary} aria-live="polite">
+          <p>Сейчас по счетам: <strong>{currentTotalMinor === null ? "не посчитать" : signedAmountLabel(currentTotalMinor, baseCurrency)}</strong></p>
+          <p>После смены: <strong>{nextTotalMinor === null || !nextCurrency ? "не посчитать" : signedAmountLabel(nextTotalMinor, nextCurrency)}</strong></p>
+          {currentTotalMinor === null && <small>Для одного из счетов не задан курс к {baseCurrency}, поэтому общий итог не посчитать.</small>}
+          {nextCurrency && !normalizedRate && <small>Для выбранной валюты нет корректного курса. Введи его вручную, чтобы подтвердить смену.</small>}
+        </div>
+        <p>Планы и долги пересчитаются по курсу смены. Операции и сохранённые для них курсы останутся неизменными; финансовые итоги пересчитаются по курсу смены.</p>
+        <h3>Подтверждение смены основной валюты</h3>
+        <div className={styles.actions}>
+          <Button variant="primary" size="lg" type="submit" disabled={pending || !nextCurrency || nextCurrency === baseCurrency || !normalizedRate}>Подтвердить</Button>
+          <Button onClick={() => { dirtyRef.current = false; setFormError(null); onChange({ kind: "accounts" }); }}>Отмена</Button>
+        </div>
+      </form>
     );
   }
 
@@ -974,7 +1084,7 @@ export function EditorDialog({ editor, snapshot, pending, error, onClose: closeN
       case "target": return renderTargetForm();
       case "whats-new": return renderWhatsNew();
       case "weight": return renderWeightForm();
-      case "accounts": return renderAccountsForm(editor.account);
+      case "accounts": return editor.changeBaseCurrency ? renderBaseCurrencyForm() : renderAccountsForm(editor.account);
       case "recurring": return renderRecurringForm(editor.item);
       case "program": return renderProgramForm();
       case "exercise": return renderExerciseForm(editor.dayId);
@@ -1097,7 +1207,7 @@ function editorTitle(editor: EditorState): string {
     case "target": return editor.firstRun ? "Расскажи о себе" : "Профиль и цель КБЖУ";
     case "whats-new": return "Что нового";
     case "weight": return "Масса тела";
-    case "accounts": return "Счета и курс";
+    case "accounts": return editor.changeBaseCurrency ? "Сменить основную валюту" : "Счета и курс";
     case "recurring": return editor.item ? "Изменить платёж" : "Подписки и платежи";
     case "program": return "Тренировочный план";
     case "exercise": return "Новое упражнение";

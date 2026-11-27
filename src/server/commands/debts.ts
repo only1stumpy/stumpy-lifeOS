@@ -38,6 +38,7 @@ export async function saveDebtTransfer(
       amount: debtAmountFromMinor(input.amountMinor),
       currency: chosen.currency,
       rateToBase: null,
+      baseCurrencyEpoch: (await tx.select({ epoch: s.ownerSettings.baseCurrencyEpoch }).from(s.ownerSettings).where(eq(s.ownerSettings.id, ownerId)))[0].epoch,
       occurredAt: input.occurredAt,
       source: input.captureDraftId ? "chat" : "mini_app",
       debtId: debt.id,
@@ -77,6 +78,7 @@ export async function saveDebtRepayment(
     amount: debtAmountFromMinor(input.amountMinor),
     currency: chosen.currency,
     rateToBase: null,
+    baseCurrencyEpoch: (await tx.select({ epoch: s.ownerSettings.baseCurrencyEpoch }).from(s.ownerSettings).where(eq(s.ownerSettings.id, ownerId)))[0].epoch,
     occurredAt: input.occurredAt,
     source: input.captureDraftId ? "chat" : "mini_app",
   }).returning();

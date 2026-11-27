@@ -90,9 +90,27 @@ export function convertToBaseMinor(amountMinor: number, currency: string, baseCu
   const [whole, decimal = ""] = rate.split(".");
   const factor = 10n ** BigInt(decimal.length);
   const scaled = BigInt(whole) * factor + BigInt(decimal || "0");
-  const converted = Number((BigInt(amountMinor) * scaled + factor / 2n) / factor);
+  const signed = BigInt(amountMinor) * scaled;
+  const converted = Number((signed < 0n ? signed - factor / 2n : signed + factor / 2n) / factor);
   if (!Number.isSafeInteger(converted)) throw new Error("Сумма превышает допустимую точность.");
   return converted;
+}
+
+export type BaseCurrencyChange = { epoch: number; previousCurrency: string; currency: string; rateToNew: string };
+
+/** Each operation keeps its original rate and epoch; only the immutable change trail translates its old base. */
+export function convertEntryToCurrentBaseMinor(
+  amountMinor: number,
+  entry: { currency: string; rateToBase: string | null; baseCurrencyEpoch?: number },
+  currentBase: string,
+  changes: readonly BaseCurrencyChange[],
+): number {
+  const epoch = entry.baseCurrencyEpoch ?? 0;
+  const later = changes.filter((change) => change.epoch > epoch).sort((a, b) => a.epoch - b.epoch);
+  const originalBase = later[0]?.previousCurrency ?? currentBase;
+  let value = convertToBaseMinor(amountMinor, entry.currency, originalBase, entry.rateToBase);
+  for (const change of later) value = convertToBaseMinor(value, change.previousCurrency, change.currency, change.rateToNew);
+  return value;
 }
 const wholeMoneyFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
 const fractionalMoneyFormat = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

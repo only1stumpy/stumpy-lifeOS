@@ -1,5 +1,5 @@
 import type { MacroValues } from "./types";
-import { convertToBaseMinor, dateKey, sumMacros, weightStampToDate } from "./math";
+import { convertEntryToCurrentBaseMinor, dateKey, sumMacros, weightStampToDate, type BaseCurrencyChange } from "./math";
 import { monthStart } from "./notifications";
 import { normalizeModules, resolveFeatures } from "./modules";
 
@@ -28,7 +28,7 @@ export function periodBounds(period: ReportPeriod, start: string, today: string)
 }
 
 type Food = { occurredAt: Date; calories: string; proteinGrams: string; fatGrams: string; carbsGrams: string };
-type Money = { occurredAt: Date; entryType: string; amount: string; currency: string; rateToBase: string | null; categoryId: string };
+type Money = { occurredAt: Date; entryType: string; amount: string; currency: string; rateToBase: string | null; baseCurrencyEpoch?: number; categoryId: string };
 type Weight = { occurredAt: Date; weightKg: string };
 type Session = { id: string; status: string; completedAt: Date | null };
 type SetRow = { sessionExerciseId: string; isCompleted: boolean; completedAt: Date | null; weightKg: string | null; repetitions: number | null };
@@ -37,6 +37,7 @@ export function buildPeriodReport(input: {
   period: ReportPeriod; start: string; end: string; timeZone: string; baseCurrency: string;
   enabledModules: readonly string[]; disabledFeatures: readonly string[];
   foods: Food[]; money: Money[]; weights: Weight[];
+  changes?: BaseCurrencyChange[];
   categories: { id: string; name: string }[];
   sessions: Session[]; sessionItems: { id: string; sessionId: string }[]; sets: SetRow[];
   target: MacroValues | null;
@@ -77,7 +78,7 @@ export function buildPeriodReport(input: {
     const income = new Map<string, number>();
     const names = new Map(input.categories.map((category) => [category.id, category.name]));
     for (const entry of input.money.filter((row) => inPeriod(row.occurredAt))) {
-      const amount = convertToBaseMinor(Math.round(Number(entry.amount) * 100), entry.currency, input.baseCurrency, entry.rateToBase);
+      const amount = convertEntryToCurrentBaseMinor(Math.round(Number(entry.amount) * 100), entry, input.baseCurrency, input.changes ?? []);
       const bucket = entry.entryType === "expense" ? expense : income;
       const name = names.get(entry.categoryId) ?? "Без категории";
       bucket.set(name, (bucket.get(name) ?? 0) + amount);

@@ -76,6 +76,39 @@
   overflow-wrap: anywhere;
 }
 
+.currencyChoices {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.currencyChoices > legend {
+  margin-bottom: var(--ui-space-2);
+  padding: 0;
+  color: var(--ui-color-ink-soft);
+  font-size: var(--ui-font-size-caption);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.currencySummary {
+  display: grid;
+  gap: var(--ui-space-2);
+  padding-block: var(--ui-space-4);
+  border-block: 1px solid var(--ui-color-divider);
+}
+
+.currencySummary p,
+.currencySummary small {
+  margin: 0;
+}
+
+.currencySummary small {
+  color: var(--ui-color-ink-soft);
+}
+
 /* Small buttons under a list row. */
 .rowActions {
   display: flex;

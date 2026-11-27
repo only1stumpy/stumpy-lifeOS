@@ -5,7 +5,7 @@ import type { AppSnapshot } from "@/domain/app";
 import type { AppCommand } from "@/domain/commands";
 import type { FinanceDebt, MacroValues, FoodLogEntry, WorkoutDay } from "@/domain/types";
 import { currencyUnit } from "@/domain/currencies";
-import { convertToBaseMinor, dateKey, sumMacros, weightStampToDate } from "@/domain/math";
+import { convertEntryToCurrentBaseMinor, dateKey, sumMacros, weightStampToDate } from "@/domain/math";
 import { shouldSuggestLoadIncrease } from "@/domain/progression";
 import { ACTIVITY_LEVELS, GOALS, ageOn, type NutritionProfile } from "@/domain/nutrition";
 import { disabledModulesMessage, filterEntriesByModules, normalizeDisabledFeatures, normalizeModules, resolveFeatures } from "@/domain/modules";
@@ -159,7 +159,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   if (selectedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate) || !Number.isFinite(Date.parse(selectedDate + "T12:00:00Z")) || new Date(selectedDate + "T12:00:00Z").toISOString().slice(0, 10) !== selectedDate)) throw new AppError(400, "Некорректная дата дневника.");
   const localDate = selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : today;
   // ponytail: a personal journal is read as a whole; add paginated history when its size warrants it.
-  const [foods, targets, weights, accounts, categories, money, rates, recurring, plans, debts, repayments, days, dayItems, exercises, sessions, sessionItems, sets, captures, foodDrafts, moneyDrafts, debtDrafts, templates] = await Promise.all([
+  const [foods, targets, weights, accounts, categories, money, rates, changes, recurring, plans, debts, repayments, days, dayItems, exercises, sessions, sessionItems, sets, captures, foodDrafts, moneyDrafts, debtDrafts, templates] = await Promise.all([
     db.select().from(s.nutritionEntries).where(eq(s.nutritionEntries.ownerId, ownerId)).orderBy(desc(s.nutritionEntries.occurredAt)),
     db.select().from(s.nutritionTargets).where(and(eq(s.nutritionTargets.ownerId, ownerId), lte(s.nutritionTargets.effectiveFrom, localDate))).orderBy(desc(s.nutritionTargets.effectiveFrom)),
     db.select().from(s.weightEntries).where(eq(s.weightEntries.ownerId, ownerId)).orderBy(s.weightEntries.occurredAt),
@@ -167,6 +167,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
     db.select().from(s.financeCategories).where(eq(s.financeCategories.ownerId, ownerId)),
     db.select().from(s.financeEntries).where(eq(s.financeEntries.ownerId, ownerId)).orderBy(desc(s.financeEntries.occurredAt)),
     db.select().from(s.exchangeRates).where(eq(s.exchangeRates.ownerId, ownerId)).orderBy(desc(s.exchangeRates.effectiveAt)),
+    db.select().from(s.baseCurrencyChanges).where(eq(s.baseCurrencyChanges.ownerId, ownerId)).orderBy(s.baseCurrencyChanges.epoch),
     db.select().from(s.recurringPayments).where(and(eq(s.recurringPayments.ownerId, ownerId), eq(s.recurringPayments.isActive, true))),
     db.select().from(s.financePlans).where(eq(s.financePlans.ownerId, ownerId)).orderBy(s.financePlans.createdAt),
     db.select().from(s.financeDebts).where(eq(s.financeDebts.ownerId, ownerId)).orderBy(s.financeDebts.createdAt),
@@ -221,7 +222,7 @@ export async function loadSnapshot(selectedDate?: string): Promise<AppSnapshot> 
   const baseCurrency = owner.baseCurrency ?? accounts[0]?.currency ?? "USD";
   const latestRates: Record<string, string> = {};
   for (const r of rates) if (!(r.currency in latestRates)) latestRates[r.currency] = r.rateToBase;
-  const totalExpenses = (rows: typeof expenses) => rows.reduce((sum, v) => sum + convertToBaseMinor(toMinor(v.amount), v.currency, baseCurrency, v.rateToBase), 0);
+  const totalExpenses = (rows: typeof expenses) => rows.reduce((sum, v) => sum + convertEntryToCurrentBaseMinor(toMinor(v.amount), v, baseCurrency, changes), 0);
   const calendar = Array.from({ length: 31 }, (_, i) => {
     const date = new Date(localDate + "T12:00:00Z");
     date.setUTCDate(date.getUTCDate() - 30 + i);
@@ -514,6 +515,15 @@ async function assertBaseAmountsSafe(tx: Transaction, ownerId: string) {
     .where(and(eq(s.financeEntries.ownerId, ownerId), isNotNull(s.financeEntries.rateToBase), sql`abs(${s.financeEntries.amount} * ${s.financeEntries.rateToBase} * 100) > 9007199254740991`))
     .limit(1);
   if (unsafe) throw new AppError(400, "Сумма с учётом курса слишком велика. Уменьши сумму или проверь курс валюты.");
+  const changes = await tx.select().from(s.baseCurrencyChanges).where(eq(s.baseCurrencyChanges.ownerId, ownerId));
+  if (!changes.length) return;
+  const [settings] = await tx.select({ base: s.ownerSettings.baseCurrency }).from(s.ownerSettings).where(eq(s.ownerSettings.id, ownerId));
+  const entries = await tx.select().from(s.financeEntries).where(eq(s.financeEntries.ownerId, ownerId));
+  try {
+    for (const entry of entries) convertEntryToCurrentBaseMinor(toMinor(entry.amount), entry, settings.base!, changes);
+  } catch {
+    throw new AppError(400, "Сумма с учётом смены валюты слишком велика. Уменьши сумму или проверь курс.");
+  }
 }
 
 /**
@@ -525,12 +535,12 @@ export async function executeCommand(command: AppCommand, options: { requestId?:
   if (!CONSENT_EXEMPT_COMMANDS.has(command.type)) assertConsent(owner);
   const requestId = options.requestId ?? ("clientRequestId" in command ? command.clientRequestId : undefined);
   await getDb().transaction(async (tx) => {
-    await tx.select().from(s.ownerSettings).where(eq(s.ownerSettings.id, owner.id)).for("update");
+    const [lockedOwner] = await tx.select().from(s.ownerSettings).where(eq(s.ownerSettings.id, owner.id)).for("update");
     if (requestId) {
       const claimed = await tx.insert(s.commandRequests).values({ ownerId: owner.id, clientRequestId: requestId }).onConflictDoNothing().returning({ id: s.commandRequests.id });
       if (!claimed.length) return;
     }
-    await dispatch({ tx, owner }, command);
+    await dispatch({ tx, owner: lockedOwner }, command);
     if (CONVERTING_COMMANDS.has(command.type)) await assertBaseAmountsSafe(tx, owner.id);
   });
 }
